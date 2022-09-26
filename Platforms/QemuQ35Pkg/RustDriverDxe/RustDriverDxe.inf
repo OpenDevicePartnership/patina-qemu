@@ -1,0 +1,25 @@
+### @file
+# Simple DXE driver implementation.
+#
+# Prints a message and deadloops.
+#
+# Demonstrates basic DXE driver load from Rust DXE Core.
+#
+# Copyright (C) Microsoft Corporation. All rights reserved.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+###
+
+[Defines]
+  INF_VERSION               = 0x00010017
+  BASE_NAME                 = RustDriverDxe
+  FILE_GUID                 = 35AFEBCD-8485-4865-A9EC-447FF8EA47A9
+  MODULE_TYPE               = DXE_DRIVER
+  RUST_MODULE               = TRUE
+
+[Sources]
+  Cargo.toml
+
+[Depex]
+  TRUE

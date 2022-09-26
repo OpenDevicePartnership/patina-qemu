@@ -1,0 +1,8 @@
+[package]
+name = "dxe_rust_driver"
+version = "0.1.0"
+authors = ["Hackathon Team"]
+edition = "2018"
+
+[dependencies]
+dxe_rust = { path="../DxeRust" }

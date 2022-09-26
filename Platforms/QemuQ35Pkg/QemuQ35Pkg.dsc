@@ -743,7 +743,7 @@ PlatformSmmProtectionsTestLib|UefiTestingPkg/Library/PlatformSmmProtectionsTestL
   gEfiMdeModulePkgTokenSpaceGuid.PcdEnableVariableRuntimeCache|FALSE
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdRequireIommu|FALSE # don't require IOMMU
-  
+
   !if $(BUILD_UNIT_TESTS) == TRUE
     gUefiCpuPkgTokenSpaceGuid.PcdSmmExceptionTestModeSupport|TRUE
   !endif
@@ -1105,11 +1105,17 @@ PlatformSmmProtectionsTestLib|UefiTestingPkg/Library/PlatformSmmProtectionsTestL
   MsGraphicsPkg/DisplayEngineDxe/DisplayEngineDxe.inf
 
 
-  MdeModulePkg/Core/Dxe/DxeMain.inf {
-    <LibraryClasses>
-      NULL|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
-      DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
-  }
+  # MdeModulePkg/Core/Dxe/DxeMain.inf {
+  #   <LibraryClasses>
+  #     NULL|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
+  #     DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
+  # }
+
+  # We use Rust now
+  QemuQ35Pkg/DxeRust/DxeRust.inf
+
+  # Our first Rust driver to load
+  QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
 
   MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
   MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf
