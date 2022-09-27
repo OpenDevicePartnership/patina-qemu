@@ -5,6 +5,18 @@
 1. This repository is targeted to transition to Open Source Software (OSS) but is currently private while the initial
    content and direction materialize.
 2. This project is experimental and the code within is not recommended to be used in production workloads at this time.
+3. Assume that this is an open-source repo. This will make transitioning the repo with useful source history to
+   open-source much easier.
+   - Do not include internal:
+     - Code names
+     - Links
+     - Road maps
+   - In addition to moving the tree to open-source, not all internal engineers may have access to your links or be
+     familiar with organization-specific projects and plans.
+   - Sweeping changes needed to move the code public like copyrights and patching PR numbers in commit message
+     subjects can be updated in batch when the code goes open so those details don't matter as much and are not likely
+     to be missed.
+4. Run `cargo fmt` before creating pull requests.
 
 ## Background
 
@@ -33,23 +45,27 @@ to be used in production.
 
 4. Clone this repo:
 
-    \>`cd <your source directory>` \
+    \>`cd <your source directory>`
+
     \>`git clone https://microsoft@dev.azure.com/microsoft/MsUEFI/_git/UefiRust`
 
 5. Setup and activate a local Python virtual environment.
 
     \>`python -m venv UefiRust.venv`
+
     \>`.\UefiRust.venv\Scripts\Activate.ps1`
     > Use the script that works with your environment (e.g. .ps1 for PowerShell, .bat for "cmd").
 
 6. Switch to the enlistment and install pip modules.
 
     \>`cd UefiRust`
+
     \>`pip install --upgrade -r pip-requirements.txt`
 
 7. Fetch submodules and external dependencies.
 
     `>stuart_setup -c Platforms\QemuQ35Pkg\PlatformBuild.py`
+
     `>stuart_update -c Platforms\QemuQ35Pkg\PlatformBuild.py`
 
 8. Compile the firmware (above steps are only required to configure the enlistment;subsequent builds can just run
