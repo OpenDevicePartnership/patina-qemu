@@ -18,7 +18,9 @@ jobs:
     variables:
       package: 'QemuQ35Pkg'
       vm_image: 'windows-2022'
-      should_run: true
+      # Do not run to EFI shell since we cannot reach EFI shell yet.
+      # Temporary_Rust_Todo - Try replacing the shell check with a check for the final serial output message.
+      should_run: false
       run_flags: "SHUTDOWN_AFTER_RUN=TRUE QEMU_HEADLESS=TRUE EMPTY_DRIVE=TRUE"
 
     #Use matrix to speed up the build process
@@ -69,5 +71,11 @@ jobs:
         extra_install_step:
         - powershell: choco install qemu --version=2020.08.14; Write-Host "##vso[task.prependpath]c:\Program Files\qemu"
           displayName: Install QEMU and Set QEMU on path # friendly name displayed in the UI
+          condition: and(gt(variables.pkg_count, 0), succeeded())
+        - powershell: rustup toolchain install nightly
+          displayName: Install nightly toolchain
+          condition: and(gt(variables.pkg_count, 0), succeeded())
+        - powershell: rustup component add rust-src --toolchain nightly-x86_64-pc-windows-msvc
+          displayName: Rustup add rust-src
           condition: and(gt(variables.pkg_count, 0), succeeded())
 

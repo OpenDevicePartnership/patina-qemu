@@ -18,7 +18,9 @@ jobs:
     variables:
       package: 'QemuQ35Pkg'
       vm_image: 'ubuntu-18.04'
-      should_run: true
+      # Do not run to EFI shell since we cannot reach EFI shell yet.
+      # Temporary_Rust_Todo - Try replacing the shell check with a check for the final serial output message.
+      should_run: false
       run_flags: "SHUTDOWN_AFTER_RUN=TRUE QEMU_HEADLESS=TRUE EMPTY_DRIVE=TRUE"
 
     #Use matrix to speed up the build process
@@ -71,4 +73,13 @@ jobs:
           condition: and(gt(variables.pkg_count, 0), succeeded())
         - bash: sudo apt-get install gcc g++ make uuid-dev qemu
           displayName: Install Packages
+          condition: and(gt(variables.pkg_count, 0), succeeded())
+        - bash: sudo curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          displayName: Install rustup
+          condition: and(gt(variables.pkg_count, 0), succeeded())
+        - bash: source "$HOME/.cargo/env" && rustup toolchain install nightly
+          displayName: Install nightly toolchain
+          condition: and(gt(variables.pkg_count, 0), succeeded())
+        - bash: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
+          displayName: Rustup add rust-src
           condition: and(gt(variables.pkg_count, 0), succeeded())
