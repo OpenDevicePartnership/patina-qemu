@@ -19,11 +19,7 @@ pub struct MemoryRegion {
 impl MemoryRegion {
     /// Creates a new empty memory region (with length 0).
     pub const fn empty() -> Self {
-        MemoryRegion {
-            start: 0,
-            end: 0,
-            kind: MemoryRegionKind::Bootloader,
-        }
+        MemoryRegion { start: 0, end: 0, kind: MemoryRegionKind::Bootloader }
     }
 }
 

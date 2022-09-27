@@ -1,30 +1,26 @@
+use r_efi::efi::{
+    AllocateType, MemoryType, ALLOCATE_ANY_PAGES, BOOT_SERVICES_DATA, RESERVED_MEMORY_TYPE, RUNTIME_SERVICES_DATA,
+};
 use x86_64::{
-    structures::paging::{
-        mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB,
-    },
+    structures::paging::{mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB},
     VirtAddr,
 };
-use r_efi::efi::AllocateType;
-use r_efi::efi::ALLOCATE_ANY_PAGES;
-use r_efi::efi::MemoryType;
-use r_efi::efi::BOOT_SERVICES_DATA;
-use r_efi::efi::RESERVED_MEMORY_TYPE;
-use r_efi::efi::RUNTIME_SERVICES_DATA;
 
 //use vga_buffer::println; // For debug
 
-use crate::uefi_allocator::uefi_linked_list::LinkedListAllocator;
-use crate::uefi_allocator::uefi_linked_list::UefiAlloc;
-use crate::println;
+use crate::{
+    println,
+    uefi_allocator::uefi_linked_list::{LinkedListAllocator, UefiAlloc},
+};
 
 mod uefi_linked_list;
 
 pub const HEAP_START: usize = 0x_4444_4454_0000; // Start 1 MiB above rust allocator
 pub const HEAP_SIZE: usize = 1000 * 1024; // 1000 KiB
 
-const EFI_PAGE_SIZE:  usize = 0x1000;
+const EFI_PAGE_SIZE: usize = 0x1000;
 const EFI_PAGE_SHIFT: usize = 12;
-const EFI_PAGE_MASK:  usize = 0xFFF;
+const EFI_PAGE_MASK: usize = 0xFFF;
 
 static UEFI_ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
 
@@ -41,9 +37,7 @@ pub fn init_heap(
     };
 
     for page in page_range {
-        let frame = frame_allocator
-            .allocate_frame()
-            .ok_or(MapToError::FrameAllocationFailed)?;
+        let frame = frame_allocator.allocate_frame().ok_or(MapToError::FrameAllocationFailed)?;
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
         unsafe { mapper.map_to(page, frame, flags, frame_allocator)?.flush() };
     }
@@ -62,9 +56,7 @@ pub struct Locked<A> {
 
 impl<A> Locked<A> {
     pub const fn new(inner: A) -> Self {
-        Locked {
-            inner: spin::Mutex::new(inner),
-        }
+        Locked { inner: spin::Mutex::new(inner) }
     }
 
     pub fn lock(&self) -> spin::MutexGuard<A> {
@@ -113,26 +105,30 @@ fn smaller_of(old_size: usize, new_size: usize) -> usize {
 
 fn core_allocate_pages(allocation_type: AllocateType, memory_type: MemoryType, pages: usize) -> usize {
     // allocation_type does not seem to be needed
-    println!("core_allocate_pages::AllocateType: {}", allocation_type);    
+    println!("core_allocate_pages::AllocateType: {}", allocation_type);
     let allocation_size: usize = pages * EFI_PAGE_SIZE;
-    return unsafe { UEFI_ALLOCATOR.uefi_alloc(allocation_size, memory_type, EFI_PAGE_SIZE) as usize }
+    return unsafe { UEFI_ALLOCATOR.uefi_alloc(allocation_size, memory_type, EFI_PAGE_SIZE) as usize };
 }
 
 fn core_free_pages(buffer: usize, pages: usize) {
     let size = pages * EFI_PAGE_SIZE;
-    let ptr  = buffer as *mut u8;
-    unsafe { UEFI_ALLOCATOR.uefi_dealloc(ptr, size); }
+    let ptr = buffer as *mut u8;
+    unsafe {
+        UEFI_ALLOCATOR.uefi_dealloc(ptr, size);
+    }
     println!("core_free_pages: {:x}", ptr as usize);
 }
 
 fn core_allocate_pool(memory_type: MemoryType, allocation_size: usize) -> usize {
-    return unsafe { UEFI_ALLOCATOR.uefi_alloc(allocation_size, memory_type, 1) as usize }
+    return unsafe { UEFI_ALLOCATOR.uefi_alloc(allocation_size, memory_type, 1) as usize };
 }
 
 fn core_free_pool(buffer: usize) {
     let size: usize = 0; // TODO: Need to fix
-    let ptr  = buffer as *mut u8;
-    unsafe { UEFI_ALLOCATOR.uefi_dealloc(ptr, size); }
+    let ptr = buffer as *mut u8;
+    unsafe {
+        UEFI_ALLOCATOR.uefi_dealloc(ptr, size);
+    }
 }
 
 fn internal_allocate_pages(memory_type: MemoryType, pages: usize, alignment: usize) -> usize {
@@ -141,17 +137,17 @@ fn internal_allocate_pages(memory_type: MemoryType, pages: usize, alignment: usi
     }
 
     if alignment == 0 {
-        return core_allocate_pages(ALLOCATE_ANY_PAGES, memory_type, pages)
+        return core_allocate_pages(ALLOCATE_ANY_PAGES, memory_type, pages);
     }
 
     if alignment > EFI_PAGE_SIZE {
         let alignment_mask = alignment - 1;
-        let real_pages     = pages + efi_size_to_pages(alignment);
+        let real_pages = pages + efi_size_to_pages(alignment);
 
         assert!(real_pages > pages, "internal_allocate_pages::real_pages needs to be more than pages");
 
         let mut memory = core_allocate_pages(ALLOCATE_ANY_PAGES, memory_type, real_pages);
- 
+
         if memory == 0 {
             assert!(memory != 0, "internal_allocate_pages::memory address of zero returned");
             return memory;
@@ -159,28 +155,28 @@ fn internal_allocate_pages(memory_type: MemoryType, pages: usize, alignment: usi
 
         // Successfully allocated the memory
 
-        let aligned_memory      = (memory + alignment_mask) & !alignment_mask;
+        let aligned_memory = (memory + alignment_mask) & !alignment_mask;
         let mut unaligned_pages = efi_size_to_pages(aligned_memory - memory);
         if unaligned_pages > 0 {
-          //
-          // Free first unaligned page(s).
-          //
-          core_free_pages(memory, unaligned_pages);
+            //
+            // Free first unaligned page(s).
+            //
+            core_free_pages(memory, unaligned_pages);
         }
-    
-        memory          = aligned_memory + efi_size_to_pages(pages);
+
+        memory = aligned_memory + efi_size_to_pages(pages);
         unaligned_pages = real_pages - pages - unaligned_pages;
         if unaligned_pages > 0 {
-          //
-          // Free last unaligned page(s).
-          //
-          core_free_pages(memory, unaligned_pages);
+            //
+            // Free last unaligned page(s).
+            //
+            core_free_pages(memory, unaligned_pages);
         }
     } else {
         //
         // Do not over-allocate pages in this case.
         //
-        return core_allocate_pages(ALLOCATE_ANY_PAGES, memory_type, pages)
+        return core_allocate_pages(ALLOCATE_ANY_PAGES, memory_type, pages);
     }
     return 0; // NULL in C
 }
@@ -199,8 +195,10 @@ fn internal_allocate_copy_pool(memory_type: MemoryType, allocation_size: usize, 
     let addr = internal_allocate_pool(memory_type, allocation_size);
     if addr > 0 {
         let dest_buffer = addr as usize as *mut u8;
-        let src_buffer  = buffer as usize as *mut u8;
-        unsafe { copy_mem(dest_buffer, src_buffer, allocation_size); } // Copy buffer contents into new allocation
+        let src_buffer = buffer as usize as *mut u8;
+        unsafe {
+            copy_mem(dest_buffer, src_buffer, allocation_size);
+        } // Copy buffer contents into new allocation
     }
     return addr; // NULL in C
 }
@@ -209,7 +207,9 @@ fn internal_allocate_zero_pool(memory_type: MemoryType, allocation_size: usize) 
     let addr = internal_allocate_pool(memory_type, allocation_size);
     if addr > 0 {
         let buffer = addr as usize as *mut u8;
-        unsafe { set_mem(buffer, allocation_size, 0); } // zero the memory
+        unsafe {
+            set_mem(buffer, allocation_size, 0);
+        } // zero the memory
     }
     return addr; // NULL in C
 }
@@ -218,9 +218,11 @@ fn internal_reallocate_pool(memory_type: MemoryType, old_size: usize, new_size: 
     let new_buffer = internal_allocate_zero_pool(memory_type, new_size);
     if (new_buffer != 0) && (_old_buffer != 0) {
         // CopyMem (NewBuffer, OldBuffer, MIN (OldSize, NewSize));
-        let nbuffer  = new_buffer as usize as *mut u8;
+        let nbuffer = new_buffer as usize as *mut u8;
         let _obuffer = _old_buffer as usize as *mut u8;
-        unsafe { copy_mem(nbuffer, _obuffer, smaller_of(old_size, new_size)); }
+        unsafe {
+            copy_mem(nbuffer, _obuffer, smaller_of(old_size, new_size));
+        }
         free_pool(_old_buffer);
     }
     return 0; // NULL in C
@@ -268,10 +270,10 @@ pub fn allocate_pool(allocation_size: usize) -> usize {
 }
 
 pub fn allocate_runtime_pool(allocation_size: usize) -> usize {
-    internal_allocate_pool(RUNTIME_SERVICES_DATA, allocation_size)  
+    internal_allocate_pool(RUNTIME_SERVICES_DATA, allocation_size)
 }
 pub fn allocate_reserved_pool(allocation_size: usize) -> usize {
-    internal_allocate_pool(RESERVED_MEMORY_TYPE, allocation_size) 
+    internal_allocate_pool(RESERVED_MEMORY_TYPE, allocation_size)
 }
 
 pub fn allocate_zero_pool(allocation_size: usize) -> usize {

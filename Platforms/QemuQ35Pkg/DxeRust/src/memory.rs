@@ -1,8 +1,6 @@
 use alloc::vec::Vec;
 use x86_64::{
-    structures::paging::{
-        FrameAllocator, OffsetPageTable, PageTable, PhysFrame, RecursivePageTable, Size4KiB,
-    },
+    structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame, RecursivePageTable, Size4KiB},
     PhysAddr, VirtAddr,
 };
 
@@ -15,7 +13,7 @@ use crate::{
 ///
 /// Page protection might be enabled in PEI, so we want to disable that
 /// before to the first allocation.
-pub unsafe fn disable_page_protection () {
+pub unsafe fn disable_page_protection() {
     use x86_64::registers::control::{Cr0, Cr0Flags};
 
     let mut flags = Cr0::read();
@@ -86,10 +84,7 @@ impl HardCodedFrameAllocator {
     /// memory map is valid. The main requirement is that all frames that are marked
     /// as `USABLE` in it are really unused.
     pub unsafe fn init(hardcoded_map: &'static [MemoryRegion]) -> Self {
-        HardCodedFrameAllocator {
-            hardcoded_map,
-            next: 0,
-        }
+        HardCodedFrameAllocator { hardcoded_map, next: 0 }
     }
 
     /// Returns an iterator over the usable frames specified in the memory map.

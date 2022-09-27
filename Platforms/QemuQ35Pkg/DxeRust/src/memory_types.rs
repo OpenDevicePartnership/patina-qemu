@@ -42,7 +42,7 @@ impl<T: PrimInt> From<T> for EfiMemoryType {
             Some(12) => MemoryMappedIOPortSpace,
             Some(13) => PalCode,
             Some(14) => PersistentMemory,
-            _ => panic!("Invalid memory type")
+            _ => panic!("Invalid memory type"),
         }
     }
 }

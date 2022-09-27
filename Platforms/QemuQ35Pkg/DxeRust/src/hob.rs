@@ -1,11 +1,9 @@
 // Based on the definitions in https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Pi/PiHob.h
 
 #[allow(unused)]
-
 use crate::println;
 use alloc::vec::Vec;
-use core::{ffi::c_void, mem::size_of};
-use core::fmt;
+use core::{ffi::c_void, fmt, mem::size_of};
 use indoc::indoc;
 use x86_64::{align_down, align_up};
 
@@ -93,7 +91,7 @@ impl HobList<'_> {
         HobList(Vec::new())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=&Hob> {
+    pub fn iter(&self) -> impl Iterator<Item = &Hob> {
         self.0.iter()
     }
 
@@ -104,25 +102,20 @@ impl HobList<'_> {
             let current_header = unsafe { &*hob_header.cast::<header::Hob>() };
             match current_header.r#type {
                 HANDOFF => {
-                    let phit_hob = unsafe {
-                        &*hob_header.cast::<PhaseHandoffInformationTable>()
-                    };
+                    let phit_hob = unsafe { &*hob_header.cast::<PhaseHandoffInformationTable>() };
                     self.0.push(Hob::Handoff(phit_hob));
                 }
                 MEMORY_ALLOCATION => {
                     if current_header.length == size_of::<MemoryAllocationModule>() as u16 {
-                        let mem_alloc_hob =
-                        unsafe { &*hob_header.cast::<MemoryAllocationModule>() };
+                        let mem_alloc_hob = unsafe { &*hob_header.cast::<MemoryAllocationModule>() };
                         self.0.push(Hob::MemoryAllocationModule(mem_alloc_hob));
                     } else {
-                        let mem_alloc_hob =
-                            unsafe { &*hob_header.cast::<MemoryAllocation>() };
+                        let mem_alloc_hob = unsafe { &*hob_header.cast::<MemoryAllocation>() };
                         self.0.push(Hob::MemoryAllocation(mem_alloc_hob));
                     }
                 }
                 RESOURCE_DESCRIPTOR => {
-                    let resource_desc_hob =
-                        unsafe { &*hob_header.cast::<ResourceDescriptor>() };
+                    let resource_desc_hob = unsafe { &*hob_header.cast::<ResourceDescriptor>() };
                     self.0.push(Hob::ResourceDescriptor(resource_desc_hob));
                 }
                 GUID_EXTENSION => {
@@ -135,13 +128,11 @@ impl HobList<'_> {
                     self.0.push(Hob::FirmwareVolume(fv_hob));
                 }
                 FV2 => {
-                    let fv2_hob =
-                        unsafe { &*hob_header.cast::<FirmwareVolume2>() };
+                    let fv2_hob = unsafe { &*hob_header.cast::<FirmwareVolume2>() };
                     self.0.push(Hob::FirmwareVolume2(fv2_hob));
                 }
                 FV3 => {
-                    let fv3_hob =
-                        unsafe { &*hob_header.cast::<FirmwareVolume3>() };
+                    let fv3_hob = unsafe { &*hob_header.cast::<FirmwareVolume3>() };
                     self.0.push(Hob::FirmwareVolume3(fv3_hob));
                 }
                 CPU => {
@@ -179,7 +170,9 @@ impl fmt::Debug for HobList<'_> {
         for hob in self.0.clone().into_iter() {
             match hob {
                 Hob::Handoff(hob) => {
-                    write!(f, indoc! {"
+                    write!(
+                        f,
+                        indoc! {"
                         PHASE HANDOFF INFORMATION TABLE (PHIT) HOB
                           HOB Length: 0x{:x}
                           Version: 0x{:x}
@@ -196,10 +189,13 @@ impl fmt::Debug for HobList<'_> {
                         align_up(hob.memory_bottom, 0x1000),
                         align_down(hob.memory_top, 0x1000),
                         align_up(hob.free_memory_bottom, 0x1000),
-                        align_down(hob.free_memory_top, 0x1000))?;
-                },
+                        align_down(hob.free_memory_top, 0x1000)
+                    )?;
+                }
                 Hob::MemoryAllocation(hob) => {
-                    write!(f, indoc! {"
+                    write!(
+                        f,
+                        indoc! {"
                         MEMORY ALLOCATION HOB
                           HOB Length: 0x{:x}
                           Memory Base Address: 0x{:x}
@@ -208,10 +204,13 @@ impl fmt::Debug for HobList<'_> {
                         hob.header.length,
                         hob.alloc_descriptor.memory_base_address,
                         hob.alloc_descriptor.memory_length,
-                        hob.alloc_descriptor.memory_type)?;
-                },
+                        hob.alloc_descriptor.memory_type
+                    )?;
+                }
                 Hob::ResourceDescriptor(hob) => {
-                    write!(f, indoc! {"
+                    write!(
+                        f,
+                        indoc! {"
                         RESOURCE DESCRIPTOR HOB
                           HOB Length: 0x{:x}
                           Resource Type: 0x{:x}
@@ -222,47 +221,59 @@ impl fmt::Debug for HobList<'_> {
                         hob.resource_type,
                         hob.resource_attribute,
                         hob.physical_start,
-                        hob.resource_length)?;
-                },
+                        hob.resource_length
+                    )?;
+                }
                 Hob::GuidHob(hob) => {
-                    write!(f, indoc! {"
+                    write!(
+                        f,
+                        indoc! {"
                         GUID HOB
                           HOB Length: 0x{:x}\n"},
-                        hob.header.length)?;
-                },
+                        hob.header.length
+                    )?;
+                }
                 Hob::FirmwareVolume2(hob) => {
-                    write!(f, indoc! {"
+                    write!(
+                        f,
+                        indoc! {"
                         FIRMWARE VOLUME 2 (FV2) HOB
                           Base Address: 0x{:x}
                           Length: 0x{:x}\n"},
-                        hob.base_address,
-                        hob.length)?;
+                        hob.base_address, hob.length
+                    )?;
                 }
                 Hob::FirmwareVolume3(hob) => {
-                    write!(f, indoc! {"
+                    write!(
+                        f,
+                        indoc! {"
                         FIRMWARE VOLUME 3 (FV3) HOB
                           Base Address: 0x{:x}
                           Length: 0x{:x}\n"},
-                        hob.base_address,
-                        hob.length)?;
-                },
+                        hob.base_address, hob.length
+                    )?;
+                }
                 Hob::Cpu(hob) => {
-                    write!(f, indoc! {"
+                    write!(
+                        f,
+                        indoc! {"
                         CPU HOB
                           Memory Space Size: 0x{:x}
                           IO Space Size: 0x{:x}\n"},
-                        hob.size_of_memory_space,
-                        hob.size_of_io_space)?;
-                },
+                        hob.size_of_memory_space, hob.size_of_io_space
+                    )?;
+                }
                 Hob::Capsule(hob) => {
-                    write!(f, indoc! {"
+                    write!(
+                        f,
+                        indoc! {"
                         CAPSULE HOB
                           Base Address: 0x{:x}
                           Length: 0x{:x}\n"},
-                        hob.base_address,
-                        hob.length)?;
+                        hob.base_address, hob.length
+                    )?;
                 }
-                _ => ()
+                _ => (),
             }
         }
         write!(f, "Parsed HOBs")
@@ -273,9 +284,9 @@ impl fmt::Debug for HobList<'_> {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct MemoryAllocation {
-    pub header: header::Hob,                        // EFI_HOB_GENERIC_HEADER
-    pub alloc_descriptor: header::MemoryAllocation,   // EFI_HOB_MEMORY_ALLOCATION_HEADER
-                                                    // Additional data pertaining to the "Name" GUID memory may go here.
+    pub header: header::Hob, // EFI_HOB_GENERIC_HEADER
+    pub alloc_descriptor: header::MemoryAllocation, // EFI_HOB_MEMORY_ALLOCATION_HEADER
+                             // Additional data pertaining to the "Name" GUID memory may go here.
 }
 
 // EFI_HOB_MEMORY_ALLOCATION_STACK
@@ -289,15 +300,15 @@ pub type MemoryAllocationBspStore = MemoryAllocation;
 pub struct MemoryAllocationModule {
     pub header: header::Hob,                        // EFI_HOB_GENERIC_HEADER
     pub alloc_descriptor: header::MemoryAllocation, // EFI_HOB_MEMORY_ALLOCATION_HEADER
-    pub module_name: r_efi::base::Guid,           // EFI_GUID
-    pub entry_point: u64,                         // EFI_PHYSICAL_ADDRESS
+    pub module_name: r_efi::base::Guid,             // EFI_GUID
+    pub entry_point: u64,                           // EFI_PHYSICAL_ADDRESS
 }
 
 // EFI_HOB_RESOURCE_DESCRIPTOR
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct ResourceDescriptor {
-    pub header: header::Hob,        // EFI_HOB_GENERIC_HEADER
+    pub header: header::Hob,      // EFI_HOB_GENERIC_HEADER
     pub owner: r_efi::base::Guid, // EFI_GUID
     pub resource_type: u32,       // EFI_RESOURCE_TYPE
     pub resource_attribute: u32,  // EFI_RESOURCE_ATTRIBUTE_TYPE
@@ -311,7 +322,7 @@ pub struct ResourceDescriptor {
 pub struct GuidHob {
     pub header: header::Hob, // EFI_HOB_GENERIC_HEADER
     pub name: r_efi::base::Guid, // EFI_GUID
-                           // Data follows the HOB
+                             // Data follows the HOB
 }
 
 // EFI_HOB_FIRMWARE_VOLUME
@@ -319,15 +330,15 @@ pub struct GuidHob {
 #[derive(Copy, Clone, Debug)]
 pub struct FirmwareVolume {
     pub header: header::Hob, // EFI_HOB_GENERIC_HEADER
-    pub base_address: u64, // EFI_PHYSICAL_ADDRESS
-    pub length: u64,       // UINT64
+    pub base_address: u64,   // EFI_PHYSICAL_ADDRESS
+    pub length: u64,         // UINT64
 }
 
 // EFI_HOB_FIRMWARE_VOLUME2
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct FirmwareVolume2 {
-    pub header: header::Hob,            // EFI_HOB_GENERIC_HEADER
+    pub header: header::Hob,          // EFI_HOB_GENERIC_HEADER
     pub base_address: u64,            // EFI_PHYSICAL_ADDRESS
     pub length: u64,                  // UIN64
     pub fv_name: r_efi::base::Guid,   // EFI_GUID
@@ -338,7 +349,7 @@ pub struct FirmwareVolume2 {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct FirmwareVolume3 {
-    pub header: header::Hob,                 // EFI_HOB_GENERIC_HEADER
+    pub header: header::Hob,               // EFI_HOB_GENERIC_HEADER
     pub base_address: u64,                 // EFI_PHYSICAL_ADDRESS
     pub length: u64,                       // UINT64
     pub authentication_status: u32,        // UINT32
@@ -351,7 +362,7 @@ pub struct FirmwareVolume3 {
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Cpu {
-    pub header: header::Hob,        // EFI_HOB_GENERIC_HEADER
+    pub header: header::Hob,      // EFI_HOB_GENERIC_HEADER
     pub size_of_memory_space: u8, // UINT8
     pub size_of_io_space: u8,     // UINT8
     pub reserved: [u8; 6],        // UINT8[6]
@@ -362,6 +373,6 @@ pub struct Cpu {
 #[derive(Copy, Clone, Debug)]
 pub struct Capsule {
     pub header: header::Hob, // EFI_HOB_GENERIC_HEADER
-    pub base_address: u8,  // EFI_PHYSICAL_ADDRESS
-    pub length: u8,        // UINT64
+    pub base_address: u8,    // EFI_PHYSICAL_ADDRESS
+    pub length: u8,          // UINT64
 }

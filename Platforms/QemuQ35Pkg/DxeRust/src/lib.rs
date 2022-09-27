@@ -15,12 +15,12 @@ pub mod fv;
 pub mod gdt;
 pub mod hob;
 pub mod interrupts;
+pub mod memory;
 pub mod memory_region;
 pub mod memory_types;
-pub mod memory;
+pub mod pe32;
 pub mod serial;
 pub mod uefi_allocator;
-pub mod pe32;
 
 pub fn init() {
     gdt::init();

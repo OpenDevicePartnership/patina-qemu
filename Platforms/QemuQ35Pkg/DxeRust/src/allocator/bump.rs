@@ -12,12 +12,7 @@ pub struct BumpAllocator {
 impl BumpAllocator {
     /// Creates a new empty bump allocator.
     pub const fn new() -> Self {
-        BumpAllocator {
-            heap_start: 0,
-            heap_end: 0,
-            next: 0,
-            allocations: 0,
-        }
+        BumpAllocator { heap_start: 0, heap_end: 0, next: 0, allocations: 0 }
     }
 
     /// Initializes the bump allocator with the given heap bounds.

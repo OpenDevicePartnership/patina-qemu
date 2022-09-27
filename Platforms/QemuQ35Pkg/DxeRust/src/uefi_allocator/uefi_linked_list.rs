@@ -1,13 +1,12 @@
 use super::{align_up, Locked};
 
 use core::mem;
-use r_efi::efi::MemoryDescriptor;
-use r_efi::efi::MemoryType;
+use r_efi::efi::{MemoryDescriptor, MemoryType};
 
 struct ListNode {
     size: usize,
     next: Option<&'static mut ListNode>,
-    memory_descriptor: MemoryDescriptor
+    memory_descriptor: MemoryDescriptor,
 }
 
 impl ListNode {
@@ -20,8 +19,8 @@ impl ListNode {
                 physical_start: 0,
                 virtual_start: 0,
                 number_of_pages: 0,
-                attribute: 0
-            }
+                attribute: 0,
+            },
         }
     }
 
@@ -41,9 +40,7 @@ pub struct LinkedListAllocator {
 impl LinkedListAllocator {
     /// Creates an empty LinkedListAllocator.
     pub const fn new() -> Self {
-        Self {
-            head: ListNode::new(0),
-        }
+        Self { head: ListNode::new(0) }
     }
 
     /// Initialize the allocator with the given heap bounds.
@@ -116,20 +113,20 @@ impl LinkedListAllocator {
         // region suitable for allocation
         Ok(alloc_start)
     }
-/*
-    /// Adjust the given layout so that the resulting allocated memory
-    /// region is also capable of storing a `ListNode`.
-    ///
-    /// Returns the adjusted size and alignment as a (size, align) tuple.
-    fn size_align(layout: Layout) -> (usize, usize) {
-        let layout = layout
-            .align_to(mem::align_of::<ListNode>())
-            .expect("adjusting alignment failed")
-            .pad_to_align();
-        let size = layout.size().max(mem::size_of::<ListNode>());
-        (size, layout.align())
-    }
-*/
+    /*
+        /// Adjust the given layout so that the resulting allocated memory
+        /// region is also capable of storing a `ListNode`.
+        ///
+        /// Returns the adjusted size and alignment as a (size, align) tuple.
+        fn size_align(layout: Layout) -> (usize, usize) {
+            let layout = layout
+                .align_to(mem::align_of::<ListNode>())
+                .expect("adjusting alignment failed")
+                .pad_to_align();
+            let size = layout.size().max(mem::size_of::<ListNode>());
+            (size, layout.align())
+        }
+    */
 }
 
 // Based on https://doc.rust-lang.org/std/alloc/trait.GlobalAlloc.html

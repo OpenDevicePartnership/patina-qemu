@@ -1,8 +1,10 @@
 use core::convert::TryInto;
 
-use crate::hob::{Hob, HobList};
-use crate::fv::{FirmwareVolume, FfsFileType, FfsSection};
-use crate::println;
+use crate::{
+    fv::{FfsFileType, FfsSection, FirmwareVolume},
+    hob::{Hob, HobList},
+    println,
+};
 use alloc::vec::Vec;
 use scroll::Pread;
 
@@ -11,7 +13,7 @@ pub enum Pe32Error {
     SectionNotFound,
     ParseError(goblin::error::Error),
     LoadError,
-    RelocationError
+    RelocationError,
 }
 
 fn get_pe32_section(hob_list: &HobList) -> Option<FfsSection> {
@@ -27,21 +29,15 @@ fn get_pe32_section(hob_list: &HobList) -> Option<FfsSection> {
     // module, attached to the Hob::FirmwareVolume enum.
     let volume = FirmwareVolume::new(fv_hob.base_address);
 
-    let dxe_core_file = volume
-        .ffs_files()
-        .find(|f| f.file_type() == Some(FfsFileType::EfiFvFileTypeDxeCore))?;
+    let dxe_core_file = volume.ffs_files().find(|f| f.file_type() == Some(FfsFileType::EfiFvFileTypeDxeCore))?;
 
-    dxe_core_file
-        .ffs_sections()
-        .find(|s| s.is_pe32())
+    dxe_core_file.ffs_sections().find(|s| s.is_pe32())
 }
 
 pub fn parse_first(hob_list: &HobList) -> Result<(), Pe32Error> {
-    let file_section = get_pe32_section(hob_list)
-        .ok_or(Pe32Error::SectionNotFound)?;
+    let file_section = get_pe32_section(hob_list).ok_or(Pe32Error::SectionNotFound)?;
     let data = file_section.section_data();
-    let pe = goblin::pe::PE::parse(data)
-        .map_err(|e| Pe32Error::ParseError(e))?;
+    let pe = goblin::pe::PE::parse(data).map_err(|e| Pe32Error::ParseError(e))?;
     println!("pe parsed: {:?}", pe);
 
     Ok(())
@@ -51,22 +47,17 @@ pub fn parse_first(hob_list: &HobList) -> Result<(), Pe32Error> {
 // loaded_image is provided by the caller (as opposed to being allocated and returned)
 // so that it can be placed outside the rust heap if desired.
 // caller must ensure that loaded_image is big enough to hold the generated image.
-pub fn pe32_load_image(image: &[u8], loaded_image:&mut [u8]) -> Result<(), Pe32Error> {
-    let pe = goblin::pe::PE::parse(image)
-        .map_err(|e| Pe32Error::ParseError(e))?;
-    let size_of_headers = pe.header.optional_header
-        .ok_or(Pe32Error::LoadError)?.windows_fields.size_of_headers as usize;
+pub fn pe32_load_image(image: &[u8], loaded_image: &mut [u8]) -> Result<(), Pe32Error> {
+    let pe = goblin::pe::PE::parse(image).map_err(|e| Pe32Error::ParseError(e))?;
+    let size_of_headers =
+        pe.header.optional_header.ok_or(Pe32Error::LoadError)?.windows_fields.size_of_headers as usize;
 
     //zero the buffer (as the section copy below is sparse and will not initialize all bytes)
-    loaded_image.fill_with(||0);
+    loaded_image.fill_with(|| 0);
 
     //copy the headers
-    let dst = loaded_image
-        .get_mut(..size_of_headers)
-        .ok_or(Pe32Error::LoadError)?;
-    let src = image
-        .get(..size_of_headers)
-        .ok_or(Pe32Error::LoadError)?;
+    let dst = loaded_image.get_mut(..size_of_headers).ok_or(Pe32Error::LoadError)?;
+    let src = image.get(..size_of_headers).ok_or(Pe32Error::LoadError)?;
     dst.copy_from_slice(src);
 
     //copy the sections
@@ -77,16 +68,12 @@ pub fn pe32_load_image(image: &[u8], loaded_image:&mut [u8]) -> Result<(), Pe32E
         }
 
         let dst = loaded_image
-            .get_mut (
-                (section.virtual_address as usize)..
-                (section.virtual_address.wrapping_add(size) as usize)
-            ).ok_or(Pe32Error::LoadError)?;
+            .get_mut((section.virtual_address as usize)..(section.virtual_address.wrapping_add(size) as usize))
+            .ok_or(Pe32Error::LoadError)?;
 
         let src = image
-            .get(
-                (section.pointer_to_raw_data as usize)..
-                (section.pointer_to_raw_data.wrapping_add(size) as usize)
-            ).ok_or(Pe32Error::LoadError)?;
+            .get((section.pointer_to_raw_data as usize)..(section.pointer_to_raw_data.wrapping_add(size) as usize))
+            .ok_or(Pe32Error::LoadError)?;
 
         dst.copy_from_slice(src);
     }
@@ -95,43 +82,38 @@ pub fn pe32_load_image(image: &[u8], loaded_image:&mut [u8]) -> Result<(), Pe32E
 }
 
 #[repr(C)]
-#[derive(Debug,Copy,Clone,Pread)]
+#[derive(Debug, Copy, Clone, Pread)]
 struct BaseRelocationBlockHeader {
     page_rva: u32,
     block_size: u32,
 }
 #[repr(C)]
-#[derive(Debug,Copy,Clone,Pread)]
+#[derive(Debug, Copy, Clone, Pread)]
 struct Relocation {
-    type_and_offset: u16
+    type_and_offset: u16,
 }
 
 #[derive(Debug, Clone)]
 struct RelocationBlock {
     block_header: BaseRelocationBlockHeader,
-    relocations: Vec<Relocation>
+    relocations: Vec<Relocation>,
 }
 
-fn parse_relocation_blocks (block: &[u8]) -> Result<Vec<RelocationBlock>, Pe32Error> {
+fn parse_relocation_blocks(block: &[u8]) -> Result<Vec<RelocationBlock>, Pe32Error> {
     let mut offset: usize = 0;
     let mut blocks = Vec::new();
 
     while offset < block.len() {
         let block_start = offset;
         let block_header: BaseRelocationBlockHeader =
-            block.gread_with(&mut offset, scroll::LE)
-            .map_err(|_|Pe32Error::RelocationError)?;
+            block.gread_with(&mut offset, scroll::LE).map_err(|_| Pe32Error::RelocationError)?;
 
         let mut relocations = Vec::new();
         while offset < block_start + block_header.block_size as usize {
-            relocations.push
-            (
-                block.gread_with(&mut offset, scroll::LE)
-                .map_err(|_|Pe32Error::RelocationError)?
-            );
+            relocations.push(block.gread_with(&mut offset, scroll::LE).map_err(|_| Pe32Error::RelocationError)?);
         }
 
-        blocks.push(RelocationBlock {block_header, relocations});
+        blocks.push(RelocationBlock { block_header, relocations });
         // block start on 32-bit boundary, so align up if needed.
         offset = (offset + 3) & !3;
     }
@@ -142,11 +124,8 @@ fn parse_relocation_blocks (block: &[u8]) -> Result<Vec<RelocationBlock>, Pe32Er
 // relocate the given image at the base address specified by destination.
 // the image base in the header is update, and all relocation fixups are applied.
 pub fn pe32_relocate_image(destination: usize, image: &mut [u8]) -> Result<(), Pe32Error> {
-    let pe = goblin::pe::PE::parse(&image)
-        .map_err(|e| Pe32Error::ParseError(e))?;
-    let current_base = pe.header.optional_header
-        .ok_or(Pe32Error::RelocationError)?
-        .windows_fields.image_base;
+    let pe = goblin::pe::PE::parse(&image).map_err(|e| Pe32Error::ParseError(e))?;
+    let current_base = pe.header.optional_header.ok_or(Pe32Error::RelocationError)?.windows_fields.image_base;
     let adjustment = (destination as u64).wrapping_sub(current_base);
     //println!("current_base {:#x} adjusting to destination {:#x} with adjustment {:#x}", current_base, destination, adjustment);
     if adjustment != 0 {
@@ -159,45 +138,48 @@ pub fn pe32_relocate_image(destination: usize, image: &mut [u8]) -> Result<(), P
             windows_fields_offset += goblin::pe::header::SIZEOF_COFF_HEADER as u32;
             windows_fields_offset += 4; //PE32 signature
             windows_fields_offset += goblin::pe::optional_header::SIZEOF_STANDARD_FIELDS_64 as u32;
-            let windows_field_addr = (image as *const[u8] as *const u8 as usize) + windows_fields_offset as usize;
+            let windows_field_addr = (image as *const [u8] as *const u8 as usize) + windows_fields_offset as usize;
             let windows_fields = windows_field_addr as *mut goblin::pe::optional_header::WindowsFields64;
 
             (*windows_fields).image_base = destination as u64;
         }
 
-        let reloc_section = pe.header.optional_header
+        let reloc_section = pe
+            .header
+            .optional_header
             .ok_or(Pe32Error::RelocationError)?
-            .data_directories.get_base_relocation_table()
+            .data_directories
+            .get_base_relocation_table()
             .ok_or(Pe32Error::RelocationError)?;
 
-        let relocation_data = image.get (
-            reloc_section.virtual_address as usize..
-            (reloc_section.virtual_address + reloc_section.size) as usize)
+        let relocation_data = image
+            .get(reloc_section.virtual_address as usize..(reloc_section.virtual_address + reloc_section.size) as usize)
             .ok_or(Pe32Error::RelocationError)?;
 
         for reloc_block in parse_relocation_blocks(relocation_data)? {
             //println!("processing block with rva {:x}", reloc_block.block_header.page_rva);
             for reloc in reloc_block.relocations {
                 let fixup_type = reloc.type_and_offset >> 12;
-                let fixup =
-                    reloc_block.block_header.page_rva as usize +
-                    (reloc.type_and_offset & 0xFFF) as usize;
+                let fixup = reloc_block.block_header.page_rva as usize + (reloc.type_and_offset & 0xFFF) as usize;
 
                 match fixup_type {
-                    0x00 => /*println!("  IMAGE_REL_BASE_ABSOLUTE: no action")*/ (),  //IMAGE_REL_BASE_ABSOLUTE - no action, //IMAGE_REL_BASE_ABSOLUTE: no action.
-                    0x0A => { //IMAGE_REL_BASED_DIR64
+                    0x00 =>
+                    /*println!("  IMAGE_REL_BASE_ABSOLUTE: no action")*/
+                    {
+                        ()
+                    } //IMAGE_REL_BASE_ABSOLUTE - no action, //IMAGE_REL_BASE_ABSOLUTE: no action.
+                    0x0A => {
+                        //IMAGE_REL_BASED_DIR64
                         let mut fixup_value = u64::from_le_bytes(
-                            image[fixup..fixup+8]
-                            .try_into().map_err(|_|Pe32Error::RelocationError)?
+                            image[fixup..fixup + 8].try_into().map_err(|_| Pe32Error::RelocationError)?,
                         );
                         //print!("  IMAGE_REL_BASED_DIR64: Adjusting {:#x} to ", fixup_value);
                         fixup_value = fixup_value.wrapping_add(adjustment);
                         //println!("{:#x} at offset {:#x}", fixup_value, fixup);
-                        let subslice = image.get_mut(fixup..fixup+8)
-                            .ok_or(Pe32Error::RelocationError)?;
+                        let subslice = image.get_mut(fixup..fixup + 8).ok_or(Pe32Error::RelocationError)?;
 
                         subslice.copy_from_slice(&fixup_value.to_le_bytes()[..]);
-                    },
+                    }
                     _ => todo!(), // Other fixups not implemented at this time
                 }
             }

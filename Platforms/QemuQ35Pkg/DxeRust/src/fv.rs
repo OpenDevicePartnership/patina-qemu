@@ -35,67 +35,67 @@ struct FirmwareVolumeExtHeader {
 }
 
 // File Types Definitions.
-const EFI_FV_FILETYPE_ALL                    :u8 = 0x00;
-const EFI_FV_FILETYPE_RAW                    :u8 = 0x01;
-const EFI_FV_FILETYPE_FREEFORM               :u8 = 0x02;
-const EFI_FV_FILETYPE_SECURITY_CORE          :u8 = 0x03;
-const EFI_FV_FILETYPE_PEI_CORE               :u8 = 0x04;
-const EFI_FV_FILETYPE_DXE_CORE               :u8 = 0x05;
-const EFI_FV_FILETYPE_PEIM                   :u8 = 0x06;
-const EFI_FV_FILETYPE_DRIVER                 :u8 = 0x07;
-const EFI_FV_FILETYPE_COMBINED_PEIM_DRIVER   :u8 = 0x08;
-const EFI_FV_FILETYPE_APPLICATION            :u8 = 0x09;
-const EFI_FV_FILETYPE_MM                     :u8 = 0x0A;
-const EFI_FV_FILETYPE_FIRMWARE_VOLUME_IMAGE  :u8 = 0x0B;
-const EFI_FV_FILETYPE_COMBINED_MM_DXE        :u8 = 0x0C;
-const EFI_FV_FILETYPE_MM_CORE                :u8 = 0x0D;
-const EFI_FV_FILETYPE_MM_STANDALONE          :u8 = 0x0E;
-const EFI_FV_FILETYPE_MM_CORE_STANDALONE     :u8 = 0x0F;
-const EFI_FV_FILETYPE_OEM_MIN                :u8 = 0xc0;
-const EFI_FV_FILETYPE_OEM_MAX                :u8 = 0xdf;
-const EFI_FV_FILETYPE_DEBUG_MIN              :u8 = 0xe0;
-const EFI_FV_FILETYPE_DEBUG_MAX              :u8 = 0xef;
-const EFI_FV_FILETYPE_FFS_MIN                :u8 = 0xf1; //note, technically includes FFS_PAD at 0xF0.
-const EFI_FV_FILETYPE_FFS_MAX                :u8 = 0xff;
-const EFI_FV_FILETYPE_FFS_PAD                :u8 = 0xf0;
+const EFI_FV_FILETYPE_ALL: u8 = 0x00;
+const EFI_FV_FILETYPE_RAW: u8 = 0x01;
+const EFI_FV_FILETYPE_FREEFORM: u8 = 0x02;
+const EFI_FV_FILETYPE_SECURITY_CORE: u8 = 0x03;
+const EFI_FV_FILETYPE_PEI_CORE: u8 = 0x04;
+const EFI_FV_FILETYPE_DXE_CORE: u8 = 0x05;
+const EFI_FV_FILETYPE_PEIM: u8 = 0x06;
+const EFI_FV_FILETYPE_DRIVER: u8 = 0x07;
+const EFI_FV_FILETYPE_COMBINED_PEIM_DRIVER: u8 = 0x08;
+const EFI_FV_FILETYPE_APPLICATION: u8 = 0x09;
+const EFI_FV_FILETYPE_MM: u8 = 0x0A;
+const EFI_FV_FILETYPE_FIRMWARE_VOLUME_IMAGE: u8 = 0x0B;
+const EFI_FV_FILETYPE_COMBINED_MM_DXE: u8 = 0x0C;
+const EFI_FV_FILETYPE_MM_CORE: u8 = 0x0D;
+const EFI_FV_FILETYPE_MM_STANDALONE: u8 = 0x0E;
+const EFI_FV_FILETYPE_MM_CORE_STANDALONE: u8 = 0x0F;
+const EFI_FV_FILETYPE_OEM_MIN: u8 = 0xc0;
+const EFI_FV_FILETYPE_OEM_MAX: u8 = 0xdf;
+const EFI_FV_FILETYPE_DEBUG_MIN: u8 = 0xe0;
+const EFI_FV_FILETYPE_DEBUG_MAX: u8 = 0xef;
+const EFI_FV_FILETYPE_FFS_MIN: u8 = 0xf1; //note, technically includes FFS_PAD at 0xF0.
+const EFI_FV_FILETYPE_FFS_MAX: u8 = 0xff;
+const EFI_FV_FILETYPE_FFS_PAD: u8 = 0xf0;
 
 // FFS File Attributes.
-const FFS_ATTRIB_LARGE_FILE :u8 = 0x01;
-const FFS_ATTRIB_DATA_ALIGNMENT_2 :u8 = 0x02;
-const FFS_ATTRIB_FIXED :u8 = 0x04;
-const FFS_ATTRIB_DATA_ALIGNMENT :u8 = 0x38;
-const FFS_ATTRIB_CHECKSUM :u8 = 0x40;
+const FFS_ATTRIB_LARGE_FILE: u8 = 0x01;
+const FFS_ATTRIB_DATA_ALIGNMENT_2: u8 = 0x02;
+const FFS_ATTRIB_FIXED: u8 = 0x04;
+const FFS_ATTRIB_DATA_ALIGNMENT: u8 = 0x38;
+const FFS_ATTRIB_CHECKSUM: u8 = 0x40;
 
 // FFS File State Bits.
-const EFI_FILE_HEADER_CONSTRUCTION :u8 = 0x01;
-const EFI_FILE_HEADER_VALID :u8 = 0x02;
-const EFI_FILE_DATA_VALID :u8 = 0x04;
-const EFI_FILE_MARKED_FOR_UPDATE :u8 = 0x08;
-const EFI_FILE_DELETED :u8 = 0x10;
-const EFI_FILE_HEADER_INVALID :u8 = 0x20;
+const EFI_FILE_HEADER_CONSTRUCTION: u8 = 0x01;
+const EFI_FILE_HEADER_VALID: u8 = 0x02;
+const EFI_FILE_DATA_VALID: u8 = 0x04;
+const EFI_FILE_MARKED_FOR_UPDATE: u8 = 0x08;
+const EFI_FILE_DELETED: u8 = 0x10;
+const EFI_FILE_HEADER_INVALID: u8 = 0x20;
 
 // Pseudo type. It is used as a wild card when retrieving sections.
 //  The section type EFI_SECTION_ALL matches all section types.
-const EFI_SECTION_ALL :u8 = 0x00;
+const EFI_SECTION_ALL: u8 = 0x00;
 
 // Encapsulation section Type values.
-const EFI_SECTION_COMPRESSION :u8 = 0x01;
-const EFI_SECTION_GUID_DEFINED :u8 = 0x02;
-const EFI_SECTION_DISPOSABLE :u8 = 0x03;
+const EFI_SECTION_COMPRESSION: u8 = 0x01;
+const EFI_SECTION_GUID_DEFINED: u8 = 0x02;
+const EFI_SECTION_DISPOSABLE: u8 = 0x03;
 
 // Leaf section Type values.
-const EFI_SECTION_PE32 :u8 = 0x10;
-const EFI_SECTION_PIC :u8 = 0x11;
-const EFI_SECTION_TE :u8 = 0x12;
-const EFI_SECTION_DXE_DEPEX :u8 = 0x13;
-const EFI_SECTION_VERSION :u8 = 0x14;
-const EFI_SECTION_USER_INTERFACE :u8 = 0x15;
-const EFI_SECTION_COMPATIBILITY16 :u8 = 0x16;
-const EFI_SECTION_FIRMWARE_VOLUME_IMAGE :u8 = 0x17;
-const EFI_SECTION_FREEFORM_SUBTYPE_GUID :u8 = 0x18;
-const EFI_SECTION_RAW :u8 = 0x19;
-const EFI_SECTION_PEI_DEPEX :u8 = 0x1B;
-const EFI_SECTION_MM_DEPEX :u8 = 0x1C;
+const EFI_SECTION_PE32: u8 = 0x10;
+const EFI_SECTION_PIC: u8 = 0x11;
+const EFI_SECTION_TE: u8 = 0x12;
+const EFI_SECTION_DXE_DEPEX: u8 = 0x13;
+const EFI_SECTION_VERSION: u8 = 0x14;
+const EFI_SECTION_USER_INTERFACE: u8 = 0x15;
+const EFI_SECTION_COMPATIBILITY16: u8 = 0x16;
+const EFI_SECTION_FIRMWARE_VOLUME_IMAGE: u8 = 0x17;
+const EFI_SECTION_FREEFORM_SUBTYPE_GUID: u8 = 0x18;
+const EFI_SECTION_RAW: u8 = 0x19;
+const EFI_SECTION_PEI_DEPEX: u8 = 0x1B;
+const EFI_SECTION_MM_DEPEX: u8 = 0x1C;
 
 // EFI_FFS_FILE_HEADER
 #[repr(C)]
@@ -322,17 +322,24 @@ impl FfsSection {
                 EFI_SECTION_TE => GenericFfsSection::Te(common_header as *const FfsSectionTe),
                 EFI_SECTION_DXE_DEPEX => GenericFfsSection::DxeDepex(common_header as *const FfsSectionDxeDepex),
                 EFI_SECTION_VERSION => GenericFfsSection::Version(common_header as *const FfsSectionVersion),
-                EFI_SECTION_USER_INTERFACE => GenericFfsSection::UserInterface(common_header as *const FfsSectionUserInterface),
-                EFI_SECTION_COMPATIBILITY16 => GenericFfsSection::Compatibility16(common_header as *const FfsSectionCompatibility16),
-                EFI_SECTION_FIRMWARE_VOLUME_IMAGE => GenericFfsSection::FirmwareVolumeImage(common_header as *const FfsSectionFirmwareVolumeImage),
-                EFI_SECTION_FREEFORM_SUBTYPE_GUID => GenericFfsSection::FreeformSubtypeGuid(common_header as *const FfsSectionFreeformSubtypeGuid),
+                EFI_SECTION_USER_INTERFACE => {
+                    GenericFfsSection::UserInterface(common_header as *const FfsSectionUserInterface)
+                }
+                EFI_SECTION_COMPATIBILITY16 => {
+                    GenericFfsSection::Compatibility16(common_header as *const FfsSectionCompatibility16)
+                }
+                EFI_SECTION_FIRMWARE_VOLUME_IMAGE => {
+                    GenericFfsSection::FirmwareVolumeImage(common_header as *const FfsSectionFirmwareVolumeImage)
+                }
+                EFI_SECTION_FREEFORM_SUBTYPE_GUID => {
+                    GenericFfsSection::FreeformSubtypeGuid(common_header as *const FfsSectionFreeformSubtypeGuid)
+                }
                 EFI_SECTION_RAW => GenericFfsSection::Raw(common_header as *const FfsSectionRaw),
                 EFI_SECTION_PEI_DEPEX => GenericFfsSection::PeiDepex(common_header as *const FfsSectionPeiDepex),
                 EFI_SECTION_MM_DEPEX => GenericFfsSection::MmDepex(common_header as *const FfsSectionMmDepex),
                 _ => GenericFfsSection::Unknown(common_header),
             },
         }
-
     }
 
     pub fn is_pe32(&self) -> bool {
@@ -381,7 +388,7 @@ impl FfsSection {
         let data_offset = match self.ffs_section {
             GenericFfsSection::Compression(_) => size_of::<FfsSectionCompression>() as u64,
             GenericFfsSection::FreeformSubtypeGuid(_) => size_of::<FfsSectionFreeformSubtypeGuid>() as u64,
-            GenericFfsSection::GuidDefined(guid_defined) => unsafe {(*guid_defined).data_offset as u64},
+            GenericFfsSection::GuidDefined(guid_defined) => unsafe { (*guid_defined).data_offset as u64 },
             _ => size_of::<CommonSectionHeader>() as u64,
         };
 
@@ -400,9 +407,7 @@ impl FfsSection {
         next_section_address = align_up(next_section_address, 0x4);
 
         // check to see if we ran off the end of the file yet.
-        if next_section_address
-            <= (self.containing_ffs.top_address() - size_of::<CommonSectionHeader>() as u64)
-        {
+        if next_section_address <= (self.containing_ffs.top_address() - size_of::<CommonSectionHeader>() as u64) {
             return Some(FfsSection::new(self.containing_ffs, next_section_address));
         }
         None
@@ -427,9 +432,7 @@ struct FfsSectionIterator {
 
 impl FfsSectionIterator {
     pub fn new(start_section: Option<FfsSection>) -> FfsSectionIterator {
-        FfsSectionIterator {
-            next_section: start_section,
-        }
+        FfsSectionIterator { next_section: start_section }
     }
 }
 
@@ -451,10 +454,7 @@ pub struct FfsFile {
 impl FfsFile {
     pub fn new(containing_fv: FirmwareVolume, base_address: u64) -> FfsFile {
         let ffs_file: *const FfsFileHeader = base_address as *const FfsFileHeader;
-        FfsFile {
-            containing_fv,
-            ffs_file,
-        }
+        FfsFile { containing_fv, ffs_file }
     }
 
     pub fn file_size(&self) -> u64 {
@@ -518,9 +518,7 @@ impl FfsFile {
         next_file_address = align_up(next_file_address, 0x8);
 
         // check to see if we ran off the end of the FV yet.
-        if next_file_address
-            <= (self.containing_fv.top_address() - size_of::<FfsFileHeader>() as u64)
-        {
+        if next_file_address <= (self.containing_fv.top_address() - size_of::<FfsFileHeader>() as u64) {
             let file = FfsFile::new(self.containing_fv, next_file_address);
             // To be super paranoid, we could check a lot of things here to make sure we have a
             // legit file and didn't run into empty space at the end of the FV. For now, assume
@@ -537,10 +535,7 @@ impl FfsFile {
         if self.file_size() <= size_of::<FfsFileHeader>() as u64 {
             return None;
         }
-        Some(FfsSection::new(
-            *self,
-            self.base_address() + size_of::<FfsFileHeader>() as u64,
-        ))
+        Some(FfsSection::new(*self, self.base_address() + size_of::<FfsFileHeader>() as u64))
     }
 
     pub fn ffs_sections(&self) -> impl Iterator<Item = FfsSection> {
@@ -567,9 +562,7 @@ struct FfsFileIterator {
 
 impl FfsFileIterator {
     pub fn new(start_file: FfsFile) -> FfsFileIterator {
-        FfsFileIterator {
-            next_ffs: Some(start_file),
-        }
+        FfsFileIterator { next_ffs: Some(start_file) }
     }
 }
 
@@ -593,9 +586,7 @@ impl FirmwareVolume {
         //Note: this assumes that base_address points to something that is an FV with an FFS on it.
         //More robust code would evaluate the FV header file_system_guid and make sure it actually has the correct
         //filesystem type, and probably a number of other sanity checks.
-        FirmwareVolume {
-            fv_header: fv_header,
-        }
+        FirmwareVolume { fv_header: fv_header }
     }
 
     fn ext_header(&self) -> Option<*const FirmwareVolumeExtHeader> {
