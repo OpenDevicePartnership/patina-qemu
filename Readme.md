@@ -34,6 +34,27 @@ to be used in production.
 
 ## First-Time Tool Setup Instructions
 
+The following instructions install Rust.
+
+1. Download and install rust/cargo from [Getting Started - Rust Programming Language (rust-lang.org)](https://www.rust-lang.org/learn/get-started).
+   > rustup-init installs the toolchain and utilities.
+
+2. Make sure it's working - restart a shell after install and make sure the tools are in your path:
+
+   \>`cargo --version`
+
+3. Install the nightly x86_64 rust toolchain as the project uses various experimental features of Rust that need it.
+
+   \>`rustup toolchain install nightly`
+
+   \>`rustup component add rust-src --toolchain nightly-x86_64-pc-windows-msvc`
+
+   Linux:
+
+   \>`rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu`
+
+The following instructions set up the UEFI Rust code repository.
+
 1. Download and install QEMU from: [Download QEMU](https://www.qemu.org/download/#windows) - QEMU.
    > Note, if you install the latest, windows may complain about it being a not-often downloaded file.
 
