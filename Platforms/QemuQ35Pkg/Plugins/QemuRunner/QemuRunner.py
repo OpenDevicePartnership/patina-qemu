@@ -13,6 +13,7 @@ import time
 import threading
 import datetime
 import subprocess
+import psutil
 from edk2toolext.environment import plugin_manager
 from edk2toolext.environment.plugintypes import uefi_helper_plugin
 from edk2toollib import utility_functions
@@ -35,6 +36,11 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         ''' Runs QEMU '''
         VirtualDrive = env.GetValue("VIRTUAL_DRIVE_PATH")
         OutputPath_FV = os.path.join(env.GetValue("BUILD_OUTPUT_BASE"), "FV")
+
+        if env.GetValue("SHUTDOWN_AFTER_RUN") == "TRUE":
+            target_string = env.GetValue("TARGET_STRING")
+        else:
+            target_string = None
 
         # Check if QEMU is on the path, if not find it
         executable = "qemu-system-x86_64"
@@ -93,8 +99,8 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             args += " -serial tcp:127.0.0.1:" + serial_port + ",server,nowait"
 
         # Run QEMU
-        #ret = QemuRunner.RunCmd(executable, args,  thread_target=QemuRunner.QemuCmdReader)
-        ret = utility_functions.RunCmd(executable, args)
+        ret = QemuRunner.RunCmd(executable, args, target_string=target_string, thread_target=QemuRunner.QemuCmdReader)
+        # ret = utility_functions.RunCmd(executable, args)
         ## TODO: restore the customized RunCmd once unit tests with asserts are figured out
         if ret == 0xc0000005:
             ret = 0
@@ -111,8 +117,9 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
     #  http://stackoverflow.com/questions/19423008/logged-subprocess-communicate
     ####
     @staticmethod
-    def QemuCmdReader(filepath, outstream, stream, logging_level=logging.INFO):
+    def QemuCmdReader(filepath, outstream, stream, target_string=None, logging_level=logging.INFO):
         f = None
+        return_success = False
         # open file if caller provided path
         error_found = False
         if(filepath):
@@ -134,7 +141,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
                 outstream.write(ss)
                 f.write("\n")
             logging.log(logging_level, ss)
-            if s.startswith("ASSERT "):
+            if ss.startswith("ASSERT "):
                 message = "ASSERT DETECTED, killing QEMU process: " + ss
                 logging.error(message)
                 if (outstream is not None):
@@ -143,9 +150,21 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
                     f.write(message)
                 error_found = True
                 break
+            if ss == target_string:
+                message = f'Target String detected [{target_string}]. Exiting QEMU.'
+                logging.info(message)
+                if outstream is not None:
+                    outstream.write(message)
+                if f is not None:
+                    f.write(message)
+                return_success = True
+                break
         stream.close()
         if(f is not None):
             f.close()
+
+        if return_success:
+            return 0
         return None if not error_found else 1
 
     ####
@@ -167,7 +186,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
     # @return returncode of called cmd
     ####
     @staticmethod
-    def RunCmd(cmd, parameters, capture=True, workingdir=None, outfile=None, outstream=None, environ=None, thread_target=None, logging_level=logging.INFO, raise_exception_on_nonzero=False):
+    def RunCmd(cmd, parameters, capture=True, workingdir=None, outfile=None, outstream=None, environ=None, thread_target=None, target_string=None, logging_level=logging.INFO, raise_exception_on_nonzero=False):
         cmd = cmd.strip('"\'')
         if " " in cmd:
             cmd = '"' + cmd + '"'
@@ -184,7 +203,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         wait_delay = 0.5 # we check about every second
         c = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=workingdir, shell=True, env=environ)
         if(capture):
-            thread = PropagatingThread(target=thread_target, args=(outfile, outstream, c.stdout, logging_level))
+            thread = PropagatingThread(target=thread_target, args=(outfile, outstream, c.stdout, target_string, logging_level))
             thread.start()
             while True:
                 try:
@@ -197,8 +216,24 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
                     break
             # if the propagating thread exited but the cmd is still going
             if c.poll() is None and not thread.is_alive():
-                logging.log(logging_level,"WARNING: Terminating the process early due to target")
-                c.kill()
+                logging.log(logging_level,"Terminating the process early due to target")
+
+                # Hacky. If the variable `thread` (Propagating Thread... what listens to qemu output) closes itself
+                # due to detecting the target_string, we continue, but qemu itself is not actually closed, so we
+                # need to search for the process and kill it manually.
+                #
+                # On the other hand, we can end up in this same branch if a user manually closes the qemu window.
+                # When that happens, the process is already closed, so we get a NoSuchProcess Assert. Due to this,
+                # We wrap the process killing in a try statement so we don't assert if that happens.
+                try:
+                    parent = psutil.Process(c.pid)
+                    for proc in parent.children(recursive=True):
+                        if proc.name().startswith('qemu-system-x86_64'):
+                            proc.kill()
+                            logging.log(logging_level, "Successfully found and terminated QEMU process.")
+                except psutil.NoSuchProcess:
+                    pass
+
                 if thread.ret != None:
                     c.returncode = thread.ret # force the return code to be non zero
             if c.poll() is None and not thread.is_alive():
