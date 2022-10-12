@@ -18,9 +18,7 @@ jobs:
     variables:
       package: 'QemuQ35Pkg'
       vm_image: 'ubuntu-18.04'
-      # Do not run to EFI shell since we cannot reach EFI shell yet.
-      # Temporary_Rust_Todo - Try replacing the shell check with a check for the final serial output message.
-      should_run: false
+      should_run: true
       run_flags: "SHUTDOWN_AFTER_RUN=TRUE QEMU_HEADLESS=TRUE EMPTY_DRIVE=TRUE"
 
     #Use matrix to speed up the build process

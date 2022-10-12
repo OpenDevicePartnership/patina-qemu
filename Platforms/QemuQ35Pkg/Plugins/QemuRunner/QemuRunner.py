@@ -35,6 +35,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         ''' Runs QEMU '''
         VirtualDrive = env.GetValue("VIRTUAL_DRIVE_PATH")
         OutputPath_FV = os.path.join(env.GetValue("BUILD_OUTPUT_BASE"), "FV")
+        shutdown_after_run = (env.GetValue("SHUTDOWN_AFTER_RUN", "FALSE")=="TRUE")
 
         # Check if QEMU is on the path, if not find it
         executable = "qemu-system-x86_64"
@@ -92,11 +93,15 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         if serial_port != None:
             args += " -serial tcp:127.0.0.1:" + serial_port + ",server,nowait"
 
+        # If set, allows Qemu to listen for a debug command to shutdown, if set
+        if shutdown_after_run:
+            args += " -device isa-debug-exit,iobase=0xf4,iosize=0x04"
+
         # Run QEMU
-        #ret = QemuRunner.RunCmd(executable, args,  thread_target=QemuRunner.QemuCmdReader)
-        ret = utility_functions.RunCmd(executable, args)
-        ## TODO: restore the customized RunCmd once unit tests with asserts are figured out
-        if ret == 0xc0000005:
+        ret = QemuRunner.RunCmd(executable, args,  thread_target=QemuRunner.QemuCmdReader)
+
+        # ret == 33 for qemu_exit(success)
+        if ret == 0xc0000005 or ret == 33:
             ret = 0
 
         return ret

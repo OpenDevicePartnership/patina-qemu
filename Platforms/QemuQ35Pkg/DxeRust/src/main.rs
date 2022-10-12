@@ -292,6 +292,10 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     println!("Back from target module with status {:#x}", status);
 
     println!("It did not crash!");
+    
+    // Call exit_qemu, which will shutdown qemu if sa-debug-exit,iobase=0xf4,iosize=0x04 is set
+    // Else it will hit hlt_loop and wait.
+    dxe_rust::exit_qemu(dxe_rust::QemuExitCode::Success);
     dxe_rust::hlt_loop();
 }
 
@@ -300,6 +304,7 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
+    dxe_rust::exit_qemu(dxe_rust::QemuExitCode::Failed);
     dxe_rust::hlt_loop();
 }
 
