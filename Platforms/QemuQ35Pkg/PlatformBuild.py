@@ -231,8 +231,6 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
         self.env.SetValue("YAML_POLICY_FILE", self.mws.join(self.ws, "QemuQ35Pkg", "PolicyData", "PolicyDataUsb.yaml"), "Platform Hardcoded")
         self.env.SetValue("POLICY_DATA_STRUCT_FOLDER", self.mws.join(self.ws, "QemuQ35Pkg", "Include"), "Platform Defined")
         self.env.SetValue('POLICY_REPORT_FOLDER', self.mws.join(self.ws, "QemuQ35Pkg", "PolicyData"), "Platform Defined")
-        
-        self.env.SetValue('TARGET_STRING', 'It did not crash!', "Platform Defined")
 
         return 0
 

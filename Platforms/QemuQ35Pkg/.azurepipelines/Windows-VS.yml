@@ -20,7 +20,7 @@ jobs:
       vm_image: 'windows-2022'
       # Do not run to EFI shell since we cannot reach EFI shell yet.
       # Temporary_Rust_Todo - Try replacing the shell check with a check for the final serial output message.
-      should_run: true
+      should_run: false
       run_flags: "SHUTDOWN_AFTER_RUN=TRUE QEMU_HEADLESS=TRUE EMPTY_DRIVE=TRUE"
 
     #Use matrix to speed up the build process
