@@ -19,7 +19,6 @@ use dxe_rust::{
     memory::{self, DynamicFrameAllocator},
     memory_region::{MemoryRegion, MemoryRegionKind},
     pe32, println,
-    uefi_allocator::{allocate_runtime_pages, allocate_zero_pool, free_pages},
 };
 use goblin::pe;
 use r_efi::efi::Guid;
@@ -29,7 +28,7 @@ pub const PHYS_MEMORY_OFFSET: u64 = 0x00; // Handoff happens with memory identit
 
 #[cfg_attr(target_os = "uefi", export_name = "efi_main")]
 pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
-    use dxe_rust::{allocator, uefi_allocator};
+    use dxe_rust::allocator;
     use x86_64::VirtAddr;
 
     println!("HOB list is here - {:?}", hob_list);
@@ -53,26 +52,6 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     unsafe { frame_allocator.add_region(phit_region) };
 
     allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
-    uefi_allocator::init_heap(&mut mapper, &mut frame_allocator).expect("UEFI heap initialization failed");
-
-    // Test code
-    let x1: usize = allocate_runtime_pages(5);
-    println!("allocate_runtime_pages returned {:x}", x1);
-
-    println!("before allocate_zero_pool");
-    let x2: usize = allocate_zero_pool(999);
-    println!("allocate_zero_pool returned {:x}", x2);
-
-    //    let x2: usize = allocate_runtime_pages(2);
-    //    println!("allocate_runtime_pages returned {:x}", x2);
-
-    let x3: usize = allocate_runtime_pages(7);
-    println!("allocate_runtime_pages returned {:x}", x3);
-
-    free_pages(x1, 5);
-    free_pages(x3, 7);
-
-    println!("Finished freeing pages");
 
     let converted_mem_type = dxe_rust::memory_types::EfiMemoryType::from(4u16);
     println!("Converted memory type of {} is {:?}", 4, converted_mem_type);
