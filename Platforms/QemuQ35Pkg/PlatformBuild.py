@@ -212,7 +212,7 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
         self.env.SetValue("EMPTY_DRIVE", "FALSE", "Default to false")
         self.env.SetValue("RUN_TESTS", "FALSE", "Default to false")
         self.env.SetValue("QEMU_HEADLESS", "FALSE", "Default to false")
-        self.env.SetValue("SHUTDOWN_AFTER_RUN", "FALSE", "Default to false")
+        self.env.SetValue("SHUTDOWN_AFTER_RUN", "TRUE", "Default to true")
         # needed to make FV size build report happy
         self.env.SetValue("BLD_*_BUILDID_STRING", "Unknown", "Default")
         # Default turn on build reporting.
