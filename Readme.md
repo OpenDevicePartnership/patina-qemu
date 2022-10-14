@@ -100,8 +100,8 @@ The following instructions set up the UEFI Rust code repository.
 
 ## Rust DXE Core Details
 
-One of the current work items in this repository is a Rust DXE Core, ideally a bare-metail "kernel" that can be
-dispatched from DXE IPl.
+One of the current work items in this repository is a Rust DXE Core, ideally a bare-metal "kernel" that can be
+dispatched from DXE IPL.
 
 If QEMU and the Q35 platform build are set up successfully, this should start QEMU and boot the UEFI firmware you
 built; log should be displayed in your terminal and the QEMU instance should boot to UEFI shell.
@@ -110,9 +110,9 @@ built; log should be displayed in your terminal and the QEMU instance should boo
 
 1. Construction of a bare-metal "kernel" to dispatch from `DxeIpl`.
    1. Built in a basic build environment for no-std
-   1. Uses a basic output subsystem (likely legacy UART, but maybe VGA if it works in QEMU before GOP starts it)
-   1. Integrated into the Q35 UEFI build as replacement for `DxeMain` with observable debug output
-   1. No direct dependencies on PEI except PI abstracted structures
+   2. Uses a basic output subsystem (likely legacy UART, but maybe VGA if it works in QEMU before GOP starts it)
+   3. Integrated into the Q35 UEFI build as replacement for `DxeMain` with observable debug output
+   4. No direct dependencies on PEI except PI abstracted structures
 
 2. Integration of Rust component builds into UEFI build system - i.e. not building in two separate enlistments and
    copying around outputs.
@@ -121,7 +121,7 @@ built; log should be displayed in your terminal and the QEMU instance should boo
 
 4. Support for rudimentary paging and heap allocation.
    1. Investigate `DxeIpl` handoff implementation
-   1. Explore how to handle dynamic allocation of different memory types (e.g. RuntimeCode/Data vs.
+   2. Explore how to handle dynamic allocation of different memory types (e.g. RuntimeCode/Data vs.
       BootServicesCode/Data)
 
 ## Rust Build Details
