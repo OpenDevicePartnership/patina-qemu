@@ -157,6 +157,15 @@ Adding `--flashonly` to the end of the build command will run QEMU with the last
   stuart_build -c QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=VS2022 --flashonly
   ```
 
+#### Control QEMU Shutdown Behavior
+
+By default, QEMU will automatically shutdown after running. QEMU can be kept open, by passing the `SHUTDOWN_AFTER_RUN`
+argument to the build command.
+
+  ```cmd
+  stuart_build -c QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=VS2022 --flashrom SHUTDOWN_AFTER_RUN=FALSE
+  ```
+
 ### Build an Individual Rust Module with Cargo
 
   Go to the module folder, such as Platforms/QemuQ35Pkg/DxeRust
