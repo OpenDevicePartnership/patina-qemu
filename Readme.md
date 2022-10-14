@@ -128,9 +128,38 @@ built; log should be displayed in your terminal and the QEMU instance should boo
 
 Multiple approaches are supported to build Rust UEFI modules.
 
-1. Build the rust module with Cargo.
+### Build QemuQ35Pkg (with Rust Modules)
 
-  Go to the module folder, such as MdeModulePkg\Universal\CapsulePei
+  ```cmd
+  stuart_build -c QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=VS2022
+  ```
+
+  This will also add the section header, FFS header, and FV header for the .efi image. Different modules types such as
+  PEIM, DXE, and SMM drivers are supported.
+
+  In summary, no special steps are needed, Rust modules will be built and included in the flash image similar to
+  non-Rust modules.
+
+#### Build and Run QEMU After Build
+
+Adding `--flashrom` to the end of the build command will automatically run the generated firmware image on QEMU after
+the build is complete.
+
+  ```cmd
+  stuart_build -c QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=VS2022 --flashrom
+  ```
+
+#### Only Run QEMU on Last Build
+
+Adding `--flashonly` to the end of the build command will run QEMU with the last built image (skips building again).
+
+  ```cmd
+  stuart_build -c QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=VS2022 --flashonly
+  ```
+
+### Build an Individual Rust Module with Cargo
+
+  Go to the module folder, such as Platforms/QemuQ35Pkg/DxeRust
 
   ```cmd
   cargo build [--release] --target [x86_64-unknown-uefi|i686-unknown-uefi]
@@ -138,16 +167,7 @@ Multiple approaches are supported to build Rust UEFI modules.
 
   the output is target/[x86_64-unknown-uefi|i686-unknown-uefi]/[debug|release]/module_name.efi
 
-  This only works for UEFI application.
-2. Build the rust module with EDK II tools.
-
-  ```cmd
-  stuart_build -c QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=VS2022 --FlashRom
-  ```
-
-  This will also add the section header, FFS header, and FV header for the .efi image.
-
-  It supports the ability to generate PEIM/DXE driver/SMM driver in the final FD image.
+  This only works for UEFI applications.
 
 ## Supported Build Combinations
 
