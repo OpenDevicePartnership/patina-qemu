@@ -35,7 +35,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         ''' Runs QEMU '''
         VirtualDrive = env.GetValue("VIRTUAL_DRIVE_PATH")
         OutputPath_FV = os.path.join(env.GetValue("BUILD_OUTPUT_BASE"), "FV")
-        shutdown_after_run = (env.GetValue("SHUTDOWN_AFTER_RUN", "FALSE")=="TRUE")
+        shutdown_after_run = (env.GetValue("SHUTDOWN_AFTER_RUN", "TRUE")=="TRUE")
 
         # Check if QEMU is on the path, if not find it
         executable = "qemu-system-x86_64"
