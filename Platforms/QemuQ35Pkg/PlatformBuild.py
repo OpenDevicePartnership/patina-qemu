@@ -108,6 +108,8 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
         based on changed files. This should cover things that can't
         be detected as dependencies. '''
         build_these_packages = []
+        submodules = set(map(lambda s: s.path, self.GetRequiredSubmodules()))
+
         possible_packages = potentialPackagesList.copy()
         for f in changedFilesList:
             # BaseTools files that might change the build
@@ -120,6 +122,9 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
             if "platform-build-run-steps.yml" in f:
                 build_these_packages = possible_packages
                 break
+            
+            if f in submodules:
+                build_these_packages = possible_packages
 
         return build_these_packages
 
