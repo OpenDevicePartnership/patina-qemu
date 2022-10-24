@@ -20,6 +20,7 @@ pub mod memory_region;
 pub mod memory_types;
 pub mod pe32;
 pub mod serial;
+pub mod systemtables;
 
 pub fn init() {
     gdt::init();

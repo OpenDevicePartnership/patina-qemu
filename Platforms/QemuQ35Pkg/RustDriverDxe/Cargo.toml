@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 dxe_rust = { path="../DxeRust" }
+r-efi = "4.0.0"

@@ -19,6 +19,7 @@ use dxe_rust::{
     memory::{self, DynamicFrameAllocator},
     memory_region::{MemoryRegion, MemoryRegionKind},
     pe32, println,
+    systemtables::EfiSystemTable,
 };
 use goblin::pe;
 use r_efi::efi::Guid;
@@ -130,6 +131,9 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     }
 
     //pe32::parse_first(&parsed_hobs).expect("parsing pe32 failed");
+
+    // Instantiate system table. Note: this eventually should be a global static of some kind.
+    let st = EfiSystemTable::init_system_table();
 
     //
     // PE32 load and relocate testing
@@ -264,14 +268,21 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
 
     println!("Invoking target module.");
     let ptr = target_entry_point_addr as *const ();
-    let entry_point: unsafe extern "efiapi" fn(*const u8) -> u64 = unsafe { transmute(ptr) };
 
-    let status = unsafe { entry_point(hob_list as *const u8) };
+    //TODO: This definition treats the system table as const; however, entry points can modify it.
+    //Even more challenging is that they can hang on to the system table pointer and modify it later (e.g. in a protocol notify).
+    //So this should really be a mut - but to make it mut and enforce semantics around modifying it (e.g. only allowing modification
+    //in the entry point function, or requiring a call back into rust to modify instead of writing directly) would break
+    //current semantics. This needs further thought/review.
+    let entry_point: unsafe extern "efiapi" fn(*const c_void, *const r_efi::system::SystemTable) -> u64 =
+        unsafe { transmute(ptr) };
+
+    let status = unsafe { entry_point(core::ptr::null_mut(), st.as_ref()) };
 
     println!("Back from target module with status {:#x}", status);
 
     println!("It did not crash!");
-    
+
     // Call exit_qemu, which will shutdown qemu if sa-debug-exit,iobase=0xf4,iosize=0x04 is set
     // Else it will hit hlt_loop and wait.
     dxe_rust::exit_qemu(dxe_rust::QemuExitCode::Success);
