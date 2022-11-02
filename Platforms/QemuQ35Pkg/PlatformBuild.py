@@ -235,7 +235,19 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
 
         self.env.SetValue("YAML_POLICY_FILE", self.mws.join(self.ws, "QemuQ35Pkg", "PolicyData", "PolicyDataUsb.yaml"), "Platform Hardcoded")
         self.env.SetValue("POLICY_DATA_STRUCT_FOLDER", self.mws.join(self.ws, "QemuQ35Pkg", "Include"), "Platform Defined")
-        self.env.SetValue('POLICY_REPORT_FOLDER', self.mws.join(self.ws, "QemuQ35Pkg", "PolicyData"), "Platform Defined")
+        self.env.SetValue("POLICY_REPORT_FOLDER", self.mws.join(self.ws, "QemuQ35Pkg", "PolicyData"), "Platform Defined")
+        
+        return 0
+
+    def PlatformPreBuild(self):
+
+        shell_env = shell_environment.GetEnvironment()
+
+        # Unless explicitly set, default to RUSTC_BOOTSTRAP=1
+        if shell_env.get_shell_var("RUSTC_BOOTSTRAP") is None: 
+            rustc_bootstrap = self.env.GetValue("RUSTC_BOOTSTRAP", "1")
+            shell_env.set_shell_var("RUSTC_BOOTSTRAP", rustc_bootstrap)
+            logging.info("Override: RUSTC_BOOTSTRAP={}".format(rustc_bootstrap))
 
         return 0
 

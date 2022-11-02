@@ -20,6 +20,9 @@ jobs:
       vm_image: 'windows-2022'
       should_run: true
       run_flags: "QEMU_HEADLESS=TRUE EMPTY_DRIVE=TRUE"
+      rust_target: 1.64.0 # Stable branch as of 10/21/2022
+      RUSTUP_TOOLCHAIN: "ms-$(rust_target)"
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
 
     #Use matrix to speed up the build process
     strategy:
@@ -70,10 +73,18 @@ jobs:
         - powershell: choco install qemu --version=2020.08.14; Write-Host "##vso[task.prependpath]c:\Program Files\qemu"
           displayName: Install QEMU and Set QEMU on path # friendly name displayed in the UI
           condition: and(gt(variables.pkg_count, 0), succeeded())
-        - powershell: rustup toolchain install nightly
-          displayName: Install nightly toolchain
-          condition: and(gt(variables.pkg_count, 0), succeeded())
-        - powershell: rustup component add rust-src --toolchain nightly-x86_64-pc-windows-msvc
-          displayName: Rustup add rust-src
-          condition: and(gt(variables.pkg_count, 0), succeeded())
+        - task: RustInstaller@1
+          inputs:
+            rustVersion: ms-$(rust_target)
+            authenticationToken: $(RustInstallerToken)
+          displayName: Install Microsoft Rust toolchain
+        - task: Powershell@2 # In order to comply with msrustup
+          inputs:
+            targetType: 'inline'
+            script: |
+              " 
+              [source]
+              crates-io = { replace-with = `"ms-crates-io`" }
+              ms-crates-io = { registry = `"$(MsCratesIO)`" }" | Out-File -FilePath .cargo/config.toml -Append -encoding ASCII
+          displayName: Overriding default crates-io with internal ms-crates-io
 

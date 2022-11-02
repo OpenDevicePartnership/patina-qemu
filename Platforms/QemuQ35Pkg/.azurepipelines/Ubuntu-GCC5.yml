@@ -20,6 +20,9 @@ jobs:
       vm_image: 'ubuntu-18.04'
       should_run: true
       run_flags: "QEMU_HEADLESS=TRUE EMPTY_DRIVE=TRUE"
+      rust_target: 1.64.0 # Stable branch as of 10/21/2022
+      RUSTUP_TOOLCHAIN: "ms-$(rust_target)"
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
 
     #Use matrix to speed up the build process
     strategy:
@@ -72,12 +75,17 @@ jobs:
         - bash: sudo apt-get install gcc g++ make uuid-dev qemu
           displayName: Install Packages
           condition: and(gt(variables.pkg_count, 0), succeeded())
-        - bash: sudo curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          displayName: Install rustup
-          condition: and(gt(variables.pkg_count, 0), succeeded())
-        - bash: source "$HOME/.cargo/env" && rustup toolchain install nightly
-          displayName: Install nightly toolchain
-          condition: and(gt(variables.pkg_count, 0), succeeded())
-        - bash: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
-          displayName: Rustup add rust-src
-          condition: and(gt(variables.pkg_count, 0), succeeded())
+        - task: RustInstaller@1
+          inputs:
+            rustVersion: ms-$(rust_target) 
+            authenticationToken: $(RustInstallerToken)
+          displayName: Install Microsoft Rust toolchain
+        - task: Powershell@2 # In order to comply with msrustup
+          inputs:
+            targetType: 'inline'
+            script: |
+              " 
+              [source]
+              crates-io = { replace-with = `"ms-crates-io`" }
+              ms-crates-io = { registry = `"$(MsCratesIO)`" }" | Out-File -FilePath .cargo/config.toml -Append -encoding ASCII
+          displayName: Overriding default crates-io with internal ms-crates-io

@@ -1,1 +1,2 @@
-nightly
+[toolchain]
+channel = "1.64.0" # stable as of 10/21/2022
