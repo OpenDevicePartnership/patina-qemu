@@ -14,7 +14,6 @@ use core::{
     str::{from_utf8, FromStr},
 };
 use dxe_rust::{
-    fv::{FfsFileType, FfsSection, FfsSectionType, FirmwareVolume},
     hob::{Hob, HobList, PhaseHandoffInformationTable},
     memory::{self, DynamicFrameAllocator},
     memory_region::{MemoryRegion, MemoryRegionKind},
@@ -24,6 +23,7 @@ use dxe_rust::{
 use goblin::pe;
 use r_efi::efi::Guid;
 use x86_64::{align_down, align_up};
+use fv_lib::{FfsFileType, FfsSection, FfsSectionType, FirmwareVolume};
 
 pub const PHYS_MEMORY_OFFSET: u64 = 0x00; // Handoff happens with memory identity mapped.
 

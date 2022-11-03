@@ -1,0 +1,17 @@
+[package]
+name = "FvRustLib"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "fv_lib"
+path = "src/lib.rs"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+x86_64 = "0.14.2"
+r-efi = "4.0.0"
+
+[dependencies.uuid]
+version = "1"
+default-features = false

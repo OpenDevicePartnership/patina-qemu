@@ -12,6 +12,7 @@ indoc = "1.0"
 uart_16550 = "0.2.0"
 volatile = "0.2.6"
 x86_64 = "0.14.2"
+FvRustLib = {path = "../Library/FvRustLib"}
 
 [dependencies.lazy_static]
 version = "1.0"

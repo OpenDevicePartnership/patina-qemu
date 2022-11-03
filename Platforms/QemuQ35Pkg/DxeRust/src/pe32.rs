@@ -1,12 +1,12 @@
 use core::convert::TryInto;
 
 use crate::{
-    fv::{FfsFileType, FfsSection, FirmwareVolume},
     hob::{Hob, HobList},
     println,
 };
 use alloc::vec::Vec;
 use scroll::Pread;
+use fv_lib::{FfsFileType, FfsSection, FirmwareVolume};
 
 #[derive(Debug)]
 pub enum Pe32Error {

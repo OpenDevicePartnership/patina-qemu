@@ -1,8 +1,10 @@
 // Based on the definitions in
 // https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Pi/PiFirmwareVolume.h
 // https://github.com/tianocore/edk2/blob/master/MdePkg/Include/Pi/PiFirmwareFile.h
-
+#![no_std]
 #![allow(dead_code)] //allow private constants that are not (yet) used.
+extern crate alloc;
+use core::iter::Iterator;
 
 use alloc::string::ToString;
 use core::{fmt, mem::size_of, slice};
