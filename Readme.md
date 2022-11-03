@@ -43,15 +43,17 @@ The following instructions install Rust.
 
    \>`cargo --version`
 
-3. Install the nightly x86_64 rust toolchain as the project uses various experimental features of Rust that need it.
+3. Install the 1.64.0 x86_64 rust toolchain.
 
-   \>`rustup toolchain install nightly`
+   \>`rustup toolchain install 1.64.0-x86_64-pc-windows-msvc`
 
-   \>`rustup component add rust-src --toolchain nightly-x86_64-pc-windows-msvc`
+   \>`rustup component add rust-src --toolchain 1.64.0-x86_64-pc-windows-msvc`
 
    Linux:
 
-   \>`rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu`
+   \>`rustup component add rust-src --toolchain 1.64.0-x86_64-unknown-linux-gnu`
+
+Did something not work right? Then go to _[Troubleshooting](#troubleshooting)_.
 
 The following instructions set up the UEFI Rust code repository.
 
@@ -197,3 +199,28 @@ argument to the build command.
    - Rust Lib build is supported by EDK II build rule – Toml-File. (Toml => .lib)
 6. Pure Rust Module + Pure Rust Library with EDK II Dependency.
    - Same as #4 + #5.
+
+## Notes
+
+1. This project uses `RUSTC_BOOSTRAP=1` environment variable due to internal requirements
+   1. This puts us in parity with the nightly features that exist on the toolchain targeted
+   2. The `nightly` toolchain may be used in place of this
+
+## Troubleshooting
+
+Installing the toolchain via the rust-toolchain.toml on windows may have the following error:
+
+```bash
+INFO - error: the 'cargo.exe' binary, normally provided by the 'cargo' component, is not applicable to the '1.64.0-x86_64-pc-windows-msvc' toolchain
+```
+
+To fix this:
+
+```bash
+# Reinstall the toolchain
+rustup toolchain uninstall 1.64.0-x86_64-pc-windows-msvc
+rustup toolchain install 1.64.0-x86_64-pc-windows-msvc
+
+# Add the rust-src back for the toolchain
+rustup component add rust-src --toolchain 1.64.0-x86_64-pc-windows-msvc
+```
