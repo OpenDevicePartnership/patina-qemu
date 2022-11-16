@@ -1,49 +1,31 @@
-use crate::memory::disable_page_protection;
+use crate::{physical_memory, utility::Locked};
 use alloc::alloc::{GlobalAlloc, Layout};
 use core::ptr::null_mut;
 use fixed_size_block::FixedSizeBlockAllocator;
-use x86_64::{
-    structures::paging::{mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB},
-    VirtAddr,
-};
 
 pub mod bump;
 pub mod fixed_size_block;
 pub mod linked_list;
 
-pub const HEAP_START: usize = 0x_4444_4444_0000;
-pub const HEAP_SIZE: usize = 1024 * 1024; // 1 MB
-
 #[global_allocator]
 static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
+
+#[derive(Debug)]
+pub enum HeapError {
+    FrameAllocationFailed,
+}
 
 /// Initialize the Heap
 ///
 /// Page Protection will be disabled during initialization
-pub fn init_heap(
-    mapper: &mut impl Mapper<Size4KiB>,
-    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
-) -> Result<(), MapToError<Size4KiB>> {
-    unsafe {
-        disable_page_protection();
-    }
-
-    let page_range = {
-        let heap_start = VirtAddr::new(HEAP_START as u64);
-        let heap_end = heap_start + HEAP_SIZE - 1u64;
-        let heap_start_page = Page::containing_address(heap_start);
-        let heap_end_page = Page::containing_address(heap_end);
-        Page::range_inclusive(heap_start_page, heap_end_page)
-    };
-
-    for page in page_range {
-        let frame = frame_allocator.allocate_frame().ok_or(MapToError::FrameAllocationFailed)?;
-        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
-        unsafe { mapper.map_to(page, frame, flags, frame_allocator)?.flush() };
-    }
+pub fn init_heap(size: u64) -> Result<(), HeapError> {
+    let range = physical_memory::FRAME_ALLOCATOR
+        .lock()
+        .allocate_frame_range_from_size(size)
+        .map_err(|_| HeapError::FrameAllocationFailed)?;
 
     unsafe {
-        ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
+        ALLOCATOR.lock().init(range.start_addr().as_u64() as usize, size as usize);
     }
 
     Ok(())
@@ -58,21 +40,6 @@ unsafe impl GlobalAlloc for Dummy {
 
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
         panic!("dealloc should be never called")
-    }
-}
-
-/// A wrapper around spin::Mutex to permit trait implementations.
-pub struct Locked<A> {
-    inner: spin::Mutex<A>,
-}
-
-impl<A> Locked<A> {
-    pub const fn new(inner: A) -> Self {
-        Locked { inner: spin::Mutex::new(inner) }
-    }
-
-    pub fn lock(&self) -> spin::MutexGuard<A> {
-        self.inner.lock()
     }
 }
 

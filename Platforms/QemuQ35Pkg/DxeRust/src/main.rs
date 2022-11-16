@@ -14,56 +14,95 @@ use core::{
     str::{from_utf8, FromStr},
 };
 use dxe_rust::{
-    hob::{Hob, HobList, PhaseHandoffInformationTable},
-    memory::{self, DynamicFrameAllocator},
-    memory_region::{MemoryRegion, MemoryRegionKind},
-    pe32, println,
+    allocator,
+    hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
+    pe32, physical_memory, println,
     systemtables::EfiSystemTable,
 };
+use fv_lib::{FfsFileType, FfsSection, FfsSectionType, FirmwareVolume};
 use goblin::pe;
 use r_efi::efi::Guid;
-use x86_64::{align_down, align_up};
-use fv_lib::{FfsFileType, FfsSection, FfsSectionType, FirmwareVolume};
+use x86_64::{align_down, align_up, structures::paging::PageTableFlags};
 
-pub const PHYS_MEMORY_OFFSET: u64 = 0x00; // Handoff happens with memory identity mapped.
+pub const INIT_HEAP_SIZE: u64 = 0x100000; //1MB
 
 #[cfg_attr(target_os = "uefi", export_name = "efi_main")]
 pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
-    use dxe_rust::allocator;
-    use x86_64::VirtAddr;
-
-    println!("HOB list is here - {:?}", hob_list);
-    let phit_hob: *const PhaseHandoffInformationTable = hob_list as *const PhaseHandoffInformationTable;
-
     // initialize IDT and GDT for exception handling
     dxe_rust::init();
 
-    // initialize memory subsystem
-    let phys_mem_offset = VirtAddr::new(PHYS_MEMORY_OFFSET);
-    let mut mapper = unsafe { memory::init_offset(phys_mem_offset) };
+    // Initialize memory subsystem.
+    // Unsafe because it assumes DXE loader set up identity mapped paging for
+    // the system beforehand and that the PHIT hob contents are correct
 
-    let mut frame_allocator = DynamicFrameAllocator::init();
-
-    let phit_region = MemoryRegion {
-        start: unsafe { align_up((*phit_hob).free_memory_bottom, 0x1000) },
-        end: unsafe { align_down((*phit_hob).free_memory_top, 0x1000) },
-        kind: MemoryRegionKind::Usable,
+    // 1. Initialize global frame allocator with free memory region from PHIT hob.
+    let phit_hob: *const PhaseHandoffInformationTable = hob_list as *const PhaseHandoffInformationTable;
+    let free_start = unsafe { align_up((*phit_hob).free_memory_bottom, 0x1000) };
+    let free_size = unsafe { align_down((*phit_hob).free_memory_top, 0x1000) - free_start };
+    unsafe {
+        physical_memory::FRAME_ALLOCATOR
+            .lock()
+            .add_physical_region(free_start, free_size)
+            .expect("Failed to add initial region to global frame allocator.")
     };
 
-    unsafe { frame_allocator.add_region(phit_region) };
+    // 2. initialize global default heap
+    allocator::init_heap(INIT_HEAP_SIZE).expect("Heap init fail.");
 
-    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
+    // 3. set up new page tables to replace those set up by the loader.
+    //    initially map EfiMemoryBottom->EfiMemoryTop.
+    let memory_start = unsafe { (*phit_hob).memory_bottom };
+    let memory_end = unsafe { (*phit_hob).memory_top };
+    unsafe {
+        physical_memory::x86_64::x86_paging_support::PAGE_TABLE
+            .lock()
+            .init(memory_start..memory_end)
+            .expect("Failed to initialize page table");
+    }
 
-    let converted_mem_type = dxe_rust::memory_types::EfiMemoryType::from(4u16);
-    println!("Converted memory type of {} is {:?}", 4, converted_mem_type);
-    println!("Initialization complete.");
-
-    // HobList will cache the HOB list in the heap
-    // Discover additional HOBs now that the heap is initialized
     let mut the_hob_list = HobList::default();
     the_hob_list.discover_hobs(hob_list);
 
-    println!("HOB List: {:?}", the_hob_list);
+    // 4. iterate over the hob list and map memory ranges from the pre-DXE memory allocation hobs.
+    for hob in the_hob_list.iter() {
+        let range = match hob {
+            Hob::MemoryAllocation(MemoryAllocation { header: _, alloc_descriptor: desc })
+            | Hob::MemoryAllocationModule(MemoryAllocationModule {
+                header: _,
+                alloc_descriptor: desc,
+                module_name: _,
+                entry_point: _,
+            }) => {
+                let base = desc.memory_base_address;
+                let size = desc.memory_length;
+                base..base.checked_add(size).expect("Invalid memory allocation hob")
+            }
+            Hob::FirmwareVolume(hob::FirmwareVolume { header: _, base_address, length })
+            | Hob::FirmwareVolume2(hob::FirmwareVolume2 {
+                header: _,
+                base_address,
+                length,
+                fv_name: _,
+                file_name: _,
+            })
+            | Hob::FirmwareVolume3(hob::FirmwareVolume3 {
+                header: _,
+                base_address,
+                length,
+                authentication_status: _,
+                extracted_fv: _,
+                fv_name: _,
+                file_name: _,
+            }) => *base_address..base_address.checked_add(*length).expect("Invalid FV hob"),
+            _ => continue,
+        };
+        unsafe {
+            physical_memory::x86_64::x86_paging_support::PAGE_TABLE
+                .lock()
+                .map_range(range, PageTableFlags::PRESENT)
+                .expect("Failed to map memory resource");
+        }
+    }
 
     // heap tests
 

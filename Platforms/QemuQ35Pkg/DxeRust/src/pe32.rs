@@ -5,8 +5,8 @@ use crate::{
     println,
 };
 use alloc::vec::Vec;
-use scroll::Pread;
 use fv_lib::{FfsFileType, FfsSection, FirmwareVolume};
+use scroll::Pread;
 
 #[derive(Debug)]
 pub enum Pe32Error {

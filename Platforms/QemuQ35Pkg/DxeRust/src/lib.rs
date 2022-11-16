@@ -4,6 +4,7 @@
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
+#![feature(const_option)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
@@ -14,12 +15,12 @@ pub mod allocator;
 pub mod gdt;
 pub mod hob;
 pub mod interrupts;
-pub mod memory;
-pub mod memory_region;
 pub mod memory_types;
 pub mod pe32;
+pub mod physical_memory;
 pub mod serial;
 pub mod systemtables;
+pub mod utility;
 
 pub fn init() {
     gdt::init();

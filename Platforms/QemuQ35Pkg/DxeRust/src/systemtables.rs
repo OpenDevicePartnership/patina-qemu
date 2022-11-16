@@ -349,9 +349,9 @@ impl EfiBootServicesTable {
 }
 
 pub struct EfiSystemTable {
-    system_table: Box<SystemTable>,           //TODO: for now, use the global allocator. Eventually need a runtime alloc for this.
-    _boot_service: EfiBootServicesTable,      // These fields ensure the BootServices and RuntimeServices structure pointers (in
-    _runtime_service: EfiRuntimeServicesTable,// the system_table) have the same lifetime as the EfiSystemTable.
+    system_table: Box<SystemTable>, //TODO: for now, use the global allocator. Eventually need a runtime alloc for this.
+    _boot_service: EfiBootServicesTable, // These fields ensure the BootServices and RuntimeServices structure pointers (in
+    _runtime_service: EfiRuntimeServicesTable, // the system_table) have the same lifetime as the EfiSystemTable.
 }
 
 impl EfiSystemTable {
