@@ -24,7 +24,7 @@ use goblin::pe;
 use r_efi::efi::Guid;
 use x86_64::{align_down, align_up, structures::paging::PageTableFlags};
 
-pub const INIT_HEAP_SIZE: u64 = 0x100000; //1MB
+pub const INIT_HEAP_SIZE: u64 = 0x1000000; //16MB
 
 #[cfg_attr(target_os = "uefi", export_name = "efi_main")]
 pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {

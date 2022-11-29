@@ -5,12 +5,13 @@
 #![feature(alloc_error_handler)]
 #![feature(const_mut_refs)]
 #![feature(const_option)]
+#![feature(allocator_api)]
+#![feature(slice_ptr_get)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
 extern crate alloc;
 use core::panic::PanicInfo;
-
 pub mod allocator;
 pub mod gdt;
 pub mod hob;

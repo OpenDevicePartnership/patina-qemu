@@ -1,18 +1,21 @@
 //! # X86 Paging Support module
 //! provides utilities related to x86 paging.
+use core::{
+    alloc::{Allocator, Layout},
+    ops::Range,
+};
 
-use core::ops::Range;
-
+use alloc::alloc::Global;
 use x86_64::{
     registers::control::{Cr3, Cr3Flags},
     structures::paging::{
-        mapper::MapToError, FrameAllocator, Mapper, OffsetPageTable, PageSize, PageTable, PageTableFlags, PhysFrame,
-        Size4KiB,
+        mapper::MapToError, FrameAllocator, Mapper, OffsetPageTable, Page, PageSize, PageTable, PageTableFlags,
+        PhysFrame, Size4KiB,
     },
     PhysAddr, VirtAddr,
 };
 
-use crate::{physical_memory, utility::Locked};
+use crate::utility::Locked;
 
 pub static PAGE_TABLE: Locked<GlobalPageTable> = Locked::new(GlobalPageTable::empty());
 
@@ -22,6 +25,7 @@ pub enum PageTableError {
     AlreadyStarted,
     InvalidRange,
     MapFailure,
+    OutOfMemory,
 }
 
 pub struct GlobalPageTable {
@@ -35,26 +39,22 @@ impl GlobalPageTable {
     /// Initialize page table
     ///
     /// Unsafe because it assumes:
-    /// 1. Global FRAME_ALLOCATOR is available
-    /// 2. FRAME_ALLOCATOR has enough frames required to cover the range
-    ///    memory_start..memory_end when setting up the page table,
-    /// 3. memory_start..memory_end contains the current stack, heap and dxe rust code
-    ///    so that the program is still viable after switching to this page table.
+    /// 1. Global allocator is initialized,
+    /// 2. Global allocator has enough memory required to allocate memory for
+    ///    pages to cover the range memory_start..memory_end when setting up the
+    ///    page table,
+    /// 3. memory_start..memory_end contains the current stack, heap and dxe
+    ///    rust code so that the program is still viable after switching to this
+    ///    page table.
     pub unsafe fn init(&mut self, range: Range<u64>) -> Result<(), PageTableError> {
         if let Some(_mapper) = &self.mapper {
             return Err(PageTableError::AlreadyStarted);
         }
-        // allocate a frame from the global allocator for our empty table.
-        let page_table_addr = physical_memory::FRAME_ALLOCATOR
-            .lock()
-            .allocate_frame_range_from_count(1)
-            .expect("failed to allocate initial frame for page table.")
-            .start_addr()
-            .as_u64();
 
-        //init a new offset page table using that frame zero-ed out to indicate nothing present
-        let level_4_table = &mut *(page_table_addr as *mut PageTable);
-        level_4_table.zero();
+        let layout = Layout::new::<PageTable>();
+        let l4_ptr = Global.allocate_zeroed(layout).map_err(|_| PageTableError::OutOfMemory)?.as_mut_ptr();
+
+        let level_4_table = &mut *(l4_ptr as *mut PageTable);
 
         let mapper = OffsetPageTable::new(level_4_table, VirtAddr::new(0));
         self.mapper = Some(mapper);
@@ -75,8 +75,9 @@ impl GlobalPageTable {
     /// Map a range of memory and set flags as specified.
     ///
     /// Unsafe because it assumes:
-    /// 1. Global FRAME_ALLOCATOR is available
-    /// 2. FRAME_ALLOCATOR has enough frames to cover the range specified.
+    /// 1. Global allocator is initialized
+    /// 2. Global allocator has enough memory to allocate pages to cover the
+    ///    range specified.
     /// 3. The specified range corresponds to functional usable memory.
     /// 4. FIXME: if a frame in the range is already mapped, it won't be updated to the new flags
     pub unsafe fn map_range(&mut self, range: Range<u64>, flags: PageTableFlags) -> Result<(), PageTableError> {
@@ -121,14 +122,13 @@ struct FrameAllocatorWrapper {}
 unsafe impl FrameAllocator<Size4KiB> for FrameAllocatorWrapper {
     /// allocates and returns a 4K page
     fn allocate_frame(&mut self) -> Option<PhysFrame> {
-        match physical_memory::FRAME_ALLOCATOR.lock().allocate_frame_range_from_count(1) {
-            Ok(frame_range) => {
-                let start_addr = PhysAddr::new(frame_range.start_addr().as_u64());
-                match PhysFrame::from_start_address(start_addr) {
-                    Ok(frame) => Some(frame),
-                    Err(_) => None,
-                }
-            }
+        let frame_size = Size4KiB::SIZE as usize;
+        let layout = unsafe { Layout::from_size_align_unchecked(frame_size, frame_size) };
+        match Global.allocate(layout) {
+            Ok(ptr) => match PhysFrame::from_start_address(PhysAddr::new(ptr.as_ptr() as *const u8 as u64)) {
+                Ok(frame) => Some(frame),
+                Err(_) => None,
+            },
             Err(_) => None,
         }
     }

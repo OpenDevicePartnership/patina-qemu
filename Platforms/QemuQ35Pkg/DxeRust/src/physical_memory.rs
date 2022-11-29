@@ -2,7 +2,6 @@
 //!
 //! The `physical_memory` module contains abstractions for interacting with and
 //! allocating physical memory.
-
 use crate::utility::Locked;
 
 use self::dynamic_frame_allocator::DynamicFrameAllocator;
