@@ -8,10 +8,21 @@
 ##
 
 parameters:
-  tool_chain_tag: ''
-  build_pkgs: ''
-  build_targets: ''
-  build_archs: ''
+  - name: tool_chain_tag
+    type: string
+    default: ''
+  - name: build_pkgs
+    type: string
+    default: ''
+  - name: build_targets
+    type: string
+    default: ''
+  - name: build_archs
+    type: string
+    default: ''
+  - name: extra_install_step
+    type: stepList
+    default: []
 
 steps:
 - checkout: self
@@ -61,7 +72,7 @@ steps:
 - task: CmdLine@1
   displayName: Setup ${{ parameters.build_pkgs }} ${{ parameters.build_archs}}
   inputs:
-    filename: stuart_setup
+    filename: stuart_ci_setup
     arguments: -c .pytool/CISettings.py -p $(pkgs_to_build) -t ${{ parameters.build_targets}} -a ${{ parameters.build_archs}} TOOL_CHAIN_TAG=${{ parameters.tool_chain_tag}}
   condition: and(gt(variables.pkg_count, 0), succeeded())
 
@@ -79,6 +90,9 @@ steps:
 #- template: basetools-build-steps.yml
 #  parameters:
 #    tool_chain_tag: ${{ parameters.tool_chain_tag }}
+
+# Potential Extra steps
+- ${{ parameters.extra_install_step }}
 
 - task: CmdLine@1
   displayName: Build and Test ${{ parameters.build_pkgs }} ${{ parameters.build_archs}}

@@ -9,20 +9,28 @@
 ##
 
 parameters:
-  tool_chain_tag: ''
-  vm_image: ''
-  arch_list: ''
-
+  - name: tool_chain_tag
+    type: string
+    default: ''
+  - name: vm_image
+    type: string
+    default: ''
+  - name: arch_list
+    type: string
+    default: ''
 # Build step
 jobs:
 
 - job: Build_${{ parameters.tool_chain_tag }}
-
+  variables:
+    rust_target: 1.64.0 # Stable branch as of 10/21/2022
+    RUSTUP_TOOLCHAIN: "ms-$(rust_target)"
+    CARGO_NET_GIT_FETCH_WITH_CLI: "true"
   #Use matrix to speed up the build process
   strategy:
     matrix:
       TARGET_OVMF_Q35:
-        Build.Pkgs: 'QemuQ35Pkg'
+        Build.Pkgs: 'OvmfPkg,QemuQ35Pkg'
         Build.Targets: 'NO-TARGET'
   workspace:
     clean: all
@@ -37,3 +45,18 @@ jobs:
       build_pkgs: $(Build.Pkgs)
       build_targets: $(Build.Targets)
       build_archs: ${{ parameters.arch_list }}
+      extra_install_step:
+      - task: RustInstaller@1
+        inputs:
+          rustVersion: ms-$(rust_target) 
+          authenticationToken: $(RustInstallerToken)
+        displayName: Install Microsoft Rust toolchain
+      - task: Powershell@2 # In order to comply with msrustup
+        inputs:
+          targetType: 'inline'
+          script: |
+            " 
+            [source]
+            crates-io = { replace-with = `"ms-crates-io`" }
+            ms-crates-io = { registry = `"$(MsCratesIO)`" }" | Out-File -FilePath .cargo/config.toml -Append -encoding ASCII
+        displayName: Overriding default crates-io with internal ms-crates-io
