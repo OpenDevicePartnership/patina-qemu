@@ -138,5 +138,11 @@
         "IgnoreFiles": [
             "**/ConfigData*.h"
         ]    # Standard Plugin defined paths that should be ignored.
+    },
+
+    "CargoTestHostCheck": {
+        "IgnoreRustPkg": [
+            "DxeRust",
+        ]
     }
 }

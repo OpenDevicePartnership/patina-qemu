@@ -22,7 +22,7 @@ jobs:
   strategy:
     matrix:
       TARGET_OVMF_Q35:
-        Build.Pkgs: 'OvmfPkg,QemuQ35Pkg'
+        Build.Pkgs: 'QemuQ35Pkg'
         Build.Targets: 'NO-TARGET'
   workspace:
     clean: all

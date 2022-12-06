@@ -652,3 +652,14 @@ impl fmt::Debug for FirmwareVolume {
         )
     }
 }
+
+#[cfg(test)]
+mod unit_tests {
+    // Unit tests have access to private data / functions!
+    use super::*;
+    
+    #[test]
+    fn trivial_unit_test() {
+        assert_eq!(EFI_FV_FILETYPE_ALL,0x00);
+    }
+}

@@ -200,6 +200,51 @@ argument to the build command.
 6. Pure Rust Module + Pure Rust Library with EDK II Dependency.
    - Same as #4 + #5.
 
+## Testing
+
+Currently, this project only supports host based testing for rust packages that
+contain a library. Note that a package that compiles to an efi binary, such as
+a DXE_DRIVER, can have a library; it only needs to meet one of these
+requirements:
+
+1. A `[[lib]]` section in the cargo.toml file for the Rust package
+2. A lib.rs file
+
+**It is the developer responsibility to ensure that the library remains**
+***target-triple* agnostic, meaning it must be able to compile to the host**
+**machine, along with i386-unknown-uefi and x86_64-unknown-uefi.**
+Here are a few suggestions on how to do this:
+
+1. Move all architecture specific functionality to a library and add the
+   library to the ci.yaml ignore list
+2. Move all architecture specific functionality out of the library and to the
+   binary (generally the main.rs)
+3. Conditionally compile architecture specific functionality using
+   `#[cfg(target_os="uefi")]` or `#[cfg_attr(target_os="uefi", <DECORATOR>)]`.
+
+### Types of Tests
+
+There are multiple types of tests that rust can perform including integration
+tests, unit tests, documentation tests, and performance tests. We currently
+only care about *Integration Tests* and *Unit Tests*.
+[Read More](.pytool\Plugin\CargoTestHostCheck\Readme.md#integration-tests)
+
+### Ways to Test
+
+A CI plugin ([Read More](.pytool\Plugin\CargoTestHostCheck\Readme.md)) exists
+that locates all rust packages and executes the tests, if they exist. Executing
+tests in this manner can be accomplished through the typical *stuart_ci_build*
+process and is automatically executed in the CI pipeline for PRs. The developer
+can additionally execute tests via the the cargo test command from within the
+rust package as seen below:
+
+1. All Tests: `cargo test --target=<TRIPLE> -Z build-std-features -Z build-std`
+2. Unit and Integration Tests: `cargo test --tests --target=<TRIPLE> -Z build-std-features -Z build-std`
+3. Unit Tests: `cargo test --lib --target=<TRIPLE> -Z build-std-features -Z build-std`
+4. Integration Tests: `cargo test --test='*' --target=<TRIPLE> -Z build-std-features -Z build-std`
+
+*Hint: You can determine your host's target system via the `rustc -vV` command.*
+
 ## Notes
 
 1. This project uses `RUSTC_BOOSTRAP=1` environment variable due to internal requirements
