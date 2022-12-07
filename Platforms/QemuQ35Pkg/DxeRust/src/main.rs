@@ -14,7 +14,7 @@ use core::{
     str::{from_utf8, FromStr},
 };
 use dxe_rust::{
-    allocator,
+    allocator::ALLOCATOR,
     hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
     pe32, physical_memory, println,
     systemtables::EfiSystemTable,
@@ -23,8 +23,6 @@ use fv_lib::{FfsFileType, FfsSection, FfsSectionType, FirmwareVolume};
 use goblin::pe;
 use r_efi::efi::Guid;
 use x86_64::{align_down, align_up, structures::paging::PageTableFlags};
-
-pub const INIT_HEAP_SIZE: u64 = 0x1000000; //16MB
 
 #[cfg_attr(target_os = "uefi", export_name = "efi_main")]
 pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
@@ -36,6 +34,8 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     // the system beforehand and that the PHIT hob contents are correct
 
     // 1. Initialize global frame allocator with free memory region from PHIT hob.
+    //    Note: this is _required_ before the global heap is used, since we need
+    //    a source of frames to expand the global heap once it starts being used.
     let phit_hob: *const PhaseHandoffInformationTable = hob_list as *const PhaseHandoffInformationTable;
     let free_start = unsafe { align_up((*phit_hob).free_memory_bottom, 0x1000) };
     let free_size = unsafe { align_down((*phit_hob).free_memory_top, 0x1000) - free_start };
@@ -46,10 +46,7 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
             .expect("Failed to add initial region to global frame allocator.")
     };
 
-    // 2. initialize global default heap
-    allocator::init_heap(INIT_HEAP_SIZE).expect("Heap init fail.");
-
-    // 3. set up new page tables to replace those set up by the loader.
+    // 2. set up new page tables to replace those set up by the loader.
     //    initially map EfiMemoryBottom->EfiMemoryTop.
     let memory_start = unsafe { (*phit_hob).memory_bottom };
     let memory_end = unsafe { (*phit_hob).memory_top };
@@ -63,7 +60,7 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     let mut the_hob_list = HobList::default();
     the_hob_list.discover_hobs(hob_list);
 
-    // 4. iterate over the hob list and map memory ranges from the pre-DXE memory allocation hobs.
+    // 3. iterate over the hob list and map memory ranges from the pre-DXE memory allocation hobs.
     for hob in the_hob_list.iter() {
         let range = match hob {
             Hob::MemoryAllocation(MemoryAllocation { header: _, alloc_descriptor: desc })
@@ -319,6 +316,8 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     let status = unsafe { entry_point(core::ptr::null_mut(), st.as_ref()) };
 
     println!("Back from target module with status {:#x}", status);
+
+    println!("{}", ALLOCATOR);
 
     println!("It did not crash!");
 

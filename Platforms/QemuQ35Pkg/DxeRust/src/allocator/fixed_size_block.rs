@@ -1,9 +1,20 @@
+use crate::physical_memory::FRAME_ALLOCATOR;
+
 use super::Locked;
 use alloc::alloc::{GlobalAlloc, Layout};
 use core::{
-    mem,
+    cmp::max,
+    fmt::{self, Display},
+    mem::{self, align_of, size_of},
     ptr::{self, NonNull},
 };
+use linked_list_allocator::{align_down, align_up};
+
+pub const MIN_EXPANSION: usize = 0x100000;
+
+pub enum AllocationError {
+    FrameAllocatorError,
+}
 
 /// The block sizes to use.
 ///
@@ -23,35 +34,124 @@ struct ListNode {
     next: Option<&'static mut ListNode>,
 }
 
+struct AllocatorListNode {
+    next: Option<*mut AllocatorListNode>,
+    allocator: linked_list_allocator::Heap,
+}
+
 pub struct FixedSizeBlockAllocator {
     list_heads: [Option<&'static mut ListNode>; BLOCK_SIZES.len()],
-    fallback_allocator: linked_list_allocator::Heap,
+    allocators: Option<*mut AllocatorListNode>,
 }
+
+// Safety: users of FixedSizeBlockAllocator are expected to use a locked
+// instance of the allocator if it will be accessible across threads.
+unsafe impl Send for FixedSizeBlockAllocator {}
+unsafe impl Sync for FixedSizeBlockAllocator {}
 
 impl FixedSizeBlockAllocator {
     /// Creates an empty FixedSizeBlockAllocator.
     pub const fn new() -> Self {
         const EMPTY: Option<&'static mut ListNode> = None;
-        FixedSizeBlockAllocator {
-            list_heads: [EMPTY; BLOCK_SIZES.len()],
-            fallback_allocator: linked_list_allocator::Heap::empty(),
+        FixedSizeBlockAllocator { list_heads: [EMPTY; BLOCK_SIZES.len()], allocators: None }
+    }
+
+    fn expand(&mut self, size: usize) -> Result<(), AllocationError> {
+        // claim some frames from the global FRAME allocator.
+        let memory_range = FRAME_ALLOCATOR
+            .lock()
+            .allocate_frame_range_from_size(size as u64)
+            .map_err(|_| AllocationError::FrameAllocatorError)?;
+
+        // set up the allocator, reserving space at the beginning of the range
+        // for the AllocatorListNode structure.
+        let aligned_node_addr = align_up(memory_range.start_addr().as_u64() as usize, align_of::<AllocatorListNode>());
+        let heap_bottom = aligned_node_addr + size_of::<AllocatorListNode>();
+        let heap_size =
+            memory_range.frame_range_size() as usize - (heap_bottom - memory_range.start_addr().as_u64() as usize);
+        let node_ptr = aligned_node_addr as *mut AllocatorListNode;
+        let node = AllocatorListNode { next: None, allocator: linked_list_allocator::Heap::empty() };
+
+        unsafe {
+            node_ptr.write(node);
+            (*node_ptr).allocator.init(heap_bottom as usize, heap_size as usize);
+            // Insert the new allocator to the beginning of the allocator list.
+            (*node_ptr).next = self.allocators;
+        }
+
+        self.allocators = Some(node_ptr);
+        Ok(())
+    }
+
+    /// Allocates using the fallback allocators.
+    fn fallback_alloc(&mut self, layout: Layout) -> *mut u8 {
+        for node in AllocatorIterator::new(self.allocators) {
+            let allocator = unsafe { &mut (*node).allocator };
+            if let Ok(ptr) = allocator.allocate_first_fit(layout) {
+                return ptr.as_ptr();
+            }
+        }
+        //if we get here, then allocation failed in all current allocation ranges.
+        //attempt to expand and then allocate again.
+        let expand_size =
+            layout.align() + layout.size() + align_of::<AllocatorListNode>() + size_of::<AllocatorListNode>();
+        if let Err(_) = self.expand(max(expand_size, MIN_EXPANSION)) {
+            return ptr::null_mut();
+        }
+        return self.fallback_alloc(layout);
+    }
+
+    fn fallback_dealloc(&mut self, ptr: *mut u8, layout: Layout) {
+        let ptr = NonNull::new(ptr).unwrap();
+        let address = ptr.as_ptr() as usize;
+        for node in AllocatorIterator::new(self.allocators) {
+            let allocator = unsafe { &mut (*node).allocator };
+            if (allocator.bottom() <= address) && (address < allocator.top()) {
+                unsafe { allocator.deallocate(ptr, layout) };
+            }
         }
     }
+}
 
-    /// Initialize the allocator with the given heap bounds.
-    ///
-    /// This function is unsafe because the caller must guarantee that the given
-    /// heap bounds are valid and that the heap is unused. This method must be
-    /// called only once.
-    pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
-        self.fallback_allocator.init(heap_start, heap_size);
+impl Display for Locked<FixedSizeBlockAllocator> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let fsb = self.lock();
+        write!(f, "Allocation Ranges:\n")?;
+        for node in AllocatorIterator::new(fsb.allocators) {
+            let allocator = unsafe { &mut (*node).allocator };
+            write!(
+                f,
+                "  PhysRange: {:#x}-{:#x}, Size: {:#x}, Used: {:#x} Free: {:#x} Maint: {:#x}\n",
+                align_down(allocator.bottom(), 0x1000), //account for AllocatorListNode
+                allocator.top(),
+                align_up(allocator.size(), 0x1000), //account for AllocatorListNode
+                allocator.used(),
+                allocator.free(),
+                align_up(allocator.size(), 0x100) - allocator.size()
+            )?;
+        }
+        Ok(())
     }
+}
 
-    /// Allocates using the fallback allocator.
-    fn fallback_alloc(&mut self, layout: Layout) -> *mut u8 {
-        match self.fallback_allocator.allocate_first_fit(layout) {
-            Ok(ptr) => ptr.as_ptr(),
-            Err(_) => ptr::null_mut(),
+struct AllocatorIterator {
+    current: Option<*mut AllocatorListNode>,
+}
+
+impl AllocatorIterator {
+    fn new(start_node: Option<*mut AllocatorListNode>) -> Self {
+        AllocatorIterator { current: start_node }
+    }
+}
+
+impl Iterator for AllocatorIterator {
+    type Item = *mut AllocatorListNode;
+    fn next(&mut self) -> Option<*mut AllocatorListNode> {
+        if let Some(current) = self.current {
+            self.current = unsafe { (*current).next };
+            Some(current)
+        } else {
+            None
         }
     }
 }
@@ -93,8 +193,7 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
                 allocator.list_heads[index] = Some(&mut *new_node_ptr);
             }
             None => {
-                let ptr = NonNull::new(ptr).unwrap();
-                allocator.fallback_allocator.deallocate(ptr, layout);
+                allocator.fallback_dealloc(ptr, layout);
             }
         }
     }
