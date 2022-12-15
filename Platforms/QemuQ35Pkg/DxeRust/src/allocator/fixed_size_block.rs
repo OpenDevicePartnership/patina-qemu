@@ -1,12 +1,12 @@
 use crate::physical_memory::FRAME_ALLOCATOR;
 
 use super::Locked;
-use alloc::alloc::{GlobalAlloc, Layout};
+use alloc::alloc::{AllocError, Allocator, GlobalAlloc, Layout};
 use core::{
     cmp::max,
     fmt::{self, Display},
     mem::{self, align_of, size_of},
-    ptr::{self, NonNull},
+    ptr::{self, slice_from_raw_parts_mut, NonNull},
 };
 use linked_list_allocator::{align_down, align_up};
 
@@ -196,5 +196,18 @@ unsafe impl GlobalAlloc for Locked<FixedSizeBlockAllocator> {
                 allocator.fallback_dealloc(ptr, layout);
             }
         }
+    }
+}
+
+unsafe impl Allocator for Locked<FixedSizeBlockAllocator> {
+    fn allocate(&self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
+        let allocation = unsafe { self.alloc(layout) };
+        let allocation = slice_from_raw_parts_mut(allocation, layout.size());
+        let allocation = NonNull::new(allocation).ok_or(AllocError)?;
+        Ok(allocation)
+    }
+
+    unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
+        self.dealloc(ptr.as_ptr(), layout)
     }
 }

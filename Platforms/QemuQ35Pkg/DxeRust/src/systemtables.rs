@@ -2,6 +2,7 @@
 
 use core::{ffi::c_void, mem::size_of, slice::from_raw_parts};
 
+use alloc::alloc::Allocator;
 use alloc::boxed::Box;
 use r_efi::{
     efi::{Boolean, Char16, Event, Guid, Handle, PhysicalAddress, Status, Tpl},
@@ -10,8 +11,10 @@ use r_efi::{
     system::{BootServices, RuntimeServices, SystemTable, TableHeader},
 };
 
+use crate::allocator::EFI_RUNTIME_SERVICES_DATA_ALLOCATOR;
+
 pub struct EfiRuntimeServicesTable {
-    runtime_services: Box<RuntimeServices>, //TODO: for now, use the global allocator. Eventually need a runtime alloc for this.
+    runtime_services: Box<RuntimeServices, &'static dyn Allocator>,
 }
 
 impl EfiRuntimeServicesTable {
@@ -102,12 +105,12 @@ impl EfiRuntimeServicesTable {
         let rt_slice = unsafe { from_raw_parts(rt_ptr, size_of::<RuntimeServices>()) };
         rt.hdr.crc32 = crc32fast::hash(rt_slice);
 
-        EfiRuntimeServicesTable { runtime_services: Box::new(rt) }
+        EfiRuntimeServicesTable { runtime_services: Box::new_in(rt, &EFI_RUNTIME_SERVICES_DATA_ALLOCATOR) }
     }
 }
 
 pub struct EfiBootServicesTable {
-    boot_services: Box<BootServices>,
+    boot_services: Box<BootServices>, //Use the global allocator (EfiBootServicesData)
 }
 
 impl EfiBootServicesTable {
@@ -349,7 +352,7 @@ impl EfiBootServicesTable {
 }
 
 pub struct EfiSystemTable {
-    system_table: Box<SystemTable>, //TODO: for now, use the global allocator. Eventually need a runtime alloc for this.
+    system_table: Box<SystemTable, &'static dyn Allocator>,
     _boot_service: EfiBootServicesTable, // These fields ensure the BootServices and RuntimeServices structure pointers (in
     _runtime_service: EfiRuntimeServicesTable, // the system_table) have the same lifetime as the EfiSystemTable.
 }
@@ -387,7 +390,11 @@ impl EfiSystemTable {
         let st_slice = unsafe { from_raw_parts(st_ptr, size_of::<SystemTable>()) };
         st.hdr.crc32 = crc32fast::hash(st_slice);
 
-        EfiSystemTable { system_table: Box::new(st), _boot_service: bs, _runtime_service: rt }
+        EfiSystemTable {
+            system_table: Box::new_in(st, &EFI_RUNTIME_SERVICES_DATA_ALLOCATOR),
+            _boot_service: bs,
+            _runtime_service: rt,
+        }
     }
     pub fn as_ref(&self) -> *const SystemTable {
         self.system_table.as_ref() as *const SystemTable

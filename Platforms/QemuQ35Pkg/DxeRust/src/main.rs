@@ -14,7 +14,7 @@ use core::{
     str::{from_utf8, FromStr},
 };
 use dxe_rust::{
-    allocator::ALLOCATOR,
+    allocator::{EFI_BOOT_SERVICES_DATA_ALLOCATOR, EFI_RUNTIME_SERVICES_DATA_ALLOCATOR},
     hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
     pe32, physical_memory, println,
     systemtables::EfiSystemTable,
@@ -317,7 +317,8 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
 
     println!("Back from target module with status {:#x}", status);
 
-    println!("{}", ALLOCATOR);
+    println!("Boot Services Data Allocator:\n{}", EFI_BOOT_SERVICES_DATA_ALLOCATOR);
+    println!("Runtime Services Data Allocator:\n{}", EFI_RUNTIME_SERVICES_DATA_ALLOCATOR);
 
     println!("It did not crash!");
 
