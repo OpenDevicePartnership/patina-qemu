@@ -211,3 +211,22 @@ unsafe impl Allocator for Locked<FixedSizeBlockAllocator> {
         self.dealloc(ptr.as_ptr(), layout)
     }
 }
+
+#[test]
+fn test_fixed_size_block_allocator() {
+    const SIZE: u64 = 1024 * 128; //132kb
+    
+    // Allocate some space on the heap with the global allocator (std) to allow
+    // our allocator to perform allocations on.
+    let boxed = Box::new([0; SIZE as usize]);
+    
+    unsafe {
+        FRAME_ALLOCATOR
+        .lock()
+        .add_physical_region(Box::into_raw(boxed) as u64, SIZE as u64)
+        .expect("Failed to add initial region to global frame allocator.")
+    };
+    pub static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
+
+    assert!(ALLOCATOR.lock().expand(0x1000).is_ok());
+}

@@ -142,7 +142,7 @@
 
     "CargoTestHostCheck": {
         "IgnoreRustPkg": [
-            "DxeRust",
+            "RustDriverDxe",
         ]
     }
 }

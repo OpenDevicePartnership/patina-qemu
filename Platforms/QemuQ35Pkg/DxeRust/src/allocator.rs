@@ -16,7 +16,7 @@ pub static EFI_LOADER_DATA_ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::
 pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: Locked<FixedSizeBlockAllocator> =
     Locked::new(FixedSizeBlockAllocator::new());
 //EfiBootServicesData - (default allocator for DxeRust)
-#[global_allocator]
+#[cfg_attr(not(test), global_allocator)]
 pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: Locked<FixedSizeBlockAllocator> =
     Locked::new(FixedSizeBlockAllocator::new());
 //EfiRuntimeServicesCode
@@ -49,4 +49,10 @@ pub fn get_allocator_for_type(memory_type: MemoryType) -> Option<&'static Locked
         ACPI_MEMORY_NVS => Some(&EFI_ACPI_MEMORY_NVS_ALLOCATOR),
         _ => None,
     }
+}
+
+#[cfg(not(test))]
+#[alloc_error_handler]
+fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
+    panic!("allocation error: {:?}", layout)
 }
