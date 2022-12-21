@@ -111,6 +111,16 @@ impl FixedSizeBlockAllocator {
             }
         }
     }
+
+    fn contains(&self, ptr: *mut u8) -> bool {
+        let address = ptr as usize;
+        AllocatorIterator::new(self.allocators)
+            .find(|&node| {
+                let allocator = unsafe { &mut (*node).allocator };
+                (allocator.bottom() <= address) && (address < allocator.top())
+            })
+            .is_some()
+    }
 }
 
 impl Display for Locked<FixedSizeBlockAllocator> {
@@ -212,19 +222,26 @@ unsafe impl Allocator for Locked<FixedSizeBlockAllocator> {
     }
 }
 
+impl Locked<FixedSizeBlockAllocator> {
+    pub fn contains(&self, ptr: NonNull<u8>) -> bool {
+        let allocator = self.lock();
+        allocator.contains(ptr.as_ptr())
+    }
+}
+
 #[test]
 fn test_fixed_size_block_allocator() {
     const SIZE: u64 = 1024 * 128; //132kb
-    
+
     // Allocate some space on the heap with the global allocator (std) to allow
     // our allocator to perform allocations on.
     let boxed = Box::new([0; SIZE as usize]);
-    
+
     unsafe {
         FRAME_ALLOCATOR
-        .lock()
-        .add_physical_region(Box::into_raw(boxed) as u64, SIZE as u64)
-        .expect("Failed to add initial region to global frame allocator.")
+            .lock()
+            .add_physical_region(Box::into_raw(boxed) as u64, SIZE as u64)
+            .expect("Failed to add initial region to global frame allocator.")
     };
     pub static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
 

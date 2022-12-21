@@ -399,4 +399,8 @@ impl EfiSystemTable {
     pub fn as_ref(&self) -> *const SystemTable {
         self.system_table.as_ref() as *const SystemTable
     }
+
+    pub fn boot_services(&self) -> &mut BootServices {
+        unsafe { self.system_table.boot_services.as_mut().expect("BootServices uninitialized") }
+    }
 }

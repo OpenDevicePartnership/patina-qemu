@@ -2,7 +2,7 @@ use core::convert::TryInto;
 
 use crate::{
     hob::{Hob, HobList},
-    println
+    println,
 };
 use alloc::vec::Vec;
 use fv_lib::{FfsFileType, FfsSection, FirmwareVolume};
@@ -145,17 +145,16 @@ pub fn pe32_relocate_image(destination: usize, image: &mut [u8]) -> Result<(), P
         }
 
         //println!("PE: {:#?}", pe);
-        let pe_opt_header = pe
-            .header
-            .optional_header.ok_or(Pe32Error::RelocationError)?;
+        let pe_opt_header = pe.header.optional_header.ok_or(Pe32Error::RelocationError)?;
 
-        let reloc_section_option = pe_opt_header
-            .data_directories
-            .get_base_relocation_table();
+        let reloc_section_option = pe_opt_header.data_directories.get_base_relocation_table();
 
         if let Some(reloc_section) = reloc_section_option {
             let relocation_data = image
-                .get(reloc_section.virtual_address as usize..(reloc_section.virtual_address + reloc_section.size) as usize)
+                .get(
+                    reloc_section.virtual_address as usize
+                        ..(reloc_section.virtual_address + reloc_section.size) as usize,
+                )
                 .ok_or(Pe32Error::RelocationError)?;
 
             for reloc_block in parse_relocation_blocks(relocation_data)? {
@@ -165,8 +164,7 @@ pub fn pe32_relocate_image(destination: usize, image: &mut [u8]) -> Result<(), P
                     let fixup = reloc_block.block_header.page_rva as usize + (reloc.type_and_offset & 0xFFF) as usize;
 
                     match fixup_type {
-                        0x00 =>
-                        {
+                        0x00 => {
                             //println!("  IMAGE_REL_BASE_ABSOLUTE: no action");
                             ()
                         } //IMAGE_REL_BASE_ABSOLUTE - no action, //IMAGE_REL_BASE_ABSOLUTE: no action.
