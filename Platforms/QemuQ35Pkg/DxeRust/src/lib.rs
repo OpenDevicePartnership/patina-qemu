@@ -7,7 +7,6 @@
 #![feature(slice_ptr_get)]
 
 extern crate alloc;
-use core::panic::PanicInfo;
 pub mod allocator;
 pub mod gdt;
 pub mod hob;

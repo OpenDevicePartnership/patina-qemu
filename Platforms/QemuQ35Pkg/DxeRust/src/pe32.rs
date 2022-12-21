@@ -2,7 +2,7 @@ use core::convert::TryInto;
 
 use crate::{
     hob::{Hob, HobList},
-    println,
+    println
 };
 use alloc::vec::Vec;
 use fv_lib::{FfsFileType, FfsSection, FirmwareVolume};
@@ -144,43 +144,46 @@ pub fn pe32_relocate_image(destination: usize, image: &mut [u8]) -> Result<(), P
             (*windows_fields).image_base = destination as u64;
         }
 
-        let reloc_section = pe
+        //println!("PE: {:#?}", pe);
+        let pe_opt_header = pe
             .header
-            .optional_header
-            .ok_or(Pe32Error::RelocationError)?
+            .optional_header.ok_or(Pe32Error::RelocationError)?;
+
+        let reloc_section_option = pe_opt_header
             .data_directories
-            .get_base_relocation_table()
-            .ok_or(Pe32Error::RelocationError)?;
+            .get_base_relocation_table();
 
-        let relocation_data = image
-            .get(reloc_section.virtual_address as usize..(reloc_section.virtual_address + reloc_section.size) as usize)
-            .ok_or(Pe32Error::RelocationError)?;
+        if let Some(reloc_section) = reloc_section_option {
+            let relocation_data = image
+                .get(reloc_section.virtual_address as usize..(reloc_section.virtual_address + reloc_section.size) as usize)
+                .ok_or(Pe32Error::RelocationError)?;
 
-        for reloc_block in parse_relocation_blocks(relocation_data)? {
-            //println!("processing block with rva {:x}", reloc_block.block_header.page_rva);
-            for reloc in reloc_block.relocations {
-                let fixup_type = reloc.type_and_offset >> 12;
-                let fixup = reloc_block.block_header.page_rva as usize + (reloc.type_and_offset & 0xFFF) as usize;
+            for reloc_block in parse_relocation_blocks(relocation_data)? {
+                //println!("processing block with rva {:x}", reloc_block.block_header.page_rva);
+                for reloc in reloc_block.relocations {
+                    let fixup_type = reloc.type_and_offset >> 12;
+                    let fixup = reloc_block.block_header.page_rva as usize + (reloc.type_and_offset & 0xFFF) as usize;
 
-                match fixup_type {
-                    0x00 =>
-                    /*println!("  IMAGE_REL_BASE_ABSOLUTE: no action")*/
-                    {
-                        ()
-                    } //IMAGE_REL_BASE_ABSOLUTE - no action, //IMAGE_REL_BASE_ABSOLUTE: no action.
-                    0x0A => {
-                        //IMAGE_REL_BASED_DIR64
-                        let mut fixup_value = u64::from_le_bytes(
-                            image[fixup..fixup + 8].try_into().map_err(|_| Pe32Error::RelocationError)?,
-                        );
-                        //print!("  IMAGE_REL_BASED_DIR64: Adjusting {:#x} to ", fixup_value);
-                        fixup_value = fixup_value.wrapping_add(adjustment);
-                        //println!("{:#x} at offset {:#x}", fixup_value, fixup);
-                        let subslice = image.get_mut(fixup..fixup + 8).ok_or(Pe32Error::RelocationError)?;
+                    match fixup_type {
+                        0x00 =>
+                        {
+                            //println!("  IMAGE_REL_BASE_ABSOLUTE: no action");
+                            ()
+                        } //IMAGE_REL_BASE_ABSOLUTE - no action, //IMAGE_REL_BASE_ABSOLUTE: no action.
+                        0x0A => {
+                            //IMAGE_REL_BASED_DIR64
+                            let mut fixup_value = u64::from_le_bytes(
+                                image[fixup..fixup + 8].try_into().map_err(|_| Pe32Error::RelocationError)?,
+                            );
+                            //print!("  IMAGE_REL_BASED_DIR64: Adjusting {:#x} to ", fixup_value);
+                            fixup_value = fixup_value.wrapping_add(adjustment);
+                            //println!("{:#x} at offset {:#x}", fixup_value, fixup);
+                            let subslice = image.get_mut(fixup..fixup + 8).ok_or(Pe32Error::RelocationError)?;
 
-                        subslice.copy_from_slice(&fixup_value.to_le_bytes()[..]);
+                            subslice.copy_from_slice(&fixup_value.to_le_bytes()[..]);
+                        }
+                        _ => todo!(), // Other fixups not implemented at this time
                     }
-                    _ => todo!(), // Other fixups not implemented at this time
                 }
             }
         }

@@ -1118,6 +1118,9 @@ PlatformSmmProtectionsTestLib|UefiTestingPkg/Library/PlatformSmmProtectionsTestL
   # Our first Rust driver to load
   QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
 
+  # Simple C Test DXE driver used to test Rust DXE Core FFI interfaces.
+  QemuQ35Pkg/RustFfiTestDxe/RustFfiTestDxe.inf
+
   MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
   MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf
   MdeModulePkg/Universal/PCD/Dxe/Pcd.inf  {

@@ -271,7 +271,8 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     // attempt to load and execute an external module's entry point.
     //
     // locate the pe32 ffs section from our target file
-    let target_guid_from_str = uuid::Uuid::from_str("35AFEBCD-8485-4865-A9EC-447FF8EA47A9").unwrap().to_bytes_le();
+    //let target_guid_from_str = uuid::Uuid::from_str("35AFEBCD-8485-4865-A9EC-447FF8EA47A9").unwrap().to_bytes_le();
+    let target_guid_from_str = uuid::Uuid::from_str("AAB84920-C0C2-46F9-82DF-0C383381BC58").unwrap().to_bytes_le();
     let target_guid: Guid = unsafe { *(target_guid_from_str.as_ptr() as *const Guid) };
 
     let target_module_pe32: FfsSection = FirmwareVolume::new(fv_hob.base_address)
@@ -313,7 +314,7 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     let entry_point: unsafe extern "efiapi" fn(*const c_void, *const r_efi::system::SystemTable) -> u64 =
         unsafe { transmute(ptr) };
 
-    let status = unsafe { entry_point(core::ptr::null_mut(), st.as_ref()) };
+    let status = unsafe { entry_point(ptr as *const c_void, st.as_ref()) };
 
     println!("Back from target module with status {:#x}", status);
 
