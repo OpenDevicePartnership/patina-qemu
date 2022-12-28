@@ -45,11 +45,15 @@ The following instructions install Rust.
 
 3. Install the 1.64.0 x86_64 rust toolchain.
 
+   Windows:
+   
    \>`rustup toolchain install 1.64.0-x86_64-pc-windows-msvc`
 
    \>`rustup component add rust-src --toolchain 1.64.0-x86_64-pc-windows-msvc`
 
    Linux:
+
+   \>`rustup toolchain install 1.64.0-x86_64-unknown-linux-gnu`
 
    \>`rustup component add rust-src --toolchain 1.64.0-x86_64-unknown-linux-gnu`
 
