@@ -2,8 +2,7 @@
 
 use core::{ffi::c_void, mem::size_of, slice::from_raw_parts};
 
-use alloc::alloc::Allocator;
-use alloc::boxed::Box;
+use alloc::{alloc::Allocator, boxed::Box};
 use r_efi::{
     efi::{Boolean, Char16, Event, Guid, Handle, PhysicalAddress, Status, Tpl},
     eficall, eficall_abi,

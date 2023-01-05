@@ -6,6 +6,8 @@
 #![feature(allocator_api)]
 #![feature(slice_ptr_get)]
 
+use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+
 extern crate alloc;
 pub mod allocator;
 pub mod gdt;
@@ -17,6 +19,8 @@ pub mod physical_memory;
 pub mod serial;
 pub mod systemtables;
 pub mod utility;
+
+pub static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
 
 pub fn init() {
     gdt::init();

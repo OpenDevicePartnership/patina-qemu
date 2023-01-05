@@ -1,4 +1,8 @@
-use core::{alloc::Allocator, alloc::Layout, ffi::c_void, ptr::NonNull};
+use core::{
+    alloc::{Allocator, Layout},
+    ffi::c_void,
+    ptr::NonNull,
+};
 
 use crate::utility::Locked;
 use fixed_size_block::FixedSizeBlockAllocator;

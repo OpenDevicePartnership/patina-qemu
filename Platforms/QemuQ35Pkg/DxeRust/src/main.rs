@@ -22,6 +22,7 @@ use dxe_rust::{
     hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
     pe32, physical_memory, println,
     systemtables::EfiSystemTable,
+    FRAME_ALLOCATOR,
 };
 use fv_lib::{FfsFileType, FfsSection, FfsSectionType, FirmwareVolume};
 use goblin::pe;
@@ -44,7 +45,7 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     let free_start = unsafe { align_up((*phit_hob).free_memory_bottom, 0x1000) };
     let free_size = unsafe { align_down((*phit_hob).free_memory_top, 0x1000) - free_start };
     unsafe {
-        physical_memory::FRAME_ALLOCATOR
+        FRAME_ALLOCATOR
             .lock()
             .add_physical_region(free_start, free_size)
             .expect("Failed to add initial region to global frame allocator.")

@@ -1,5 +1,3 @@
-use crate::physical_memory::FRAME_ALLOCATOR;
-
 use super::Locked;
 use alloc::alloc::{AllocError, Allocator, GlobalAlloc, Layout};
 use core::{
@@ -9,6 +7,8 @@ use core::{
     ptr::{self, slice_from_raw_parts_mut, NonNull},
 };
 use linked_list_allocator::{align_down, align_up};
+
+use crate::FRAME_ALLOCATOR;
 
 pub const MIN_EXPANSION: usize = 0x100000;
 
@@ -58,17 +58,16 @@ impl FixedSizeBlockAllocator {
 
     fn expand(&mut self, size: usize) -> Result<(), AllocationError> {
         // claim some frames from the global FRAME allocator.
-        let memory_range = FRAME_ALLOCATOR
+        let (start_address, size) = FRAME_ALLOCATOR
             .lock()
-            .allocate_frame_range_from_size(size as u64)
+            .allocate_frames_from_size(size as u64)
             .map_err(|_| AllocationError::FrameAllocatorError)?;
 
         // set up the allocator, reserving space at the beginning of the range
         // for the AllocatorListNode structure.
-        let aligned_node_addr = align_up(memory_range.start_addr().as_u64() as usize, align_of::<AllocatorListNode>());
+        let aligned_node_addr = align_up(start_address as usize, align_of::<AllocatorListNode>());
         let heap_bottom = aligned_node_addr + size_of::<AllocatorListNode>();
-        let heap_size =
-            memory_range.frame_range_size() as usize - (heap_bottom - memory_range.start_addr().as_u64() as usize);
+        let heap_size = size as usize - (heap_bottom - start_address as usize);
         let node_ptr = aligned_node_addr as *mut AllocatorListNode;
         let node = AllocatorListNode { next: None, allocator: linked_list_allocator::Heap::empty() };
 
@@ -231,12 +230,14 @@ impl Locked<FixedSizeBlockAllocator> {
 
 #[test]
 fn test_fixed_size_block_allocator() {
-    const SIZE: u64 = 1024 * 128; //132kb
+    const SIZE: usize = 0x1000 * 0x40; //256K
+
+    #[repr(C, align(0x1000))]
+    struct AlignedBuffer([u8; SIZE]);
 
     // Allocate some space on the heap with the global allocator (std) to allow
     // our allocator to perform allocations on.
-    let boxed = Box::new([0; SIZE as usize]);
-
+    let boxed = Box::new(AlignedBuffer { 0: [0; SIZE] });
     unsafe {
         FRAME_ALLOCATOR
             .lock()
