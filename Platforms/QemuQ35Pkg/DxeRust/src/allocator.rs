@@ -4,8 +4,8 @@ use core::{
     ptr::NonNull,
 };
 
-use crate::utility::Locked;
-use fixed_size_block::FixedSizeBlockAllocator;
+use crate::FRAME_ALLOCATOR;
+use uefi_rust_allocator_lib::{uefi_allocator::UefiAllocator};
 use r_efi::{
     efi::Status,
     eficall, eficall_abi,
@@ -15,39 +15,32 @@ use r_efi::{
     },
 };
 
-pub mod fixed_size_block;
-
 //EfiReservedMemoryType - no allocator (unused).
 //EfiLoaderCode
-pub static EFI_LOADER_CODE_ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
+pub static EFI_LOADER_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, LOADER_CODE);
 //EfiLoaderData
-pub static EFI_LOADER_DATA_ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
+pub static EFI_LOADER_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, LOADER_DATA);
 //EfiBootServicesCode
-pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: Locked<FixedSizeBlockAllocator> =
-    Locked::new(FixedSizeBlockAllocator::new());
+pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, BOOT_SERVICES_CODE);
 //EfiBootServicesData - (default allocator for DxeRust)
 #[cfg_attr(not(test), global_allocator)]
-pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: Locked<FixedSizeBlockAllocator> =
-    Locked::new(FixedSizeBlockAllocator::new());
+pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, BOOT_SERVICES_DATA);
 //EfiRuntimeServicesCode
-pub static EFI_RUNTIME_SERVICES_CODE_ALLOCATOR: Locked<FixedSizeBlockAllocator> =
-    Locked::new(FixedSizeBlockAllocator::new());
+pub static EFI_RUNTIME_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, RUNTIME_SERVICES_CODE);
 //EfiRuntimeServicesData
-pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: Locked<FixedSizeBlockAllocator> =
-    Locked::new(FixedSizeBlockAllocator::new());
+pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, RUNTIME_SERVICES_DATA);
 //EfiConventionalMemory - no allocator (free memory)
 //EfiUnusableMemory - no allocator (unusable)
 //EfiACPIReclaimMemory
-pub static EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR: Locked<FixedSizeBlockAllocator> =
-    Locked::new(FixedSizeBlockAllocator::new());
+pub static EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, ACPI_RECLAIM_MEMORY);
 //EfiACPIMemoryNVS
-pub static EFI_ACPI_MEMORY_NVS_ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
+pub static EFI_ACPI_MEMORY_NVS_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, ACPI_MEMORY_NVS);
 //EFiMemoryMappedIo - no allocator (MMIO)
 //EFiMemoryMappedIOPortSpace - no allocator (MMIO)
 //EfiPalCode - no allocator (no Itanium support)
 //EfiPersistentMemory - no allocator (free memory)
 
-static ALL_ALLOCATORS: &[&Locked<FixedSizeBlockAllocator>] = &[
+pub static ALL_ALLOCATORS: &[&'static UefiAllocator] = &[
     &EFI_LOADER_CODE_ALLOCATOR,
     &EFI_LOADER_DATA_ALLOCATOR,
     &EFI_BOOT_SERVICES_CODE_ALLOCATOR,
@@ -58,18 +51,8 @@ static ALL_ALLOCATORS: &[&Locked<FixedSizeBlockAllocator>] = &[
     &EFI_ACPI_MEMORY_NVS_ALLOCATOR,
 ];
 
-pub fn get_allocator_for_type(memory_type: MemoryType) -> Option<&'static Locked<FixedSizeBlockAllocator>> {
-    match memory_type {
-        LOADER_CODE => Some(&EFI_LOADER_CODE_ALLOCATOR),
-        LOADER_DATA => Some(&EFI_LOADER_DATA_ALLOCATOR),
-        BOOT_SERVICES_CODE => Some(&EFI_BOOT_SERVICES_CODE_ALLOCATOR),
-        BOOT_SERVICES_DATA => Some(&EFI_BOOT_SERVICES_DATA_ALLOCATOR),
-        RUNTIME_SERVICES_CODE => Some(&EFI_RUNTIME_SERVICES_CODE_ALLOCATOR),
-        RUNTIME_SERVICES_DATA => Some(&EFI_RUNTIME_SERVICES_DATA_ALLOCATOR),
-        ACPI_RECLAIM_MEMORY => Some(&EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR),
-        ACPI_MEMORY_NVS => Some(&EFI_ACPI_MEMORY_NVS_ALLOCATOR),
-        _ => None,
-    }
+pub fn get_allocator_for_type(memory_type: MemoryType) -> Option<&'static &'static UefiAllocator> {
+    ALL_ALLOCATORS.iter().find(|&&x|x.memory_type() == memory_type)
 }
 
 #[cfg(not(test))]
@@ -78,14 +61,7 @@ fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
     panic!("allocation error: {:?}", layout)
 }
 
-const POOL_SIG: u32 = 0x04151980; //arbitrary number.
-const UEFI_POOL_ALIGN: usize = 8; //per UEFI spec.
 const UEFI_PAGE_SIZE: usize = 0x1000; //per UEFI spec.
-struct AllocationInfo {
-    signature: u32,
-    memory_type: r_efi::system::MemoryType,
-    layout: Layout,
-}
 
 eficall! {pub fn allocate_pool (pool_type: r_efi::system::MemoryType, size: usize, buffer: *mut *mut c_void) -> Status {
     if buffer == core::ptr::null_mut() {
@@ -98,55 +74,21 @@ eficall! {pub fn allocate_pool (pool_type: r_efi::system::MemoryType, size: usiz
     }
     let allocator = allocator.unwrap();
 
-    let mut allocation_info = AllocationInfo {
-        signature: POOL_SIG,
-        memory_type: pool_type,
-        layout: Layout::new::<AllocationInfo>()};
+    allocator.allocate_pool(size, buffer)
 
-    let offset:usize;
-    (allocation_info.layout, offset) = allocation_info.layout
-        .extend(
-            Layout::from_size_align(size, UEFI_POOL_ALIGN)
-                .unwrap_or_else(|err|panic!("Allocation layout error: {:#?}", err))
-        ).unwrap_or_else(|err|panic!("Allocation layout error: {:#?}", err));
-
-
-    match allocator.allocate(allocation_info.layout) {
-        Ok(ptr) => {
-            let alloc_info_ptr = ptr.as_mut_ptr() as *mut AllocationInfo;
-            unsafe {
-                alloc_info_ptr.write(allocation_info);
-                buffer.write((ptr.as_ptr() as *mut u8 as usize + offset) as *mut c_void);
-            }
-            Status::SUCCESS
-        }
-        Err(_) => Status::OUT_OF_RESOURCES
-    }
 }}
 
 eficall! {fn free_pool (buffer: *mut c_void) -> Status {
     if buffer == core::ptr::null_mut() {
         return Status::INVALID_PARAMETER;
     }
-    let (_, offset) = Layout::new::<AllocationInfo>()
-        .extend(
-            Layout::from_size_align(0, UEFI_POOL_ALIGN)
-                .unwrap_or_else(|err|panic!("Allocation layout error: {:#?}", err))
-        ).unwrap_or_else(|err|panic!("Allocation layout error: {:#?}", err));
-
-    let allocation_info: *mut AllocationInfo = ((buffer as usize) - offset) as *mut AllocationInfo;
-
     unsafe {
-        //must be true for any pool allocation
-        assert!((*allocation_info).signature == POOL_SIG);
-        //zero after check so it doesn't get reused.
-        (*allocation_info).signature = 0;
-        //must exist for any real pool allocation
-        let allocator = get_allocator_for_type((*allocation_info).memory_type).unwrap();
-        allocator.deallocate(NonNull::new(allocation_info as *mut u8).unwrap(), (*allocation_info).layout);
+        if ALL_ALLOCATORS.iter().find(|allocator| allocator.free_pool(buffer) != Status::NOT_FOUND).is_some() {
+            Status::SUCCESS
+        } else {
+            Status::INVALID_PARAMETER
+        }
     }
-
-    Status::SUCCESS
 }}
 
 eficall! {fn allocate_pages (allocation_type: r_efi::system::AllocateType, memory_type: r_efi::system::MemoryType, pages: usize, memory: *mut r_efi::efi::PhysicalAddress) -> Status {

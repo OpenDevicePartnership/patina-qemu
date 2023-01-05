@@ -1,7 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
-#![feature(const_mut_refs)]
 #![feature(const_option)]
 #![feature(allocator_api)]
 #![feature(slice_ptr_get)]

@@ -14,11 +14,7 @@ use core::{
     str::{from_utf8, FromStr},
 };
 use dxe_rust::{
-    allocator::{
-        init_memory_support, EFI_ACPI_MEMORY_NVS_ALLOCATOR, EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR,
-        EFI_BOOT_SERVICES_CODE_ALLOCATOR, EFI_BOOT_SERVICES_DATA_ALLOCATOR, EFI_LOADER_CODE_ALLOCATOR,
-        EFI_LOADER_DATA_ALLOCATOR, EFI_RUNTIME_SERVICES_CODE_ALLOCATOR, EFI_RUNTIME_SERVICES_DATA_ALLOCATOR,
-    },
+    allocator::{init_memory_support, ALL_ALLOCATORS},
     hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
     pe32, physical_memory, println,
     systemtables::EfiSystemTable,
@@ -325,17 +321,9 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
 
     println!("Back from target module with status {:#x}", status);
 
-    println!("Loader Code Allocator:\n{}", EFI_LOADER_CODE_ALLOCATOR);
-    println!("Loader Data Allocator:\n{}", EFI_LOADER_DATA_ALLOCATOR);
-
-    println!("Boot Services Code Allocator:\n{}", EFI_BOOT_SERVICES_CODE_ALLOCATOR);
-    println!("Boot Services Data Allocator:\n{}", EFI_BOOT_SERVICES_DATA_ALLOCATOR);
-
-    println!("Runtime Services Code Allocator:\n{}", EFI_RUNTIME_SERVICES_CODE_ALLOCATOR);
-    println!("Runtime Services Data Allocator:\n{}", EFI_RUNTIME_SERVICES_DATA_ALLOCATOR);
-
-    println!("ACPI Reclaim Allocator:\n{}", EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR);
-    println!("ACPI NVS Allocator:\n{}", EFI_ACPI_MEMORY_NVS_ALLOCATOR);
+    for allocator in ALL_ALLOCATORS {
+        println!("{}", allocator);
+    }
 
     println!("It did not crash!");
 
