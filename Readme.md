@@ -46,7 +46,7 @@ The following instructions install Rust.
 3. Install the 1.64.0 x86_64 rust toolchain.
 
    Windows:
-   
+
    \>`rustup toolchain install 1.64.0-x86_64-pc-windows-msvc`
 
    \>`rustup component add rust-src --toolchain 1.64.0-x86_64-pc-windows-msvc`
@@ -56,6 +56,10 @@ The following instructions install Rust.
    \>`rustup toolchain install 1.64.0-x86_64-unknown-linux-gnu`
 
    \>`rustup component add rust-src --toolchain 1.64.0-x86_64-unknown-linux-gnu`
+
+4. Install Cargo Make.
+
+   \>`cargo install --force cargo-make`
 
 Did something not work right? Then go to _[Troubleshooting](#troubleshooting)_.
 
@@ -134,6 +138,25 @@ built; log should be displayed in your terminal and the QEMU instance should boo
 
 Multiple approaches are supported to build Rust UEFI modules.
 
+### Cargo-make
+  
+  Cargo-make is a CLI tool used to abstract away many of the CLI arguments necessary to build a rust module
+  so that developers can easily check, test, and build individual rust packages without the need to copying
+  and/or memorizing the long list of arguments.
+
+  cargo-make should already be installed if you followed the
+  [First-Time Tool Setup Instructions](#first-time-tool-setup-instructions), however if it is not, simply
+  run `cargo-install --force cargo-make`.
+
+  Currently supported:
+
+  1. [Building](#build-an-individual-rust-module-with-cargo-make) i.e. `cargo make build <Rust Package>`
+
+  Coming soon:
+  
+  1. Testing
+  2. Code Coverage
+
 ### Build QemuQ35Pkg (with Rust Modules)
 
   ```cmd
@@ -172,17 +195,28 @@ argument to the build command.
   stuart_build -c QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=VS2022 --flashrom SHUTDOWN_AFTER_RUN=FALSE
   ```
 
-### Build an Individual Rust Module with Cargo
+### Build an Individual Rust Module with Cargo Make
 
-  Go to the module folder, such as Platforms/QemuQ35Pkg/DxeRust
+  From the root directory, such as C:/src/UefiRust, run the following command:
 
   ```cmd
-  cargo build [--release] --target [x86_64-unknown-uefi|i686-unknown-uefi]
+  cargo make build <Module Name>
+  ```
+  
+  The following command line options are available:
+
+  1. -p PROFILE [development|release]. DEFAULT = development (debug)
+  2. -e ARCH=[IA32|X64]. DEFAULT = X64
+
+  Examples:
+  
+  ```cmd
+   cargo make build DxeRust
+   cargo make -p release build DxeRust
+   cargo make -e ARCH=IA32 build FvLib
   ```
 
-  the output is target/[x86_64-unknown-uefi|i686-unknown-uefi]/[debug|release]/module_name.efi
-
-  This only works for UEFI applications.
+  the output is target/[x86_64-unknown-uefi|i686-unknown-uefi]/[debug|release]/module_name.[efi|rlib]
 
 ## Supported Build Combinations
 

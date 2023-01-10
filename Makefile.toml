@@ -1,0 +1,39 @@
+[config]
+default_to_workspace = false
+
+[env]
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
+RUSTC_BOOTSTRAP = {value = 1, condition = { channels = ["stable"] } }
+TARGET_TRIPLE = { source = "${ARCH}", default_value = "x86_64-unknown-uefi", mapping = { "X64" = "x86_64-unknown-uefi", "IA32" = "i686-unknown-uefi" }, condition = { env_not_set = [ "TARGET_TRIPLE" ] } }
+BUILD_CMD = "rustc --profile ${RUSTC_PROFILE} --target ${TARGET_TRIPLE} -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
+BUILD_FLAGS = { value = "-Zunstable-options --timings=html", condition = { env_not_set = ["BUILD_FLAGS"] } }
+
+[env.development]
+RUSTC_PROFILE = "dev"
+RUSTC_TARGET = "debug"
+
+[env.release]
+RUSTC_PROFILE = "release"
+RUSTC_TARGET = "release"
+
+[tasks.build]
+description = """Builds a single rust package. 
+
+Customizations:
+    -p [development|release]: Builds in debug or release. Default: development
+    -e ARCH=[IA32|X64]: Builds with specifed arch. Default: X64
+
+Example:
+    `cargo make build DxeRust`
+    `cargo make -p release build DxeRust`
+    `cargo make -e ARCH=IA32 build FvLib`
+"""
+clear = true
+command = "cargo"
+args = ["@@split(BUILD_CMD, )", "-p", "${@}", "@@split(BUILD_FLAGS, )"]
+
+[tasks.build-all]
+description = "Builds all rust packages in the workspace. Example `cargo make build-all`."
+workspace = true
+command = "cargo"
+args = ["@@split(BUILD_CMD, )", "@@split(BUILD_FLAGS, )"]

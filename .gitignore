@@ -10,3 +10,4 @@ __pycache__/
 /target
 BuildConfig.conf
 tags/
+Cargo.lock

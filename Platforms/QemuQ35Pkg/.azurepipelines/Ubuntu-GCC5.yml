@@ -80,10 +80,17 @@ jobs:
             rustVersion: ms-$(rust_target) 
             authenticationToken: $(RustInstallerToken)
           displayName: Install Microsoft Rust toolchain
+        - task: Powershell@2
+          inputs:
+            targetType: 'inline'
+            script: cargo install --force cargo-make
+          displayName: Install Cargo Make
         - task: Powershell@2 # In order to comply with msrustup
           inputs:
             targetType: 'inline'
             script: |
+              New-Item -Path .cargo -ItemType Directory
+              New-Item -Path .cargo/config.toml -ItemType File
               " 
               [source]
               crates-io = { replace-with = `"ms-crates-io`" }

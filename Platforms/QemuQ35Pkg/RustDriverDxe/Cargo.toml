@@ -1,9 +1,9 @@
 [package]
-name = "dxe_rust_driver"
+name = "RustDriverDxe"
 version = "0.1.0"
 authors = ["Hackathon Team"]
 edition = "2018"
 
 [dependencies]
-dxe_rust = { path="../DxeRust" }
-r-efi = "4.0.0"
+DxeRust = {workspace=true}
+r-efi = {workspace=true}

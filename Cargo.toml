@@ -1,0 +1,31 @@
+[workspace]
+
+# Workaround for cargo make, add all
+# https://github.com/sagiegurari/cargo-make/issues/773
+members = [
+    "Platforms/QemuQ35Pkg/RustDriverDxe",
+    "Platforms/QemuQ35Pkg/DxeRust",
+    "Platforms/QemuQ35Pkg/Library/FvLib", 
+    "Platforms/QemuQ35Pkg/Library/DynamicFrameAllocatorLib",
+    "Platforms/QemuQ35Pkg/Library/UefiRustAllocatorLib"
+]
+
+[workspace.dependencies]
+DxeRust = {path = "Platforms/QemuQ35Pkg/DxeRust"}
+FvLib = {path = "Platforms/QemuQ35Pkg/Library/FvLib"}
+DynamicFrameAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/DynamicFrameAllocatorLib"}
+UefiRustAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/UefiRustAllocatorLib"}
+
+crc32fast = { version = "1.3.2", default-features = false }
+goblin = { version = "0.5.3", default-features = false, features = ["pe32", "pe64"] }
+indoc = "1.0"
+lazy_static = { version = "1.0.0", features = ["spin_no_std"] }
+linked_list_allocator = "0.9.0"
+num-traits = { version = "0.2", default-features = false}
+r-efi = "4.0.0"
+scroll = { version = "0.11", default-features = false, features = ["derive"]}
+spin = "0.5.2"
+uart_16550 = "0.2.0"
+uuid = { version = "1", default-features = false }
+volatile = "0.2.6"
+x86_64 = "0.14.2"

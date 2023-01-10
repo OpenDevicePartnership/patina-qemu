@@ -15,10 +15,9 @@ import platform
 
 
 class RustPackage:
-    def __init__(self, path: Path, triple: str = None):
+    def __init__(self, path: Path):
         self.path = path
         self.name = path.name
-        self.triple = triple if triple is not None else self.__get_triple()
 
     def clean(self):
         """Cleans any build artifacts from the directory.
@@ -118,12 +117,11 @@ class RustPackage:
 
         return out
 
-    def __cargo_test(self, target: str = "all-targets", triple: str = None, extra: str = ""):
+    def __cargo_test(self, target: str = "all-targets", extra: str = ""):
         """Runs cargo build on the selected target.
 
         Args:
             target (str, default=all-targets): lib, bins, examples, tests, benches, all-targets
-            triple (str, default=host's triple): any triple specified by `rustc --print target-list`
             extra (str): Any extra params to use with cargo check
 
         Returns:
@@ -131,32 +129,12 @@ class RustPackage:
             (int): 1 if `target` exists but does not compile
             (int): -1 if `target` does not exist
         """
-        if triple is None:
-            triple = self.triple
         command = "cargo"
-        params = f"test --{target} --target={self.triple} {extra} -q --no-fail-fast  -Z build-std-features -Z build-std -- -Z unstable-options --format json"
+        params = f"test --{target} {extra} -q --no-fail-fast -- -Z unstable-options --format json"
         output = io.StringIO()
 
         RunCmd(command, params, workingdir=self.path, outstream=output)
         return output
-
-    def __get_triple(self):
-        """Returns the host triple."""
-        command = "rustc"
-        params = "-vV"
-        output = io.StringIO()
-
-        ret = RunCmd(command, params, workingdir=self.path, outstream=output)
-
-        if ret != 0:
-            raise Exception("Failed to get target triple")
-
-        output.seek(0)
-
-        for line in output.readlines():
-            if line.startswith('host'):
-                return line.split(":")[1].strip()
-        raise Exception("Failed to get target triple")
 
 class CargoTestHostCheck(ICiBuildPlugin):
     def GetTestName(self, packagename: str, environment: object) -> tuple[str, str]:
