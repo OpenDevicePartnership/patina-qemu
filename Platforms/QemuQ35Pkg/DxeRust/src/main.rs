@@ -17,6 +17,7 @@ use dxe_rust::{
     allocator::{init_memory_support, ALL_ALLOCATORS},
     hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
     pe32, physical_memory, println,
+    protocols::init_protocol_support,
     systemtables::EfiSystemTable,
     FRAME_ALLOCATOR,
 };
@@ -173,6 +174,7 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     let st = EfiSystemTable::init_system_table();
 
     init_memory_support(st.boot_services());
+    init_protocol_support(st.boot_services());
 
     //
     // PE32 load and relocate testing

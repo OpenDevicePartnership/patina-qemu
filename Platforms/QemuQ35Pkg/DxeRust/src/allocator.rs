@@ -5,7 +5,6 @@ use core::{
 };
 
 use crate::FRAME_ALLOCATOR;
-use uefi_rust_allocator_lib::{uefi_allocator::UefiAllocator};
 use r_efi::{
     efi::Status,
     eficall, eficall_abi,
@@ -14,6 +13,7 @@ use r_efi::{
         LOADER_CODE, LOADER_DATA, RUNTIME_SERVICES_CODE, RUNTIME_SERVICES_DATA,
     },
 };
+use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 
 //EfiReservedMemoryType - no allocator (unused).
 //EfiLoaderCode
@@ -26,9 +26,11 @@ pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(
 #[cfg_attr(not(test), global_allocator)]
 pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, BOOT_SERVICES_DATA);
 //EfiRuntimeServicesCode
-pub static EFI_RUNTIME_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, RUNTIME_SERVICES_CODE);
+pub static EFI_RUNTIME_SERVICES_CODE_ALLOCATOR: UefiAllocator =
+    UefiAllocator::new(&FRAME_ALLOCATOR, RUNTIME_SERVICES_CODE);
 //EfiRuntimeServicesData
-pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, RUNTIME_SERVICES_DATA);
+pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: UefiAllocator =
+    UefiAllocator::new(&FRAME_ALLOCATOR, RUNTIME_SERVICES_DATA);
 //EfiConventionalMemory - no allocator (free memory)
 //EfiUnusableMemory - no allocator (unusable)
 //EfiACPIReclaimMemory
@@ -52,7 +54,7 @@ pub static ALL_ALLOCATORS: &[&'static UefiAllocator] = &[
 ];
 
 pub fn get_allocator_for_type(memory_type: MemoryType) -> Option<&'static &'static UefiAllocator> {
-    ALL_ALLOCATORS.iter().find(|&&x|x.memory_type() == memory_type)
+    ALL_ALLOCATORS.iter().find(|&&x| x.memory_type() == memory_type)
 }
 
 #[cfg(not(test))]

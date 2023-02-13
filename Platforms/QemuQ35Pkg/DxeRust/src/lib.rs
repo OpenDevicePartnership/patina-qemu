@@ -4,7 +4,7 @@
 #![feature(const_option)]
 #![feature(allocator_api)]
 #![feature(slice_ptr_get)]
-
+#![feature(c_variadic)]
 use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
 
 extern crate alloc;
@@ -15,6 +15,7 @@ pub mod interrupts;
 pub mod memory_types;
 pub mod pe32;
 pub mod physical_memory;
+pub mod protocols;
 pub mod serial;
 pub mod systemtables;
 pub mod utility;
