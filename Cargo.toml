@@ -1,15 +1,12 @@
 [workspace]
 
-# Workaround for cargo make, add all
-# https://github.com/sagiegurari/cargo-make/issues/773
+# Add packages that generate binaries here
 members = [
     "Platforms/QemuQ35Pkg/RustDriverDxe",
     "Platforms/QemuQ35Pkg/DxeRust",
-    "Platforms/QemuQ35Pkg/Library/FvLib",
-    "Platforms/QemuQ35Pkg/Library/DynamicFrameAllocatorLib",
-    "Platforms/QemuQ35Pkg/Library/UefiRustAllocatorLib"
 ]
 
+# Add packages that generate libraries here
 [workspace.dependencies]
 DxeRust = {path = "Platforms/QemuQ35Pkg/DxeRust"}
 FvLib = {path = "Platforms/QemuQ35Pkg/Library/FvLib"}
