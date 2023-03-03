@@ -11,6 +11,7 @@ extern crate alloc;
 pub mod allocator;
 pub mod gdt;
 pub mod hob;
+#[cfg(target_os = "uefi")]
 pub mod interrupts;
 pub mod memory_types;
 pub mod pe32;
@@ -22,6 +23,7 @@ pub mod utility;
 
 pub static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
 
+#[cfg(target_os = "uefi")]
 pub fn init() {
     gdt::init();
     interrupts::init_idt();

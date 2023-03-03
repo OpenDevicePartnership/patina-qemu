@@ -8,6 +8,11 @@ edition = "2018"
 name = "dxe_rust"
 path = "src/lib.rs"
 
+[[bin]]
+name = "DxeRust"
+path = "src/main.rs"
+test = false
+
 [dependencies]
 FvLib = {workspace=true}
 DynamicFrameAllocatorLib = {workspace=true}

@@ -3,10 +3,12 @@ default_to_workspace = false
 
 [env]
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
-RUSTC_BOOTSTRAP = {value = 1, condition = { channels = ["stable"] } }
+RUSTC_BOOTSTRAP = 1
 TARGET_TRIPLE = { source = "${ARCH}", default_value = "x86_64-unknown-uefi", mapping = { "X64" = "x86_64-unknown-uefi", "IA32" = "i686-unknown-uefi" }, condition = { env_not_set = [ "TARGET_TRIPLE" ] } }
+PACKAGE_TARGET = {value = "-p ${CARGO_MAKE_TASK_ARGS}",condition = { env_true = [ "CARGO_MAKE_TASK_ARGS", ] } }
 BUILD_CMD = "rustc --profile ${RUSTC_PROFILE} --target ${TARGET_TRIPLE} -Zbuild-std=core,compiler_builtins,alloc -Zbuild-std-features=compiler-builtins-mem"
 BUILD_FLAGS = { value = "-Zunstable-options --timings=html", condition = { env_not_set = ["BUILD_FLAGS"] } }
+TEST_FLAGS = { value = "", condition = { env_not_set = ["TEST_FLAGS"] } }
 
 [env.development]
 RUSTC_PROFILE = "dev"
@@ -29,11 +31,19 @@ Example:
     `cargo make -e ARCH=IA32 build FvLib`
 """
 clear = true
-command = "cargo"
-args = ["@@split(BUILD_CMD, )", "-p", "${@}", "@@split(BUILD_FLAGS, )"]
-
-[tasks.build-all]
-description = "Builds all rust packages in the workspace. Example `cargo make build-all`."
 workspace = true
 command = "cargo"
-args = ["@@split(BUILD_CMD, )", "@@split(BUILD_FLAGS, )"]
+args = ["@@split(BUILD_CMD, )", "@@split(PACKAGE_TARGET, )", "@@split(BUILD_FLAGS, )"]
+
+[tasks.test]
+description = "Builds all rust tests in the workspace. Example `cargo make test`"
+clear = true
+command = "cargo"
+args = ["test", "@@split(PACKAGE_TARGET, )", "@@split(TEST_FLAGS, )"]
+
+[tasks.coverage]
+description = "Build and run all tests and calculate coverage."
+clear = true
+command = "cargo"
+args = ["tarpaulin", "@@split(PACKAGE_TARGET, )", "--out", "Html", "--exclude-files", "**/tests/*", "--output-dir", "${CARGO_MAKE_WORKSPACE_WORKING_DIRECTORY}/target"]
+

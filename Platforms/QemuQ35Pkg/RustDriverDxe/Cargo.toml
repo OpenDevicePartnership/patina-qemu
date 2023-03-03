@@ -4,6 +4,11 @@ version = "0.1.0"
 authors = ["Hackathon Team"]
 edition = "2018"
 
+[[bin]]
+name = "RustDriverDxe"
+path = "src/main.rs"
+test = false
+
 [dependencies]
 DxeRust = {workspace=true}
 r-efi = {workspace=true}

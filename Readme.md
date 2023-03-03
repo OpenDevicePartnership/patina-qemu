@@ -150,12 +150,9 @@ Multiple approaches are supported to build Rust UEFI modules.
 
   Currently supported:
 
-  1. [Building](#build-an-individual-rust-module-with-cargo-make) i.e. `cargo make build <Rust Package>`
-
-  Coming soon:
-  
-  1. Testing
-  2. Code Coverage
+  1. [Building](#build-with-cargo-make) i.e. `cargo make build <optional: Rust Package>`
+  2. [Testing](#test-with-cargo-make) i.e. `cargo make test <optional: Rust Package>`
+  3. [Coverage](#coverage-with-cargo-make) i.e. `cargo make coverage <optional: Rust Package>`
 
 ### Build QemuQ35Pkg (with Rust Modules)
 
@@ -195,12 +192,12 @@ argument to the build command.
   stuart_build -c QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=VS2022 --flashrom SHUTDOWN_AFTER_RUN=FALSE
   ```
 
-### Build an Individual Rust Module with Cargo Make
+### Build with cargo-make
 
   From the root directory, such as C:/src/UefiRust, run the following command:
 
   ```cmd
-  cargo make build <Module Name>
+  cargo make build <Optional: Module Name>
   ```
   
   The following command line options are available:
@@ -212,11 +209,59 @@ argument to the build command.
   
   ```cmd
    cargo make build DxeRust
+   cargo make build
    cargo make -p release build DxeRust
    cargo make -e ARCH=IA32 build FvLib
   ```
+  
+  If a package is not specified, all packages will be built.
 
   the output is target/[x86_64-unknown-uefi|i686-unknown-uefi]/[debug|release]/module_name.[efi|rlib]
+
+### Test with cargo-make
+
+   From the root directory, such as C:/src/UefiRust, run the following command:
+
+  ```cmd
+  cargo make test <Optional: Module Name>
+  ```
+
+  Examples:
+  
+  ```cmd
+   cargo make test DxeRust
+   cargo make test
+  ```
+
+  If a package is not specified, all packages will be tested.
+
+### Coverage with cargo-make
+
+   Linux:
+
+   ```cmd
+    sudo apt install libssl-dev
+   ```
+
+   From the root directory, such as C:/src/UefiRust, run the following command:
+
+  ```cmd
+  cargo make coverage <Optional: Module Name>
+  ```
+
+  Examples:
+  
+  ```cmd
+   cargo make coverage DxeRust
+   cargo make coverage
+  ```
+
+  If a package is not specified, all packages will be tested and code coverage calculated.
+
+  A code coverage report will be printed to the terminal and an html report can be found at target/tarpaulin-report.html
+
+  **WARNING**: Tarpaulin code coverage is supported on windows, however it is currently not working on our current
+  version of rust. It is suspected that upgrade to a later version of rust may be sufficient.
 
 ## Supported Build Combinations
 
