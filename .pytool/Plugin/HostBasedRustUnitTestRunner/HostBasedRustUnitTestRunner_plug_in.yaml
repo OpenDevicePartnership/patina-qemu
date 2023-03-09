@@ -6,6 +6,6 @@
 ##
 {
   "scope": "host-based-test",
-  "name": "Cargo Test Host Check",
-  "module": "CargoTestHostCheck"
+  "name": "Host Based Rust Unit Test Runner",
+  "module": "HostBasedRustUnitTestRunner"
 }

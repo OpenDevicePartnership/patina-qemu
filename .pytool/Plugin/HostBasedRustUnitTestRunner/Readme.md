@@ -1,4 +1,4 @@
-# Cargo Test Host Check
+# Host Based Rust Unit Test Runner
 
 A CiBuildPlugin that finds all Rust packages (toml files) in a UEFI package. If
 a toml file has a library, it will attempt to compile and run all host based
