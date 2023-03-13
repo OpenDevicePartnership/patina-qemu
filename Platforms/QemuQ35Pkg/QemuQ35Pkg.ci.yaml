@@ -140,9 +140,12 @@
         ]    # Standard Plugin defined paths that should be ignored.
     },
 
-    "CargoTestHostCheck": {
-        "IgnoreRustPkg": [
-            "RustDriverDxe",
-        ]
+    "RustCoverageCheck": {
+        "Default": .75,
+        "PackageOverrides": {
+            "DxeRust": 0.0,
+            "FvLib": 0.0,
+            "UefiRustAllocatorLib": 0.65
+        }
     }
 }

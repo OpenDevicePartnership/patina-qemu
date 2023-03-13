@@ -1,0 +1,12 @@
+## @file
+# CiBuildPlugin compute coverage information for each
+# rust package in a given edk2 package.
+#
+# Copyright (c) Microsoft Corporation.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+{
+  "scope": "host-based-test",
+  "name": "Rust Coverage Check",
+  "module": "RustCoverageCheck"
+}

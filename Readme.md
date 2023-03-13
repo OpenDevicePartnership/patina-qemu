@@ -152,7 +152,7 @@ Multiple approaches are supported to build Rust UEFI modules.
 
   1. [Building](#build-with-cargo-make) i.e. `cargo make build <optional: Rust Package>`
   2. [Testing](#test-with-cargo-make) i.e. `cargo make test <optional: Rust Package>`
-  3. [Coverage](#coverage-with-cargo-make) i.e. `cargo make coverage <optional: Rust Package>`
+  3. [Coverage](#coverage-with-cargo-make) i.e. `cargo make cov <optional: Rust Package>`
 
 ### Build QemuQ35Pkg (with Rust Modules)
 
@@ -246,22 +246,22 @@ argument to the build command.
    From the root directory, such as C:/src/UefiRust, run the following command:
 
   ```cmd
-  cargo make coverage <Optional: Module Name>
+  cargo make cov <Optional: Module Name>
   ```
 
   Examples:
   
   ```cmd
-   cargo make coverage DxeRust
-   cargo make coverage
+   cargo make cov DxeRust
+   cargo make cov
   ```
 
   If a package is not specified, all packages will be tested and code coverage calculated.
 
   A code coverage report will be printed to the terminal and an html report can be found at target/tarpaulin-report.html
 
-  **WARNING**: Tarpaulin code coverage is supported on windows, however it is currently not working on our current
-  version of rust. It is suspected that upgrade to a later version of rust may be sufficient.
+  **WARNING**: Tarpaulin code coverage is supported on windows, however it has only been verified to work on nightly 1.70+.
+    If you experience any errors when 
 
 ## Supported Build Combinations
 

@@ -131,6 +131,14 @@ steps:
     #buildConfiguration: # Optional
     publishRunAttachments: true # Optional
 
+- task: PublishCodeCoverageResults@1
+  displayName: 'Publish Code Coverage Results'
+  continueOnError: true
+  condition: and( succeededOrFailed(),gt(variables.pkg_count, 0))
+  inputs:
+    CodeCoverageTool: 'Cobertura'
+    SummaryFileLocation: 'Build/cobertura.xml'
+  
 # Copy the build logs to the artifact staging directory
 - task: CopyFiles@2
   displayName: "Copy build logs"
