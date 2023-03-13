@@ -20,7 +20,7 @@ jobs:
       vm_image: 'windows-2022'
       should_run: true
       run_flags: "QEMU_HEADLESS=TRUE EMPTY_DRIVE=TRUE"
-      rust_target: 1.64.0 # Stable branch as of 10/21/2022
+      rust_target: 1.67 # Stable branch as of 10/21/2022
 
     #Use matrix to speed up the build process
     strategy:
