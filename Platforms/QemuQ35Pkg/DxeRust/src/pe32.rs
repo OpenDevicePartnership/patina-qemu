@@ -1,12 +1,9 @@
 use core::convert::TryInto;
-
-use crate::{
-    hob::{Hob, HobList},
-    println,
-};
+use r_pi::hob::{Hob, HobList};
 use alloc::vec::Vec;
 use fv_lib::{FfsFileType, FfsSection, FirmwareVolume};
 use scroll::Pread;
+use crate::println;
 
 #[derive(Debug)]
 pub enum Pe32Error {

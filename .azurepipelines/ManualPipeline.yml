@@ -33,6 +33,8 @@ parameters:
 variables:
   - name: architectures
     value: IA32,X64
+  - group: 'UEFI Rust Tokens'
+
 
 name: QemuQ35 UEFI Rust - ${{ parameters.tool_chain_tag }} - Build_$(Date:yyyyMMdd)$(Rev:.r)
 

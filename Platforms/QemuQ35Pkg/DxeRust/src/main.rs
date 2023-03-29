@@ -5,6 +5,8 @@
 
 extern crate alloc;
 
+use r_pi::hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable};
+
 use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
 use core::{
     ffi::c_void,
@@ -15,7 +17,6 @@ use core::{
 };
 use dxe_rust::{
     allocator::{init_memory_support, ALL_ALLOCATORS},
-    hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
     pe32, physical_memory, println,
     protocols::init_protocol_support,
     systemtables::EfiSystemTable,

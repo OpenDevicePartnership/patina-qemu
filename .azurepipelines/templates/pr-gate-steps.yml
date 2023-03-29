@@ -27,7 +27,9 @@ parameters:
 steps:
 - checkout: self
   clean: true
-   # mu_change - can't limit depth if we want to use PR_EVAL -  fetchDepth: 1
+
+# setup the git creds
+- template: git-config-auth.yml
 
 - task: UsePythonVersion@0
   inputs:

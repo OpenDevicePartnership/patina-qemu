@@ -39,6 +39,8 @@ steps:
   clean: true
   #mu_change - can't limit depth if we want to use PR_EVAL - fetchDepth: 1
 
+- template: git-config-auth.yml
+
 - task: UsePythonVersion@0
   inputs:
     versionSpec: ">=3.10.6"

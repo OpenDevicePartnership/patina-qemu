@@ -10,10 +10,8 @@ use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
 extern crate alloc;
 pub mod allocator;
 pub mod gdt;
-pub mod hob;
 #[cfg(target_os = "uefi")]
 pub mod interrupts;
-pub mod memory_types;
 pub mod pe32;
 pub mod physical_memory;
 pub mod protocols;

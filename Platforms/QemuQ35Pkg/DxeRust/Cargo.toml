@@ -31,3 +31,4 @@ goblin = {workspace = true}
 num-traits = {workspace = true}
 scroll = {workspace = true}
 crc32fast = {workspace = true}
+r-pi = {workspace = true}

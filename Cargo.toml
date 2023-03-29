@@ -27,3 +27,4 @@ uart_16550 = "0.2.0"
 uuid = { version = "1", default-features = false }
 volatile = "0.2.6"
 x86_64 = "0.14.2"
+r-pi = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/r-pi"}

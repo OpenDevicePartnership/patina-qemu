@@ -23,7 +23,7 @@ jobs:
 
 - job: Build_${{ parameters.tool_chain_tag }}
   variables:
-    rust_target: 1.67 # Stable branch as of 10/21/2022
+    rust_target: $(RustVersion)
   #Use matrix to speed up the build process
   strategy:
     matrix:
@@ -37,6 +37,7 @@ jobs:
     vmImage: ${{ parameters.vm_image }}
 
   steps:
+
   - template: pr-gate-steps.yml
     parameters:
       tool_chain_tag: ${{ parameters.tool_chain_tag }}

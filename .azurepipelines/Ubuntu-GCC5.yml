@@ -13,6 +13,9 @@ pr:
 - release/*
 # MU_CHANGE END
 
+variables:
+ - group: 'UEFI Rust Tokens'
+
 jobs:
 - template: templates/pr-gate-build-job.yml
   parameters:
