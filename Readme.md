@@ -139,7 +139,7 @@ built; log should be displayed in your terminal and the QEMU instance should boo
 Multiple approaches are supported to build Rust UEFI modules.
 
 ### Cargo-make
-  
+
   Cargo-make is a CLI tool used to abstract away many of the CLI arguments necessary to build a rust module
   so that developers can easily check, test, and build individual rust packages without the need to copying
   and/or memorizing the long list of arguments.
@@ -199,21 +199,21 @@ argument to the build command.
   ```cmd
   cargo make build <Optional: Module Name>
   ```
-  
+
   The following command line options are available:
 
   1. -p PROFILE [development|release]. DEFAULT = development (debug)
   2. -e ARCH=[IA32|X64]. DEFAULT = X64
 
   Examples:
-  
+
   ```cmd
    cargo make build DxeRust
    cargo make build
    cargo make -p release build DxeRust
    cargo make -e ARCH=IA32 build FvLib
   ```
-  
+
   If a package is not specified, all packages will be built.
 
   the output is target/[x86_64-unknown-uefi|i686-unknown-uefi]/[debug|release]/module_name.[efi|rlib]
@@ -227,7 +227,7 @@ argument to the build command.
   ```
 
   Examples:
-  
+
   ```cmd
    cargo make test DxeRust
    cargo make test
@@ -237,10 +237,16 @@ argument to the build command.
 
 ### Coverage with cargo-make
 
-   Linux:
+   Linux - Ubuntu:
 
    ```cmd
     sudo apt install libssl-dev
+   ```
+
+   Linux - Fedora:
+
+   ```cmd
+     sudo dnf install openssl-devel
    ```
 
    From the root directory, such as C:/src/UefiRust, run the following command:
@@ -250,7 +256,7 @@ argument to the build command.
   ```
 
   Examples:
-  
+
   ```cmd
    cargo make cov DxeRust
    cargo make cov
@@ -261,7 +267,7 @@ argument to the build command.
   A code coverage report will be printed to the terminal and an html report can be found at target/tarpaulin-report.html
 
   **WARNING**: Tarpaulin code coverage is supported on windows, however it has only been verified to work on nightly 1.70+.
-    If you experience any errors when 
+    If you experience any errors when
 
 ## Supported Build Combinations
 
