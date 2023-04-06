@@ -60,7 +60,7 @@ jobs:
         targetType: 'inline'
         script: cargo install --force cargo-make
       displayName: Install Cargo Make
-    packages: QemuQ35Pkg,QemuSbsaPkg
+    packages: QemuQ35Pkg
     target_list: NO-TARGET
     tool_chain_tag: $(tool_chain_tag)
     vm_image: ubuntu-latest
