@@ -37,16 +37,16 @@ class RustCoverageCheck(ICiBuildPlugin):
         # Run coverage on the individual packages
         for rust_pkg in workspace.members:
             coverage_req = pkgconfig["PackageOverrides"].get(rust_pkg.name, default_coverage)
-            
+
             # Run the coverage and filter for only files within the rust package
             try:
                 output = rust_pkg.coverage(Edk2pathObj.WorkspacePath)
             except RuntimeError as e:
-                tc.LogStdErr(str(e))
+                tc.LogStdError(str(e))
                 logging.error(str(e))
                 failed += 1
             filtered_output = [x for x in output if x.get("package") in x.get('path')]
-            
+
             # No tests for this rust package, skip
             if len(filtered_output) == 0:
                 continue
@@ -64,13 +64,13 @@ class RustCoverageCheck(ICiBuildPlugin):
                 tc.LogStdError(f'Coverage for {rust_pkg.name} is below {coverage_req}')
                 logging.error(f'Coverage for {rust_pkg.name} is below {coverage_req}')
                 failed += 1
-        
+
         if failed > 0:
             tc.SetFailed(f'RustCoverageCheck failed. Errors {failed}', "CHECK_FAILED")
         else:
             tc.SetSuccess()
         return failed
-        
+
     def run_workspace_coverage(self, workspace: 'RustWorkspace'):
         """Runs coverage on the workspace and places the output at the output path."""
         try:
@@ -78,7 +78,7 @@ class RustCoverageCheck(ICiBuildPlugin):
         except RuntimeError as e:
             logging.error(f'Coverage failed for workspace.')
             return -1
-        
+
         xml = Path(workspace.path) / "target" / "cobertura.xml"
         out = Path(workspace.path) / "Build"
         xml.rename(out / xml.name)
