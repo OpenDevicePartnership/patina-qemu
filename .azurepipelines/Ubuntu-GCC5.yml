@@ -35,6 +35,8 @@ jobs:
     do_pr_eval: true
     extra_steps:
     - template: templates/git-config-auth.yml
+    - script: sudo dnf --assumeyes install openssl-devel
+      displayName: Install openssl
     - task: RustInstaller@1
       inputs:
         rustVersion: ms-$(RustVersion)

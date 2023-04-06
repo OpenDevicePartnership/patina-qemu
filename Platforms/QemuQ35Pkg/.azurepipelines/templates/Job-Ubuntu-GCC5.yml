@@ -72,6 +72,8 @@ jobs:
         build_flags: $(Build.Flags)
         extra_install_step:
         - template: ../../../../.azurepipelines/templates/git-config-auth.yml
+        - script: sudo dnf --assumeyes install openssl-devel
+          displayName: Install openssl
         - task: RustInstaller@1
           inputs:
             rustVersion: ms-$(RustVersion)
