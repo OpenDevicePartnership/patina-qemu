@@ -1,5 +1,4 @@
 ## @file
-#Override : 00000002 | OvmfPkg/Library/PlatformDebugLibIoPort/PlatformRomDebugLibIoPort.inf | 89fbf9702024b2de3c6f1b3c97541bf0 | 2022-03-11T23-11-22 | 008b5a0135986dc0170017a1ab37d50f317bbe33
 #  Instance of Debug Library for the QEMU debug console port.
 #  It uses Print Library to produce formatted output strings.
 #
@@ -32,7 +31,7 @@
 
 [Packages]
   MdePkg/MdePkg.dec
-  OvmfPkg/OvmfPkg.dec
+  QemuQ35Pkg/QemuQ35Pkg.dec
 
 [LibraryClasses]
   BaseMemoryLib
@@ -43,7 +42,7 @@
   DebugPrintErrorLevelLib
 
 [Pcd]
-  gUefiOvmfPkgTokenSpaceGuid.PcdDebugIoPort                ## CONSUMES
+  gUefiQemuQ35PkgTokenSpaceGuid.PcdDebugIoPort             ## CONSUMES
   gEfiMdePkgTokenSpaceGuid.PcdDebugClearMemoryValue        ## CONSUMES
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask            ## CONSUMES
   gEfiMdePkgTokenSpaceGuid.PcdFixedDebugPrintErrorLevel    ## CONSUMES

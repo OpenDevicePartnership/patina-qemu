@@ -30,25 +30,25 @@ DEFINE SECFV_OFFSET      = 0x003CC000
 DEFINE SECFV_SIZE        = 0x34000
 
 
-SET gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFdBaseAddress     = $(FW_BASE_ADDRESS)
-SET gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFirmwareFdSize    = $(FW_SIZE)
-SET gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFirmwareBlockSize = $(BLOCK_SIZE)
+SET gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFdBaseAddress     = $(FW_BASE_ADDRESS)
+SET gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFirmwareFdSize    = $(FW_SIZE)
+SET gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFirmwareBlockSize = $(BLOCK_SIZE)
 
-SET gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashNvStorageVariableBase = $(FW_BASE_ADDRESS)
+SET gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFlashNvStorageVariableBase = $(FW_BASE_ADDRESS)
 SET gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize = $(VARS_LIVE_SIZE)
 
-SET gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashNvStorageEventLogBase = gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashNvStorageVariableBase + gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize
-SET gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashNvStorageEventLogSize = $(BLOCK_SIZE)
+SET gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFlashNvStorageEventLogBase = gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFlashNvStorageVariableBase + gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableSize
+SET gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFlashNvStorageEventLogSize = $(BLOCK_SIZE)
 
-SET gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashNvStorageFtwWorkingBase = gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashNvStorageEventLogBase + gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashNvStorageEventLogSize
+SET gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFlashNvStorageFtwWorkingBase = gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFlashNvStorageEventLogBase + gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFlashNvStorageEventLogSize
 SET gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize = $(BLOCK_SIZE)
 
-SET gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashNvStorageFtwSpareBase = gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashNvStorageFtwWorkingBase + gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize
+SET gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFlashNvStorageFtwSpareBase = gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFlashNvStorageFtwWorkingBase + gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingSize
 SET gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareSize = $(VARS_SPARE_SIZE)
 
-SET gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64 = gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashNvStorageVariableBase
-SET gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase = gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashNvStorageFtwWorkingBase
-SET gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase   = gUefiOvmfPkgTokenSpaceGuid.PcdOvmfFlashNvStorageFtwSpareBase
+SET gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageVariableBase64 = gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFlashNvStorageVariableBase
+SET gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwWorkingBase = gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFlashNvStorageFtwWorkingBase
+SET gEfiMdeModulePkgTokenSpaceGuid.PcdFlashNvStorageFtwSpareBase   = gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfFlashNvStorageFtwSpareBase
 
 DEFINE MEMFD_BASE_ADDRESS = 0x800000
 
@@ -150,23 +150,23 @@ BlockSize     = 0x10000
 NumBlocks     = 0xD0
 
 0x000000|0x006000
-gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecPageTablesBase|gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecPageTablesSize
+gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfSecPageTablesBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfSecPageTablesSize
 
 0x006000|0x001000
-gUefiOvmfPkgTokenSpaceGuid.PcdOvmfLockBoxStorageBase|gUefiOvmfPkgTokenSpaceGuid.PcdOvmfLockBoxStorageSize
+gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfLockBoxStorageBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfLockBoxStorageSize
 
 0x007000|0x001000
-gEfiMdePkgTokenSpaceGuid.PcdGuidedExtractHandlerTableAddress|gUefiOvmfPkgTokenSpaceGuid.PcdGuidedExtractHandlerTableSize
+gEfiMdePkgTokenSpaceGuid.PcdGuidedExtractHandlerTableAddress|gUefiQemuQ35PkgTokenSpaceGuid.PcdGuidedExtractHandlerTableSize
 
 0x010000|0x010000
-gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecPeiTempRamBase|gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecPeiTempRamSize
+gUefiQemuQ35PkgTokenSpaceGuid.PcdSecPeiTemporaryRamBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdSecPeiTemporaryRamSize
 
 0x020000|0x0E0000
-gUefiOvmfPkgTokenSpaceGuid.PcdOvmfPeiMemFvBase|gUefiOvmfPkgTokenSpaceGuid.PcdOvmfPeiMemFvSize
+gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvSize
 FV = PEIFV
 
 0x100000|0xC00000
-gUefiOvmfPkgTokenSpaceGuid.PcdOvmfDxeMemFvBase|gUefiOvmfPkgTokenSpaceGuid.PcdOvmfDxeMemFvSize
+gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvSize
 FV = DXEFV
 
 ################################################################################
@@ -197,9 +197,9 @@ READ_LOCK_STATUS   = TRUE
 # The code in this FV handles the initial firmware startup, and
 # decompresses the PEI and DXE FVs which handles the rest of the boot sequence.
 #
-INF  OvmfPkg/Sec/SecMain.inf
+INF  QemuQ35Pkg/Sec/SecMain.inf
 
-INF  RuleOverride=RESET_VECTOR OvmfPkg/ResetVector/ResetVector.inf
+INF  RuleOverride=RESET_VECTOR QemuQ35Pkg/ResetVector/ResetVector.inf
 
 ################################################################################
 [FV.PEIFV]
@@ -233,18 +233,20 @@ INF  MdeModulePkg/Core/Pei/PeiMain.inf
 INF  MdeModulePkg/Universal/PCD/Pei/Pcd.inf
 INF  MdeModulePkg/Universal/ReportStatusCodeRouter/Pei/ReportStatusCodeRouterPei.inf
 INF  MdeModulePkg/Universal/StatusCodeHandler/Pei/StatusCodeHandlerPei.inf
-INF  OvmfPkg/PlatformPei/PlatformPei.inf
+INF  QemuQ35Pkg/PlatformPei/PlatformPei.inf
 INF  MdeModulePkg/Core/DxeIplPeim/DxeIpl.inf
 INF  UefiCpuPkg/Universal/Acpi/S3Resume2Pei/S3Resume2Pei.inf
 
 INF  MdeModulePkg/Universal/FaultTolerantWritePei/FaultTolerantWritePei.inf
 INF  MdeModulePkg/Universal/Variable/Pei/VariablePei.inf
-INF  OvmfPkg/SmmAccess/SmmAccessPei.inf
+INF  QemuQ35Pkg/SmmAccess/SmmAccessPei.inf
+INF  MmSupervisorPkg/Drivers/StandaloneMmHob/StandaloneMmHob.inf
+INF  MmSupervisorPkg/Drivers/MmCommunicationBuffer/MmCommunicationBufferPei.inf
 
 INF  UefiCpuPkg/CpuMpPei/CpuMpPei.inf
 
 !if $(TPM_ENABLE) == TRUE
-INF  OvmfPkg/Tcg/Tcg2Config/Tcg2ConfigPei.inf
+INF  QemuQ35Pkg/Tcg/Tcg2Config/Tcg2ConfigPei.inf
 INF  SecurityPkg/Tcg/TcgPei/TcgPei.inf
 INF  SecurityPkg/Tcg/Tcg2Pei/Tcg2Pei.inf
 !endif
@@ -263,9 +265,10 @@ INF  MsGraphicsPkg/MsUiTheme/Pei/MsUiThemePpi.inf
 INF  MsGraphicsPkg/MsEarlyGraphics/Pei/MsEarlyGraphics.inf
 INF  MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTablePei/FirmwarePerformancePei.inf
 
-INF  SetupDataPkg/ConfDfciUnsignedListInit/ConfDfciUnsignedListInit.inf
 INF  PolicyServicePkg/PolicyService/Pei/PolicyPei.inf
-INF  QemuQ35Pkg/ConfigDataGfx/ConfigDataGfx.inf
+INF  QemuQ35Pkg/PolicyDataGfx/PolicyDataGfx.inf
+INF  QemuQ35Pkg/ConfigKnobs/ConfigKnobs.inf
+INF  OemPkg/OemConfigPolicyCreatorPei/OemConfigPolicyCreatorPei.inf
 
 # Shared Crypto
 !if $(ENABLE_SHARED_CRYPTO) == TRUE
@@ -320,28 +323,26 @@ INF  MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRo
 INF  MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf
 INF  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
 
-INF  MdeModulePkg/Universal/SmmCommunicationBufferDxe/SmmCommunicationBufferDxe.inf
-
 INF  MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
 INF  MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
 
-INF  OvmfPkg/8259InterruptControllerDxe/8259.inf
+INF  QemuQ35Pkg/8259InterruptControllerDxe/8259.inf
 INF  UefiCpuPkg/CpuIo2Dxe/CpuIo2Dxe.inf
 INF  UefiCpuPkg/CpuDxe/CpuDxe.inf
-INF  OvmfPkg/8254TimerDxe/8254Timer.inf
-INF  OvmfPkg/IncompatiblePciDeviceSupportDxe/IncompatiblePciDeviceSupport.inf
-INF  OvmfPkg/PciHotPlugInitDxe/PciHotPlugInit.inf
+INF  QemuQ35Pkg/8254TimerDxe/8254Timer.inf
+INF  QemuQ35Pkg/IncompatiblePciDeviceSupportDxe/IncompatiblePciDeviceSupport.inf
+INF  QemuQ35Pkg/PciHotPlugInitDxe/PciHotPlugInit.inf
 INF  MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
 INF  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
 INF  MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf
 INF  MdeModulePkg/Universal/Metronome/Metronome.inf
 INF  PcAtChipsetPkg/PcatRealTimeClockRuntimeDxe/PcatRealTimeClockRuntimeDxe.inf
 
-INF  OvmfPkg/VirtioPciDeviceDxe/VirtioPciDeviceDxe.inf
-INF  OvmfPkg/Virtio10Dxe/Virtio10.inf
-INF  OvmfPkg/VirtioBlkDxe/VirtioBlk.inf
-INF  OvmfPkg/VirtioScsiDxe/VirtioScsi.inf
-INF  OvmfPkg/VirtioRngDxe/VirtioRng.inf
+INF  QemuQ35Pkg/VirtioPciDeviceDxe/VirtioPciDeviceDxe.inf
+INF  QemuQ35Pkg/Virtio10Dxe/Virtio10.inf
+INF  QemuQ35Pkg/VirtioBlkDxe/VirtioBlk.inf
+INF  QemuQ35Pkg/VirtioScsiDxe/VirtioScsi.inf
+INF  QemuQ35Pkg/VirtioRngDxe/VirtioRng.inf
 
 # Rng Protocol producer
 INF  SecurityPkg/RandomNumberGenerator/RngDxe/RngDxe.inf
@@ -357,7 +358,7 @@ INF  MdeModulePkg/Universal/DriverHealthManagerDxe/DriverHealthManagerDxe.inf
 INF  MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
 # MU_CHANGE
 #INF  MdeModulePkg/Application/UiApp/UiApp.inf
-INF  OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.inf
+INF  QemuQ35Pkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.inf
 INF  MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
 INF  MdeModulePkg/Universal/PrintDxe/PrintDxe.inf
 INF  MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
@@ -366,7 +367,7 @@ INF  MdeModulePkg/Universal/Disk/RamDiskDxe/RamDiskDxe.inf
 INF  MdeModulePkg/Universal/Disk/UnicodeCollation/EnglishDxe/EnglishDxe.inf
 INF  MdeModulePkg/Bus/Scsi/ScsiBusDxe/ScsiBusDxe.inf
 INF  MdeModulePkg/Bus/Scsi/ScsiDiskDxe/ScsiDiskDxe.inf
-INF  OvmfPkg/SataControllerDxe/SataControllerDxe.inf
+INF  QemuQ35Pkg/SataControllerDxe/SataControllerDxe.inf
 INF  MdeModulePkg/Bus/Ata/AtaAtapiPassThru/AtaAtapiPassThru.inf
 INF  MdeModulePkg/Bus/Ata/AtaBusDxe/AtaBusDxe.inf
 INF  MdeModulePkg/Bus/Pci/NvmExpressDxe/NvmExpressDxe.inf
@@ -374,17 +375,17 @@ INF  MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
 INF  MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf
 INF  MdeModulePkg/Universal/MemoryTest/NullMemoryTestDxe/NullMemoryTestDxe.inf
 
-INF  OvmfPkg/SioBusDxe/SioBusDxe.inf
+INF  QemuQ35Pkg/SioBusDxe/SioBusDxe.inf
 !if $(SOURCE_DEBUG_ENABLE) == FALSE
 INF  MdeModulePkg/Bus/Pci/PciSioSerialDxe/PciSioSerialDxe.inf
 !endif
 INF  MdeModulePkg/Bus/Isa/Ps2KeyboardDxe/Ps2KeyboardDxe.inf
 
 INF  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
-INF  OvmfPkg/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
+INF  QemuQ35Pkg/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
 
 INF  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
-INF  OvmfPkg/AcpiPlatformDxe/AcpiPlatformDxe.inf
+INF  QemuQ35Pkg/AcpiPlatformDxe/AcpiPlatformDxe.inf
 INF  MdeModulePkg/Universal/Acpi/S3SaveStateDxe/S3SaveStateDxe.inf
 INF  MdeModulePkg/Universal/Acpi/BootScriptExecutorDxe/BootScriptExecutorDxe.inf
 INF  MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
@@ -393,7 +394,8 @@ INF  FatPkg/EnhancedFatDxe/Fat.inf
 INF  MdeModulePkg/Universal/Disk/UdfDxe/UdfDxe.inf
 
 INF  ShellPkg/DynamicCommand/TftpDynamicCommand/TftpDynamicCommand.inf
-INF  OvmfPkg/LinuxInitrdDynamicShellCommand/LinuxInitrdDynamicShellCommand.inf
+INF  ShellPkg/DynamicCommand/VariablePolicyDynamicCommand/VariablePolicyDynamicCommand.inf
+INF  QemuQ35Pkg/LinuxInitrdDynamicShellCommand/LinuxInitrdDynamicShellCommand.inf
 
 #
 # Network modules
@@ -422,7 +424,6 @@ INF  OvmfPkg/LinuxInitrdDynamicShellCommand/LinuxInitrdDynamicShellCommand.inf
   INF  NetworkPkg/UefiPxeBcDxe/UefiPxeBcDxe.inf
 
   INF  PolicyServicePkg/PolicyService/Dxe/PolicyDxe.inf
-  INF  SetupDataPkg/ConfDataSettingProvider/ConfDataSettingProvider.inf
   INF  SetupDataPkg/ConfApp/ConfApp.inf
 
   INF  NetworkPkg/TlsDxe/TlsDxe.inf
@@ -431,7 +432,7 @@ INF  OvmfPkg/LinuxInitrdDynamicShellCommand/LinuxInitrdDynamicShellCommand.inf
   INF  NetworkPkg/HttpUtilitiesDxe/HttpUtilitiesDxe.inf
   INF  NetworkPkg/HttpBootDxe/HttpBootDxe.inf
 
-  INF  OvmfPkg/VirtioNetDxe/VirtioNet.inf
+  INF  QemuQ35Pkg/VirtioNetDxe/VirtioNet.inf
 
 #
 # Usb Support
@@ -445,24 +446,30 @@ INF  MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
 
 INF  QemuQ35Pkg/QemuVideoDxe/QemuVideoDxe.inf
 
-INF  OvmfPkg/QemuRamfbDxe/QemuRamfbDxe.inf
-INF  OvmfPkg/IoMmuDxe/IoMmuDxe.inf
+INF  QemuQ35Pkg/QemuRamfbDxe/QemuRamfbDxe.inf
+INF  QemuQ35Pkg/IoMmuDxe/IoMmuDxe.inf
 
-INF  OvmfPkg/SmmAccess/SmmAccess2Dxe.inf
-INF  OvmfPkg/SmmControl2Dxe/SmmControl2Dxe.inf
-INF  OvmfPkg/CpuS3DataDxe/CpuS3DataDxe.inf
-INF  MdeModulePkg/Core/PiSmmCore/PiSmmIpl.inf
-INF  MdeModulePkg/Core/PiSmmCore/PiSmmCore.inf
-INF  UefiCpuPkg/CpuIo2Smm/CpuIo2Smm.inf
+INF  QemuQ35Pkg/SmmControl2Dxe/SmmControl2Dxe.inf
+INF  QemuQ35Pkg/CpuS3DataDxe/CpuS3DataDxe.inf
+!if $(PEI_MM_IPL_ENABLED) == TRUE
+  INF  QemuQ35Pkg/SmmControl2Dxe/MmControlPei.inf
+  INF  MmSupervisorPkg/Drivers/MmPeiLaunchers/MmIplPei.inf
+  INF  MmSupervisorPkg/Drivers/MmPeiLaunchers/MmIplX64Relay.inf
+  INF  MmSupervisorPkg/Drivers/MmPeiLaunchers/MmDxeSupport.inf
+!else
+  INF  QemuQ35Pkg/SmmAccess/SmmAccess2Dxe.inf
+  INF  MmSupervisorPkg/Drivers/StandaloneMmIpl/PiSmmIpl.inf
+!endif
+INF  MmSupervisorPkg/Core/MmSupervisorCore.inf
+INF  UefiCpuPkg/CpuIo2Smm/CpuIo2StandaloneMm.inf
 INF  MdeModulePkg/Universal/LockBox/SmmLockBox/SmmLockBox.inf
-INF  UefiCpuPkg/PiSmmCpuDxeSmm/PiSmmCpuDxeSmm.inf
 
 #
 # Variable driver stack (SMM)
 #
-INF  OvmfPkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesSmm.inf
-INF  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteSmm.inf
-INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableSmm.inf
+INF  QemuQ35Pkg/QemuFlashFvbServicesRuntimeDxe/FvbServicesStandaloneMm.inf
+INF  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteStandaloneMm.inf
+INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableStandaloneMm.inf
 INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableSmmRuntimeDxe.inf
 
 
@@ -486,11 +493,13 @@ INF  MsCorePkg/MuCryptoDxe/MuCryptoDxe.inf
 INF  MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTableDxe/FirmwarePerformanceDxe.inf
 INF  MsGraphicsPkg/MsEarlyGraphics/Dxe/MsEarlyGraphics.inf
 INF  MsWheaPkg/MsWheaReport/Dxe/MsWheaReportDxe.inf
-INF  MsWheaPkg/MsWheaReport/Smm/MsWheaReportSmm.inf
-INF  MdeModulePkg/Universal/ReportStatusCodeRouter/Smm/ReportStatusCodeRouterSmm.inf
+INF  MsWheaPkg/MsWheaReport/Smm/MsWheaReportStandaloneMm.inf
+INF  MdeModulePkg/Universal/ReportStatusCodeRouter/Smm/ReportStatusCodeRouterStandaloneMm.inf
 INF  MsCorePkg/Universal/StatusCodeHandler/Serial/Smm/SerialStatusCodeHandlerSmm.inf
-INF  MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTableSmm/FirmwarePerformanceSmm.inf
+INF  MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTableSmm/FirmwarePerformanceStandaloneMm.inf
 INF  MsCorePkg/MuVarPolicyFoundationDxe/MuVarPolicyFoundationDxe.inf
+INF  MmSupervisorPkg/Drivers/MmSupervisorRing3Broker/MmSupervisorRing3Broker.inf
+INF  MmSupervisorPkg/Drivers/StandaloneMmUnblockMem/StandaloneMmUnblockMem.inf
 # INF RuleOverride = DRIVER_ACPITABLE SecurityPkg/Tcg/Tcg2Smm/Tcg2Smm.inf
 # COMMENTED OUT DUE TO LACK OF TPM
 # INF  SecurityPkg/Tcg/MemoryOverwriteControl/TcgMor.inf
@@ -500,7 +509,6 @@ INF  DfciPkg/Application/DfciMenu/DfciMenu.inf
 INF  MsGraphicsPkg/PrintScreenLogger/PrintScreenLogger.inf
 INF  SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
 INF  MsCorePkg/AcpiRGRT/AcpiRgrt.inf
-INF  SetupDataPkg/ConfProfileMgrDxe/ConfProfileMgrDxe.inf
 
 #SHARED_CRYPTO Crypto Bin Modules
 !if $(ENABLE_SHARED_CRYPTO) == TRUE
@@ -513,7 +521,7 @@ INF  SetupDataPkg/ConfProfileMgrDxe/ConfProfileMgrDxe.inf
 !if $(BUILD_UNIT_TESTS) == TRUE
 INF  UefiTestingPkg/FunctionalSystemTests/SmmPagingProtectionsTest/Smm/SmmPagingProtectionsTestSmm.inf
 INF  UefiTestingPkg/FunctionalSystemTests/MemoryProtectionTest/Smm/MemoryProtectionTestSmm.inf
-INF  UefiTestingPkg/AuditTests/PagingAudit/UEFI/SmmPagingAuditDriver.inf
+INF  MmSupervisorPkg/Test/MmPagingAuditTest/UEFI/MmPagingAuditApp.inf
 INF  UefiTestingPkg/AuditTests/PagingAudit/UEFI/DxePagingAuditDriver.inf
 !endif
 
@@ -551,6 +559,7 @@ FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
   INF MfciPkg/MfciDxe/MfciDxe.inf
   INF MsGraphicsPkg/OnScreenKeyboardDxe/OnScreenKeyboardDxe.inf
   INF MsGraphicsPkg/SimpleWindowManagerDxe/SimpleWindowManagerDxe.inf
+  INF MmSupervisorPkg/Drivers/MmSupervisorErrorReport/MmSupervisorErrorReport.inf
   FILE APPLICATION=PCD(gPcBdsPkgTokenSpaceGuid.PcdShellFile) {
     SECTION PE32=$(OUTPUT_DIRECTORY)/$(TARGET)_$(TOOL_CHAIN_TAG)/X64/Shell.efi
     SECTION UI= "EdkShell"
@@ -577,20 +586,8 @@ FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
   FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdBootFailIndicatorFile ) {
     SECTION RAW = OemPkg/FrontPage/Resources/NoBoot.bmp
   }
-  FILE FREEFORM = gSetupDataPkgGenericProfileGuid {
-    SECTION RAW = $(CONF_BIN_FILE_0)
-  }
-  FILE FREEFORM = gQemuQ35PkgProfile1Guid {
-    SECTION RAW = $(CONF_BIN_FILE_1)
-  }
-  FILE FREEFORM = gQemuQ35PkgProfile2Guid {
-    SECTION RAW = $(CONF_BIN_FILE_2)
-  }
-  FILE FREEFORM = gQemuQ35PkgProfile3Guid {
-    SECTION RAW = $(CONF_BIN_FILE_3)
-  }
-  FILE FREEFORM = gQemuQ35PkgDfciUnsignedXmlGuid {
-        SECTION RAW = QemuQ35Pkg/UnsignedPermissions.xml
+  FILE FREEFORM = gMmSupervisorPolicyFileGuid {
+    SECTION RAW = $(POLICY_BIN_PATH)
   }
 
 ################################################################################
@@ -707,6 +704,21 @@ FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
     PE32      PE32                    |.efi
     UI        STRING="$(MODULE_NAME)" Optional
     VERSION   STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
+  }
+
+[Rule.Common.MM_CORE_STANDALONE]
+  FILE MM_CORE_STANDALONE = $(NAMED_GUID) {
+    PE32     PE32           $(INF_OUTPUT)/$(MODULE_NAME).efi
+    UI       STRING="$(MODULE_NAME)" Optional
+    VERSION  STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
+  }
+
+[Rule.Common.MM_STANDALONE]
+  FILE MM_STANDALONE = $(NAMED_GUID) {
+    SMM_DEPEX    SMM_DEPEX Optional      $(INF_OUTPUT)/$(MODULE_NAME).depex
+    PE32     PE32                    $(INF_OUTPUT)/$(MODULE_NAME).efi
+    UI       STRING="$(MODULE_NAME)" Optional
+    VERSION  STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
   }
 
 [Rule.Common.UEFI_APPLICATION]

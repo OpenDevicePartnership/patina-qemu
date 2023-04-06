@@ -41,15 +41,13 @@ class Settings(CiSetupSettingsManager, CiBuildSettingsManager, UpdateSettingsMan
         ''' return iterable of edk2 packages supported by this build.
         These should be edk2 workspace relative paths '''
 
-        return (
-                "OvmfPkg",
-                "QemuQ35Pkg"
-                )
+        return ("QemuQ35Pkg","QemuSbsaPkg")
 
     def GetArchitecturesSupported(self):
         ''' return iterable of edk2 architectures supported by this build '''
         return ("IA32",
-                "X64")
+                "X64",
+                "AARCH64")
 
     def GetTargetsSupported(self):
         ''' return iterable of edk2 target tags supported by this build '''
@@ -169,7 +167,12 @@ class Settings(CiSetupSettingsManager, CiBuildSettingsManager, UpdateSettingsMan
 
     def GetPackagesPath(self):
         ''' Return a list of workspace relative paths that should be mapped as edk2 PackagesPath '''
-        result = ["Platforms", "MU_BASECORE", "Common/MU", "Common/MU_TIANO", "Common/MU_OEM_SAMPLE"]
+
+        # Include all submodule paths
+        result = ["Platforms"]
+        for submodule in self.GetRequiredSubmodules():
+            result.append(submodule.path)
+
         return result
 
     def GetWorkspaceRoot(self):

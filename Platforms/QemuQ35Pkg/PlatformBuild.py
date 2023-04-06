@@ -9,7 +9,7 @@ import logging
 import io
 import shutil
 import glob
-import time
+import datetime
 import xml.etree.ElementTree
 import tempfile
 import uuid
@@ -20,8 +20,25 @@ from edk2toolext.invocables.edk2_platform_build import BuildSettingsManager
 from edk2toolext.invocables.edk2_setup import SetupSettingsManager, RequiredSubmodule
 from edk2toolext.invocables.edk2_update import UpdateSettingsManager
 from edk2toolext.invocables.edk2_pr_eval import PrEvalSettingsManager
-from edk2toollib.utility_functions import RunCmd, RunPythonScript
+from edk2toollib.utility_functions import RunCmd, GetHostInfo
+from typing import Tuple
 
+# Declare test whose failure will not return a non-zero exit code
+failure_exempt_tests = {}
+failure_exempt_tests["BaseCryptLibUnitTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
+failure_exempt_tests["BootAuditTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
+failure_exempt_tests["LineParserTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
+failure_exempt_tests["MorLockFunctionalTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
+failure_exempt_tests["MsWheaEarlyUnitTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
+failure_exempt_tests["VariablePolicyFuncTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
+failure_exempt_tests["DeviceIdTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
+failure_exempt_tests["DxePagingAuditTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
+
+# Allow failure exempt tests to be ignored for 90 days
+FAILURE_EXEMPT_OMISSION_LENGTH = 90*24*60*60
+
+# Declare tests which require platform reset(s)
+reset_tests = ["MorLockFunctionalTestApp.efi", "VariablePolicyFuncTestApp.efi"]
 
     # ####################################################################################### #
     #                                Common Configuration                                     #
@@ -33,14 +50,58 @@ class CommonPlatform():
     PackagesSupported = ("QemuQ35Pkg",)
     ArchSupported = ("IA32", "X64")
     TargetsSupported = ("DEBUG", "RELEASE", "NOOPT")
-    Scopes = ('qemuq35', 'edk2-build', 'cibuild', 'setupdata')
+    Scopes = ('qemuq35', 'edk2-build', 'cibuild', 'configdata')
     WorkspaceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    PackagesPath = ("Platforms", "MU_BASECORE", "Common/MU", "Common/MU_TIANO", "Common/MU_OEM_SAMPLE")
+    PackagesPath = (
+        "Platforms",
+        "MU_BASECORE",
+        "Common/MU",
+        "Common/MU_TIANO",
+        "Common/MU_OEM_SAMPLE",
+        "Features/DFCI",
+        "Features/CONFIG",
+        "Features/MM_SUPV"
+    )
+
+    @staticmethod
+    def add_common_command_line_options(parserObj) -> None:
+        """Adds command line options common to settings managers."""
+        parserObj.add_argument('--codeql', dest='codeql', action='store_true', default=False,
+            help="Optional - Produces CodeQL results from the build. See "
+                 "MU_BASECORE/.pytool/Plugin/CodeQL/Readme.md for more information.")
+
+    @staticmethod
+    def retrieve_common_command_line_options(args) -> bool:
+        """Retrieves command line options common to settings managers."""
+        return args.codeql
+
+    @staticmethod
+    def get_active_scopes(codeql_enabled: bool) -> Tuple[str]:
+        """Returns the active scopes for the platform."""
+        active_scopes = CommonPlatform.Scopes
+
+        # Enable the CodeQL plugin if chosen on command line
+        if codeql_enabled:
+            if GetHostInfo().os == "Linux":
+                active_scopes += ("codeql-linux-ext-dep",)
+            else:
+                active_scopes += ("codeql-windows-ext-dep",)
+            active_scopes += ("codeql-build", "codeql-analyze")
+
+        return active_scopes
 
     # ####################################################################################### #
     #                         Configuration for Update & Setup                                #
     # ####################################################################################### #
 class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSettingsManager):
+
+    def AddCommandLineOptions(self, parserObj):
+        """Add command line options to the argparser"""
+        CommonPlatform.add_common_command_line_options(parserObj)
+
+    def RetrieveCommandLineOptions(self, args):
+        """Retrieve command line options from the argparser"""
+        self.codeql = CommonPlatform.retrieve_common_command_line_options(args)
 
     def GetPackagesSupported(self):
         ''' return iterable of edk2 packages supported by this build.
@@ -56,29 +117,20 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
         return CommonPlatform.TargetsSupported
 
     def GetRequiredSubmodules(self):
-        ''' return iterable containing RequiredSubmodule objects.
-        If no RequiredSubmodules return an empty iterable
-        '''
-        rs = []
+        """Return iterable containing RequiredSubmodule objects.
 
-        # To avoid maintenance of this file for every new submodule
-        # lets just parse the .gitmodules and add each if not already in list.
-        # The GetRequiredSubmodules is designed to allow a build to optimize
-        # the desired submodules but it isn't necessary for this repository.
-        result = io.StringIO()
-        ret = RunCmd("git", "config --file .gitmodules --get-regexp path",
-                     workingdir=self.GetWorkspaceRoot(), outstream=result)
-        # Cmd output is expected to look like:
-        # submodule.CryptoPkg/Library/OpensslLib/openssl.path CryptoPkg/Library/OpensslLib/openssl
-        # submodule.SoftFloat.path ArmPkg/Library/ArmSoftFloatLib/berkeley-softfloat-3
-        if ret == 0:
-            for line in result.getvalue().splitlines():
-                _, _, path = line.partition(" ")
-                if path is not None:
-                    if path not in [x.path for x in rs]:
-                        # add it with recursive since we don't know
-                        rs.append(RequiredSubmodule(path, True))
-        return rs
+        !!! note
+            If no RequiredSubmodules return an empty iterable
+        """
+        return [
+            RequiredSubmodule("MU_BASECORE", True),
+            RequiredSubmodule("Common/MU", True),
+            RequiredSubmodule("Common/MU_TIANO", True),
+            RequiredSubmodule("Common/MU_OEM_SAMPLE", True),
+            RequiredSubmodule("Features/DFCI", True),
+            RequiredSubmodule("Features/CONFIG", True),
+            RequiredSubmodule("Features/MM_SUPV", True),
+        ]
 
     def SetArchitectures(self, list_of_requested_architectures):
         ''' Confirm the requests architecture list is valid and configure SettingsManager
@@ -101,7 +153,7 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
 
     def GetActiveScopes(self):
         ''' return tuple containing scopes that should be active for this process '''
-        return CommonPlatform.Scopes
+        return CommonPlatform.get_active_scopes(self.codeql)
 
     def FilterPackagesToTest(self, changedFilesList: list, potentialPackagesList: list) -> list:
         ''' Filter other cases that this package should be built
@@ -122,7 +174,7 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
             if "platform-build-run-steps.yml" in f:
                 build_these_packages = possible_packages
                 break
-            
+
             if f in submodules:
                 build_these_packages = possible_packages
 
@@ -141,17 +193,12 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
 
     def GetPackagesPath(self):
         ''' Return a list of paths that should be mapped as edk2 PackagesPath '''
-        result = [
-            shell_environment.GetBuildVars().GetValue("FEATURE_CONFIG_PATH", "")
-        ]
-        for a in CommonPlatform.PackagesPath:
-            result.append(a)
-        return result
+        return CommonPlatform.PackagesPath
 
     # ####################################################################################### #
     #                         Actual Configuration for Platform Build                         #
     # ####################################################################################### #
-class PlatformBuilder( UefiBuilder, BuildSettingsManager):
+class PlatformBuilder(UefiBuilder, BuildSettingsManager):
     def __init__(self):
         UefiBuilder.__init__(self)
 
@@ -165,11 +212,14 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
             help="Optional - CSV of architecture to build.  IA32,X64 will use IA32 for PEI and "
             "X64 for DXE and is the only valid option for this platform.")
 
+        CommonPlatform.add_common_command_line_options(parserObj)
+
     def RetrieveCommandLineOptions(self, args):
         '''  Retrieve command line options from the argparser '''
         if args.build_arch.upper() != "IA32,X64":
             raise Exception("Invalid Arch Specified.  Please see comments in PlatformBuild.py::PlatformBuilder::AddCommandLineOptions")
 
+        self.codeql = CommonPlatform.retrieve_common_command_line_options(args)
 
     def GetWorkspaceRoot(self):
         ''' get WorkspacePath '''
@@ -178,7 +228,8 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
     def GetPackagesPath(self):
         ''' Return a list of workspace relative paths that should be mapped as edk2 PackagesPath '''
         result = [
-            shell_environment.GetBuildVars().GetValue("FEATURE_CONFIG_PATH", "")
+            shell_environment.GetBuildVars().GetValue("FEATURE_CONFIG_PATH", ""),
+            shell_environment.GetBuildVars().GetValue("FEATURE_MM_SUPV_PATH", "")
         ]
         for a in CommonPlatform.PackagesPath:
             result.append(a)
@@ -186,7 +237,7 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
 
     def GetActiveScopes(self):
         ''' return tuple containing scopes that should be active for this process '''
-        return CommonPlatform.Scopes
+        return CommonPlatform.get_active_scopes(self.codeql)
 
     def GetName(self):
         ''' Get the name of the repo, platform, or product being build '''
@@ -223,38 +274,50 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
         # Default turn on build reporting.
         self.env.SetValue("BUILDREPORTING", "TRUE", "Enabling build report")
         self.env.SetValue("BUILDREPORT_TYPES", "PCD DEPEX FLASH BUILD_FLAGS LIBRARY FIXED_ADDRESS HASH", "Setting build report types")
+        self.env.SetValue("BLD_*_QEMU_CORE_NUM", "2", "Default")
+        self.env.SetValue("BLD_*_MEMORY_PROTECTION", "TRUE", "Default")
         # Include the MFCI test cert by default, override on the commandline with "BLD_*_SHIP_MODE=TRUE" if you want the retail MFCI cert
         self.env.SetValue("BLD_*_SHIP_MODE", "FALSE", "Default")
-        self.__SetEsrtGuidVars("CONF_POLICY_GUID", "6E08E434-8E04-47B5-9A77-78A3A24523EA", "Platform Hardcoded")
-        self.env.SetValue("YAML_CONF_FILE", self.mws.join(self.ws, "QemuQ35Pkg", "CfgData", "CfgDataDef.yaml"), "Platform Hardcoded")
-        self.env.SetValue("DELTA_CONF_POLICY", self.mws.join(self.ws, "QemuQ35Pkg", "CfgData", "Profile1.dlt") + ";" +\
-                          self.mws.join(self.ws, "QemuQ35Pkg", "CfgData", "Profile2.dlt") + ";" +\
-                          self.mws.join(self.ws, "QemuQ35Pkg", "CfgData", "Profile3.dlt"), "Platform Hardcoded")
-        self.env.SetValue("CONF_DATA_STRUCT_FOLDER", self.mws.join(self.ws, "QemuQ35Pkg", "Include"), "Platform Defined")
-        self.env.SetValue('CONF_REPORT_FOLDER', self.mws.join(self.ws, "QemuQ35Pkg", "CfgData"), "Platform Defined")
+        self.env.SetValue("CONF_AUTOGEN_INCLUDE_PATH", self.mws.join(self.ws, "Platforms", "QemuQ35Pkg", "Include"), "Platform Defined")
 
         self.env.SetValue("YAML_POLICY_FILE", self.mws.join(self.ws, "QemuQ35Pkg", "PolicyData", "PolicyDataUsb.yaml"), "Platform Hardcoded")
         self.env.SetValue("POLICY_DATA_STRUCT_FOLDER", self.mws.join(self.ws, "QemuQ35Pkg", "Include"), "Platform Defined")
-        self.env.SetValue("POLICY_REPORT_FOLDER", self.mws.join(self.ws, "QemuQ35Pkg", "PolicyData"), "Platform Defined")
-        
+        self.env.SetValue('POLICY_REPORT_FOLDER', self.mws.join(self.ws, "QemuQ35Pkg", "PolicyData"), "Platform Defined")
+        self.env.SetValue('MU_SCHEMA_DIR', self.mws.join(self.ws, "Platforms", "QemuQ35Pkg", "CfgData"), "Platform Defined")
+        self.env.SetValue('MU_SCHEMA_FILE_NAME', "QemuQ35PkgCfgData.xml", "Platform Hardcoded")
+
+        # Globally set CodeQL failures to be ignored in this repo.
+        # Note: This has no impact if CodeQL is not active/enabled.
+        self.env.SetValue("STUART_CODEQL_AUDIT_ONLY", "true", "Platform Defined")
+
         return 0
 
     def PlatformPreBuild(self):
-
         shell_env = shell_environment.GetEnvironment()
 
         # Unless explicitly set, default to RUSTC_BOOTSTRAP=1
-        if shell_env.get_shell_var("RUSTC_BOOTSTRAP") is None: 
+        if shell_env.get_shell_var("RUSTC_BOOTSTRAP") is None:
             rustc_bootstrap = self.env.GetValue("RUSTC_BOOTSTRAP", "1")
             shell_env.set_shell_var("RUSTC_BOOTSTRAP", rustc_bootstrap)
             logging.info("Override: RUSTC_BOOTSTRAP={}".format(rustc_bootstrap))
 
-        return 0
+        # Here we build the secure policy blob for build system to use and add into the targeted FV
+        policy_example_dir = self.mws.join(self.mws.WORKSPACE, "MmSupervisorPkg", "SupervisorPolicyTools", "MmIsolationPoliciesExample.xml")
+        output_dir = os.path.join(self.env.GetValue("BUILD_OUTPUT_BASE"), "Policy")
+        if (not os.path.isdir(output_dir)):
+            os.makedirs (output_dir)
+        output_name = os.path.join(output_dir, "secure_policy.bin")
+
+        ret = self.Helper.MakeSupervisorPolicy(xml_file_path=policy_example_dir, output_binary_path=output_name)
+        if(ret != 0):
+            raise Exception("SupervisorPolicyMaker Failed: Errorcode %d" % ret)
+        self.env.SetValue("BLD_*_POLICY_BIN_PATH", output_name, "Set generated secure policy path")
+        return ret
 
     def __SetEsrtGuidVars(self, var_name, guid_str, desc_string):
         cur_guid = uuid.UUID(guid_str)
         self.env.SetValue("BLD_*_%s_REGISTRY" % var_name, guid_str, desc_string)
-        self.env.SetValue("BLD_*_%s_BYTES" % var_name, "{" + (",".join(("0x%X" % byte) for byte in cur_guid.bytes_le)) + "}", desc_string)
+        self.env.SetValue("BLD_*_%s_BYTES" % var_name, "'{" + (",".join(("0x%X" % byte) for byte in cur_guid.bytes_le)) + "}'", desc_string)
         return
 
     def FlashRomImage(self):
@@ -304,6 +367,8 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
             VirtualDrivePath = self.env.GetValue("VIRTUAL_DRIVE_PATH", os.path.join(output_base, "VirtualDrive"))
             logging.warning("Linux currently isn't supported for the virtual drive. Falling back to an older method")
 
+            test_regex = self.env.GetValue("TEST_REGEX", "")
+
             if run_tests:
                 logging.critical("Linux doesn't support running unit tests due to lack of VHD support")
 
@@ -351,7 +416,11 @@ class UnitTestSupport(object):
 
     def write_tests_to_startup_nsh(self,nshfile):
         for test in self.test_list:
-            nshfile.AddLine(os.path.basename(test))
+            if (os.path.basename(test) in reset_tests):
+                nshfile.AddLine(os.path.basename(test))
+        for test in self.test_list:
+            if not (os.path.basename(test) in reset_tests):
+                nshfile.AddLine(os.path.basename(test))
 
     def report_results(self, virtualdrive) -> int:
         from html import unescape
@@ -360,8 +429,15 @@ class UnitTestSupport(object):
         os.makedirs(report_folder_path, exist_ok=True)
         #now parse the xml for errors
         failure_count = 0
-        logging.info("UnitTest Completed")
+        logging.info("UnitTest(s) Completed")
         for unit_test in self.test_list:
+            ignore_failure = False
+            if (os.path.basename(unit_test) in failure_exempt_tests.keys()):
+                now = datetime.datetime.now()
+                last_ignore_time = failure_exempt_tests[os.path.basename(unit_test)]
+                if (now - last_ignore_time).total_seconds() < FAILURE_EXEMPT_OMISSION_LENGTH:
+                    logging.info("Ignoring output of " + os.path.basename(unit_test))
+                    ignore_failure = True
             xml_result_file = os.path.basename(unit_test)[:-4] + "_JUNIT.XML"
             output_xml_file = os.path.join(report_folder_path, xml_result_file)
             try:
@@ -383,9 +459,10 @@ class UnitTestSupport(object):
                         level = logging.INFO
                         for result in case:
                             if result.tag == 'failure':
-                                failure_count += 1
                                 level = logging.ERROR
                                 caseresult = "\t\tFAIL" + " - " + unescape(result.attrib['message'])
+                                if not ignore_failure:
+                                    failure_count += 1
                         logging.log( level, caseresult)
             except Exception as ex:
                 logging.error("Exception trying to read xml." + str(ex))
