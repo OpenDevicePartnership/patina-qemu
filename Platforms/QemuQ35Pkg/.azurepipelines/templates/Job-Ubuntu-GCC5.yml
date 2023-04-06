@@ -70,6 +70,33 @@ jobs:
         build_arch: $(Build.Arch)
         build_file: $(Build.File)
         build_flags: $(Build.Flags)
+        extra_install_step:
+        - template: ../../../../.azurepipelines/templates/git-config-auth.yml
+        - task: RustInstaller@1
+          inputs:
+            rustVersion: ms-$(RustVersion)
+            authenticationToken: $(RustInstallerToken)
+          displayName: Install Microsoft Rust toolchain
+        - task: Powershell@2 # In order to comply with msrustup
+          inputs:
+            targetType: 'inline'
+            script: |
+              New-Item -Path .cargo -ItemType Directory
+              New-Item -Path .cargo/config.toml -ItemType File
+              "
+              [source]
+              crates-io = { replace-with = 'ms-crates-io' }
+              ms-crates-io = { registry = '$(MsCratesIO)' }
+
+              [net]
+              git-fetch-with-cli = true" | Out-File -FilePath .cargo/config.toml -Append -encoding ASCII
+
+          displayName: Overriding default crates-io with internal ms-crates-io
+        - task: Powershell@2
+          inputs:
+            targetType: 'inline'
+            script: cargo install --force cargo-make
+          displayName: Install Cargo Make
         run_flags: $(Run.Flags)
         install_tools: false
         artifacts_identifier: '$(package) $(tool_chain_tag) $(Build.Target)'

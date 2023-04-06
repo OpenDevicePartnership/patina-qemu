@@ -70,9 +70,36 @@ jobs:
         run_flags: $(Run.Flags)
         run_timeout: 20
         extra_install_step:
+        # setup the git creds
+        - template: ../../../../.azurepipelines/templates/git-config-auth.yml
         - powershell: choco install qemu --version=2022.8.31; Write-Host "##vso[task.prependpath]c:\Program Files\qemu"
           displayName: Install QEMU and Set QEMU on path # friendly name displayed in the UI
           condition: and(gt(variables.pkg_count, 0), succeeded())
+        - task: RustInstaller@1
+          inputs:
+            rustVersion: ms-$(RustVersion)
+            authenticationToken: $(RustInstallerToken)
+          displayName: Install Microsoft Rust toolchain
+        - task: Powershell@2 # In order to comply with msrustup
+          inputs:
+            targetType: 'inline'
+            script: |
+              New-Item -Path .cargo -ItemType Directory
+              New-Item -Path .cargo/config.toml -ItemType File
+              "
+              [source]
+              crates-io = { replace-with = 'ms-crates-io' }
+              ms-crates-io = { registry = '$(MsCratesIO)' }
+
+              [net]
+              git-fetch-with-cli = true" | Out-File -FilePath .cargo/config.toml -Append -encoding ASCII
+
+          displayName: Overriding default crates-io with internal ms-crates-io
+        - task: Powershell@2
+          inputs:
+            targetType: 'inline'
+            script: cargo install --force cargo-make
+          displayName: Install Cargo Make
         artifacts_identifier: '$(package) $(tool_chain_tag) $(Build.Target)'
         artifacts_binary: |
           **/QEMUQ35_*.fd
