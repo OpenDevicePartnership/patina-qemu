@@ -103,3 +103,10 @@ jobs:
         artifacts_identifier: '$(package) $(tool_chain_tag) $(Build.Target)'
         artifacts_binary: |
           **/QEMUQ35_*.fd
+    - task: PublishCodeCoverageResults@1
+      displayName: 'Publish Code Coverage Results'
+      continueOnError: true
+      condition: and( succeededOrFailed(),gt(variables.pkg_count, 0))
+      inputs:
+        CodeCoverageTool: 'Cobertura'
+        SummaryFileLocation: 'Build/cobertura.xml'
