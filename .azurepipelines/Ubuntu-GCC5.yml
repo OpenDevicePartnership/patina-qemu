@@ -68,4 +68,5 @@ jobs:
     vm_image: ubuntu-latest
     container_build: true
     linux_container_image: ghcr.io/tianocore/containers/fedora-37-build:f1c7a20
+    linux_container_options: --security-opt seccomp=unconfined
 
