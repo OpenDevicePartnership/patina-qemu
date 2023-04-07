@@ -127,14 +127,14 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             args += " -device isa-debug-exit,iobase=0xf4,iosize=0x04"
 
         # Run QEMU
-        #ret = QemuRunner.RunCmd(executable, args,  thread_target=QemuRunner.QemuCmdReader)
-        ret = utility_functions.RunCmd(executable, args)
-        if ret != 0 and os.name != 'nt':
-            # Linux version of QEMU will mess with the print if its run failed, this is to restore it
-            utility_functions.RunCmd ('stty', 'echo')
+        ret = QemuRunner.RunCmd(executable, args,  thread_target=QemuRunner.QemuCmdReader)
+        # Disable for now: "stty: 'standard input': Inappropriate ioctl for device"
+        # if ret != 0 and os.name != 'nt':
+        #     # Linux version of QEMU will mess with the print if its run failed, this is to restore it
+        #     utility_functions.RunCmd ('stty', 'echo')
 
         ## TODO: restore the customized RunCmd once unit tests with asserts are figured out
-        if ret == 0xc0000005:
+        if ret == 0xc0000005 or ret == 33:
             ret = 0
 
         ## TODO: remove this once we upgrade to newer QEMU
