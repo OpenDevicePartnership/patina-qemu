@@ -20,7 +20,7 @@ resources:
       ref: refs/tags/v2.3.0
 
 variables:
-- group: architectures-arm64-x86-64
+- group: architectures-x86-64
 - group: tool-chain-ubuntu-gcc
 - group: 'UEFI Rust Tokens'
 
