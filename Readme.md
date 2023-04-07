@@ -43,19 +43,19 @@ The following instructions install Rust.
 
    \>`cargo --version`
 
-3. Install the 1.64.0 x86_64 rust toolchain.
+3. Install the 1.68.2 x86_64 rust toolchain.
 
    Windows:
 
-   \>`rustup toolchain install 1.64.0-x86_64-pc-windows-msvc`
+   \>`rustup toolchain install 1.68.2-x86_64-pc-windows-msvc`
 
-   \>`rustup component add rust-src --toolchain 1.64.0-x86_64-pc-windows-msvc`
+   \>`rustup component add rust-src --toolchain 1.68.2-x86_64-pc-windows-msvc`
 
    Linux:
 
-   \>`rustup toolchain install 1.64.0-x86_64-unknown-linux-gnu`
+   \>`rustup toolchain install 1.68.2-x86_64-unknown-linux-gnu`
 
-   \>`rustup component add rust-src --toolchain 1.64.0-x86_64-unknown-linux-gnu`
+   \>`rustup component add rust-src --toolchain 1.68.2-x86_64-unknown-linux-gnu`
 
 4. Install Cargo Make.
 
@@ -345,16 +345,16 @@ rust package as seen below:
 Installing the toolchain via the rust-toolchain.toml on windows may have the following error:
 
 ```bash
-INFO - error: the 'cargo.exe' binary, normally provided by the 'cargo' component, is not applicable to the '1.64.0-x86_64-pc-windows-msvc' toolchain
+INFO - error: the 'cargo.exe' binary, normally provided by the 'cargo' component, is not applicable to the '1.68.2-x86_64-pc-windows-msvc' toolchain
 ```
 
 To fix this:
 
 ```bash
 # Reinstall the toolchain
-rustup toolchain uninstall 1.64.0-x86_64-pc-windows-msvc
-rustup toolchain install 1.64.0-x86_64-pc-windows-msvc
+rustup toolchain uninstall 1.68.2-x86_64-pc-windows-msvc
+rustup toolchain install 1.68.2-x86_64-pc-windows-msvc
 
 # Add the rust-src back for the toolchain
-rustup component add rust-src --toolchain 1.64.0-x86_64-pc-windows-msvc
+rustup component add rust-src --toolchain 1.68.2-x86_64-pc-windows-msvc
 ```
