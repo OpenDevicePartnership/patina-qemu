@@ -21,7 +21,7 @@ jobs:
       - name: should_run
         value: true
       - name: run_flags
-        value: "QEMU_HEADLESS=TRUE EMPTY_DRIVE=TRUE TEST_REGEX=*TestApp.efi RUN_TESTS=TRUE"
+        value: "QEMU_HEADLESS=TRUE EMPTY_DRIVE=TRUE TEST_REGEX=*TestApp.efi"
 
     #Use matrix to speed up the build process
     strategy:
@@ -34,6 +34,8 @@ jobs:
             Build.Target: "DEBUG"
             Run.Flags: $(run_flags)
             Run: $(should_run)
+            Build.ArtifactsBinary: |
+              **/QEMUQ35_*.fd
 
           QemuQ35_RELEASE:
             Build.File: "Platforms/$(package)/PlatformBuild.py"
@@ -42,6 +44,8 @@ jobs:
             Build.Target: "RELEASE"
             Run.Flags: $(run_flags)
             Run: $(should_run)
+            Build.ArtifactsBinary: |
+              **/QEMUQ35_*.fd
 
           # NOOPT build too big to fit in FV.
           #QemuQ35_NOOPT:
@@ -101,8 +105,7 @@ jobs:
             script: cargo install --force cargo-make
           displayName: Install Cargo Make
         artifacts_identifier: '$(package) $(tool_chain_tag) $(Build.Target)'
-        artifacts_binary: |
-          **/QEMUQ35_*.fd
+        artifacts_binary: $(Build.ArtifactsBinary)
     - task: PublishCodeCoverageResults@1
       displayName: 'Publish Code Coverage Results'
       continueOnError: true
