@@ -306,16 +306,18 @@
   DebugLib|QemuQ35Pkg/Library/PlatformDebugLibIoPort/PlatformDebugLibIoPort.inf
 !endif
 
-##MSCHANGE Begin
-!if $(TOOL_CHAIN_TAG) == VS2019 or $(TOOL_CHAIN_TAG) == VS2022
-[LibraryClasses.X64, LibraryClasses.IA32]
-  #if debug is enabled provide StackCookie support lib so that we can link to /GS exports on MSVC
-  RngLib|MdePkg/Library/BaseRngLib/BaseRngLib.inf
-[LibraryClasses.X64]
-  BaseBinSecurityLib|MdePkg/Library/BaseBinSecurityLibRng/BaseBinSecurityLibRng.inf
-  NULL|MdePkg/Library/BaseBinSecurityLibRng/BaseBinSecurityLibRng.inf
-!endif
-##MSCHANGE End
+# RUST_CHANGE [BEGIN]: Do not use stack cookies (prevents building Rust modules right now)
+# ##MSCHANGE Begin
+# !if $(TOOL_CHAIN_TAG) == VS2019 or $(TOOL_CHAIN_TAG) == VS2022
+# [LibraryClasses.X64, LibraryClasses.IA32]
+#   #if debug is enabled provide StackCookie support lib so that we can link to /GS exports on MSVC
+#   RngLib|MdePkg/Library/BaseRngLib/BaseRngLib.inf
+# [LibraryClasses.X64]
+#   BaseBinSecurityLib|MdePkg/Library/BaseBinSecurityLibRng/BaseBinSecurityLibRng.inf
+#   NULL|MdePkg/Library/BaseBinSecurityLibRng/BaseBinSecurityLibRng.inf
+# !endif
+# ##MSCHANGE End
+# RUST_CHANGE [END]: Do not use stack cookies (prevents building Rust modules right now)
 
 #SHARED_CRYPTO
 !if $(ENABLE_SHARED_CRYPTO) == FALSE
@@ -1282,7 +1284,7 @@
   ## Where-Object {(Select-String -InputObject $_ -Pattern "MODULE_TYPE\s*=\s*UEFI_APPLICATION")} | ^
   ## ForEach-Object {$path = $_.FullName -replace '\\','/'; Write-Output $path}
   !if $(BUILD_UNIT_TESTS) == TRUE
-  
+
     # TEST APPS
     UefiTestingPkg/FunctionalSystemTests/MemoryProtectionTest/App/MemoryProtectionTestApp.inf
     AdvLoggerPkg/UnitTests/LineParser/LineParserTestApp.inf
