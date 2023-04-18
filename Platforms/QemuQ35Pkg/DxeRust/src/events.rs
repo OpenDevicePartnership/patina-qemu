@@ -9,7 +9,7 @@ use r_efi::{
     system::{BootServices, EVT_NOTIFY_SIGNAL, TPL_APPLICATION, TPL_CALLBACK, TPL_HIGH_LEVEL},
 };
 
-use r_pi::timer::{TIMER_ARCH_PROTOCOL_GUID, TimerArchProtocol};
+use r_pi::timer::{TimerArchProtocol, TIMER_ARCH_PROTOCOL_GUID};
 use uefi_event_lib::{SpinLockedEventDb, TimerDelay};
 
 use crate::protocols::PROTOCOL_DB;
