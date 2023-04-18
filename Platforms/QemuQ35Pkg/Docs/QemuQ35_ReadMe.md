@@ -2,7 +2,7 @@
 
 **QemuQ35Pkg...**
 
-- Is a derivative of OvmfPkg.
+- Is a derivative of Temp.
 - Will not support Legacy BIOS or CSM.
 - WIll not support S3 sleep functionality.
 - Has a 32-bit PEI phase and a 64-bit DXE phase.
@@ -68,6 +68,26 @@ loading PRM modules which in turn are exposed to the OS for invocation. To accom
 sample PRM modules are used to demonstrate the feature and show how additional modules can be added.
 
 [Details](Features/feature_prm.md)
+
+### CodeQL
+
+CodeQL is open source and free for open-source projects. It is maintained by GitHub and naturally has excellent
+integration with GitHub projects. CodeQL uses a semantic code analysis engine to discover vulnerabilities in a
+number of programming languages (both compiled and interpreted).
+
+Project Mu (and TianoCore) use CodeQL C/C++ queries to find common programming errors and security vulnerabilities in
+firmware code. This platform leverages the CodeQL build plugin from Mu Basecore that makes it very easy to run CodeQL
+against this platform. You simply use provide the `--codeql` argument in your normal `stuart_update` and `stuart_build`
+commands.
+
+[Details](Features/feature_codeql.md)
+
+### Q35 Supported Color Bar
+
+Color bars are used to quickly convey the Device state, based upon the DeviceStateLib. Color bars are displayed
+by the ColorBarDisplayDeviceStateLib.
+
+[Details](Features/feature_colorbar.md)
 
 ## Mu Customized Components
 

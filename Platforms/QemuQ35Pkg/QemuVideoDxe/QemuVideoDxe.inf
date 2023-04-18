@@ -7,12 +7,11 @@
 #  SPDX-License-Identifier: BSD-2-Clause-Patent
 #
 ##
-#Override : 00000002 | OvmfPkg/QemuVideoDxe/QemuVideoDxe.inf | 3272622becca97d1ec70e2f7e38370d5 | 2022-04-29T05-43-04 | d26a302c97bbeb018faadba876d9dc3d2f59a3f0
 
 [Defines]
   INF_VERSION                    = 0x00010005
   BASE_NAME                      = QemuVideoDxe
-  FILE_GUID                      = bc5c35eb-e6fa-45b8-a31f-7943464c82aa
+  FILE_GUID                      = e3752948-b9a1-4770-90c4-df41c38986be
   MODULE_TYPE                    = UEFI_DRIVER
   VERSION_STRING                 = 1.0
 
@@ -37,7 +36,6 @@
 [Packages]
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec
-  OvmfPkg/OvmfPkg.dec
   MsGraphicsPkg/MsGraphicsPkg.dec # MU_CHANGE use MsGopOverrideProtocolGuid
   PolicyServicePkg/PolicyServicePkg.dec
   QemuQ35Pkg/QemuQ35Pkg.dec
@@ -66,10 +64,11 @@
   gEfiPciIoProtocolGuid                         # PROTOCOL TO_START
 
 [Pcd]
-  gUefiOvmfPkgTokenSpaceGuid.PcdOvmfHostBridgePciDevId
+  gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfHostBridgePciDevId
+  gUefiQemuQ35PkgTokenSpaceGuid.PcdVideoResolutionSource
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoHorizontalResolution
+  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoVerticalResolution
   gMsGraphicsPkgTokenSpaceGuid.PcdMsGopOverrideProtocolGuid   # MU_CHANGE use MsGopOverrideProtocolGuid
-  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoHorizontalResolution # MU_CHANGE use pcds to control default resolution
-  gEfiMdeModulePkgTokenSpaceGuid.PcdVideoVerticalResolution   # MU_CHANGE use pcds to control default resolution
 
 [Depex]
   gPolicyProtocolGuid

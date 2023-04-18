@@ -1,5 +1,4 @@
 ## @file
-#Override : 00000002 | OvmfPkg/Library/PlatformDebugLibIoPort/PlatformDebugLibIoPort.inf | d0ea8971e0a90afb3d821573fcf137a5 | 2022-03-11T23-08-57 | 008b5a0135986dc0170017a1ab37d50f317bbe33
 #  Instance of Debug Library for the QEMU debug console port.
 #  It uses Print Library to produce formatted output strings.
 #
@@ -17,7 +16,7 @@
   FILE_GUID                      = bd09a188-c7a6-49d0-8a7c-3c464f0d6fb9 # MU_CHANGE
   MODULE_TYPE                    = BASE
   VERSION_STRING                 = 1.0
-  LIBRARY_CLASS                  = DebugLib|PEI_CORE PEIM DXE_CORE DXE_DRIVER DXE_RUNTIME_DRIVER SMM_CORE DXE_SMM_DRIVER UEFI_DRIVER UEFI_APPLICATION
+  LIBRARY_CLASS                  = DebugLib|PEI_CORE PEIM DXE_CORE DXE_DRIVER DXE_RUNTIME_DRIVER SMM_CORE DXE_SMM_DRIVER UEFI_DRIVER UEFI_APPLICATION MM_CORE_STANDALONE MM_STANDALONE
   CONSTRUCTOR                    = PlatformDebugLibIoPortConstructor
 
 #
@@ -32,7 +31,7 @@
 
 [Packages]
   MdePkg/MdePkg.dec
-  OvmfPkg/OvmfPkg.dec
+  QemuQ35Pkg/QemuQ35Pkg.dec
 
 [LibraryClasses]
   BaseMemoryLib
@@ -43,7 +42,7 @@
   DebugPrintErrorLevelLib
 
 [Pcd]
-  gUefiOvmfPkgTokenSpaceGuid.PcdDebugIoPort                ## CONSUMES
+  gUefiQemuQ35PkgTokenSpaceGuid.PcdDebugIoPort                ## CONSUMES
   gEfiMdePkgTokenSpaceGuid.PcdDebugClearMemoryValue        ## CONSUMES
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask            ## CONSUMES
   gEfiMdePkgTokenSpaceGuid.PcdFixedDebugPrintErrorLevel    ## CONSUMES
