@@ -18,6 +18,7 @@ FvLib = {workspace=true}
 DynamicFrameAllocatorLib = {workspace=true}
 UefiRustAllocatorLib = {workspace=true}
 UefiProtocolDbLib = {workspace=true}
+UefiEventLib = {workspace=true}
 linked_list_allocator = {workspace=true}
 r-efi = {workspace = true}
 spin = {workspace = true}

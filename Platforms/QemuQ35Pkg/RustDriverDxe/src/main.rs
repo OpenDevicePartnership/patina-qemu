@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 #![feature(custom_test_frameworks)]
-#![feature(abi_efiapi)]
 
 use core::panic::PanicInfo;
 use dxe_rust::serial_println;

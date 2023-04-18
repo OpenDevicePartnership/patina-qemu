@@ -1,17 +1,20 @@
 use core::{ffi::c_void, mem::size_of};
 
-use alloc::{slice, vec::Vec};
+use alloc::{slice, vec, vec::Vec};
 use r_efi::{
     eficall, eficall_abi,
     system::{BootServices, OpenProtocolInformationEntry},
 };
 use uefi_protocol_db_lib::SpinLockedProtocolDb;
 
-use crate::allocator::allocate_pool;
+use crate::{
+    allocator::allocate_pool,
+    events::{signal_event, EVENT_DB},
+};
 
-static PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+pub static PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
-eficall! {fn install_protocol_interface (
+eficall! {pub fn install_protocol_interface (
   handle: *mut r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   interface_type: r_efi::system::InterfaceType,
@@ -19,7 +22,6 @@ eficall! {fn install_protocol_interface (
 
   if handle.is_null() ||
      protocol.is_null() ||
-     interface.is_null() ||
      interface_type != r_efi::efi::NATIVE_INTERFACE
   {
     return r_efi::efi::Status::INVALID_PARAMETER;
@@ -30,20 +32,32 @@ eficall! {fn install_protocol_interface (
 
   let caller_handle = if caller_handle.is_null() { None } else { Some(caller_handle) };
 
-  let status = match PROTOCOL_DB.install_protocol_interface(caller_handle, caller_protocol, interface) {
+  let notifies = match PROTOCOL_DB.install_protocol_interface(caller_handle, caller_protocol, interface) {
     Err(err) => return err,
-    Ok(installed_handle) => {
+    Ok((installed_handle,notifies)) => {
       unsafe {
         *handle = installed_handle;
       }
-      r_efi::efi::Status::SUCCESS
+      notifies
     }
   };
-  //TODO: need to generate notification once eventing is implemented.
-  status
+
+
+  let mut closed_events = Vec::new();
+
+  for notify in notifies {
+    match signal_event(notify.event) {
+      r_efi::efi::Status::INVALID_PARAMETER => closed_events.push(notify.event), //means event doesn't exist (probably closed).
+      _ => (), // Other error cases not actionable.
+    }
+  }
+
+  PROTOCOL_DB.unregister_protocol_notify_events(closed_events);
+
+  r_efi::efi::Status::SUCCESS
 }}
 
-eficall! {fn uninstall_protocol_interface (
+eficall! {pub fn uninstall_protocol_interface (
   handle: r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   interface: *mut c_void) -> r_efi::efi::Status {
@@ -64,7 +78,7 @@ eficall! {fn uninstall_protocol_interface (
   }
 }}
 
-eficall! {fn reinstall_protocol_interface (
+eficall! {pub fn reinstall_protocol_interface (
   handle: r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   old_interface: *mut c_void,
@@ -79,24 +93,45 @@ eficall! {fn reinstall_protocol_interface (
 
   let caller_protocol = unsafe {*protocol};
 
-  let status = match PROTOCOL_DB.reinstall_protocol_interface(handle, caller_protocol, old_interface, new_interface) {
+  let notifies = match PROTOCOL_DB.reinstall_protocol_interface(handle, caller_protocol, old_interface, new_interface) {
     Err(err) => return err,
-    Ok(()) => r_efi::efi::Status::SUCCESS
+    Ok(notifies) => notifies
   };
-  //TODO: need to generate notification once eventing is implemented.
+
+  let mut closed_events = Vec::new();
+
+  for notify in notifies {
+    match signal_event(notify.event) {
+      r_efi::efi::Status::INVALID_PARAMETER => closed_events.push(notify.event), //means event doesn't exist (probably closed).
+      _ => () // Other error cases not actionable.
+    }
+  }
+
+  PROTOCOL_DB.unregister_protocol_notify_events(closed_events);
+
   //TODO: spec requires a call to ConnectController after the new interface is installed.
-  status
+  r_efi::efi::Status::SUCCESS
 }}
 
-eficall! {fn register_protocol_notify (
-  _protocol: *mut r_efi::efi::Guid,
-  _event: r_efi::efi::Event,
-  _registration: *mut *mut c_void) -> r_efi::efi::Status {
-  //TODO: needs to be implemented once eventing is implemented.
-  todo!()
+eficall! {pub fn register_protocol_notify (
+  protocol: *mut r_efi::efi::Guid,
+  event: r_efi::efi::Event,
+  registration: *mut *mut c_void) -> r_efi::efi::Status {
+
+  if protocol.is_null() || registration.is_null() || !EVENT_DB.is_valid(event) {
+    return r_efi::efi::Status::INVALID_PARAMETER;
+  }
+
+  match PROTOCOL_DB.register_protocol_notify(unsafe {*protocol}, event) {
+    Err(err) => err,
+    Ok(new_registration) => {
+      unsafe {*registration = new_registration};
+      r_efi::efi::Status::SUCCESS
+    }
+  }
 }}
 
-eficall! {fn locate_handle (
+eficall! {pub fn locate_handle (
   search_type: r_efi::system::LocateSearchType,
   protocol: *mut r_efi::efi::Guid,
   search_key: *mut c_void,
@@ -111,8 +146,11 @@ eficall! {fn locate_handle (
       if search_key.is_null() {
         return r_efi::efi::Status::INVALID_PARAMETER;
       }
-      //TODO: needs to be implemented once register_protocol_notify is implemented.
-      todo!()
+      if let Some(handle) = PROTOCOL_DB.next_handle_for_registration(search_key) {
+        Ok(vec![handle])
+      } else {
+        Err(r_efi::efi::Status::NOT_FOUND)
+      }
     },
     r_efi::efi::BY_PROTOCOL => {
       if protocol.is_null() {
@@ -151,7 +189,7 @@ eficall! {fn locate_handle (
   }
 }}
 
-eficall! {fn handle_protocol (
+eficall! {pub fn handle_protocol (
   handle: r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   interface: *mut *mut c_void) -> r_efi::efi::Status {
@@ -160,7 +198,7 @@ eficall! {fn handle_protocol (
   open_protocol(handle, protocol, interface, core::ptr::null_mut(), core::ptr::null_mut(), r_efi::efi::OPEN_PROTOCOL_BY_HANDLE_PROTOCOL)
 }}
 
-eficall! {fn open_protocol (
+eficall! {pub fn open_protocol (
   handle: r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   interface: *mut *mut c_void,
@@ -218,7 +256,7 @@ eficall! {fn open_protocol (
   status
 }}
 
-eficall! {fn close_protocol (
+eficall! {pub fn close_protocol (
   handle: r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   agent_handle: r_efi::efi::Handle,
@@ -251,7 +289,7 @@ eficall! {fn close_protocol (
   }
 }}
 
-eficall! {fn open_protocol_information (
+eficall! {pub fn open_protocol_information (
   handle: r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   entry_buffer: *mut *mut r_efi::system::OpenProtocolInformationEntry,
@@ -335,7 +373,7 @@ pub unsafe extern "C" fn uninstall_multiple_protocol_interfaces(
     r_efi::efi::Status::SUCCESS
 }
 
-eficall! {fn protocols_per_handle (
+eficall! {pub fn protocols_per_handle (
   handle: r_efi::efi::Handle,
   protocol_buffer: *mut *mut *mut r_efi::efi::Guid,
   protocol_buffer_count: *mut usize) -> r_efi::efi::Status {
@@ -378,10 +416,10 @@ eficall! {fn protocols_per_handle (
     r_efi::efi::Status::SUCCESS
 }}
 
-eficall! {fn locate_handle_buffer (
+eficall! {pub fn locate_handle_buffer (
   search_type: r_efi::system::LocateSearchType,
   protocol: *mut r_efi::efi::Guid,
-  _search_key: *mut c_void,
+  search_key: *mut c_void,
   no_handles: *mut usize,
   buffer: *mut *mut r_efi::efi::Handle) -> r_efi::efi::Status{
 
@@ -391,10 +429,19 @@ eficall! {fn locate_handle_buffer (
 
   let handles = match search_type {
     r_efi::efi::ALL_HANDLES => PROTOCOL_DB.locate_handles(None),
-    r_efi::efi::BY_REGISTER_NOTIFY => todo!("requires notify support"), //TODO: depends on RegisterProtocolNotify
+    r_efi::efi::BY_REGISTER_NOTIFY => {
+      if search_key.is_null() {
+        return r_efi::efi::Status::INVALID_PARAMETER;
+      }
+      if let Some(handle) = PROTOCOL_DB.next_handle_for_registration(search_key) {
+        Ok(vec![handle])
+      } else {
+        Err(r_efi::efi::Status::NOT_FOUND)
+      }
+    }
     r_efi::efi::BY_PROTOCOL => {
       if protocol.is_null() {
-        return r_efi::efi::Status::INVALID_PARAMETER
+        return r_efi::efi::Status::INVALID_PARAMETER;
       }
       unsafe {PROTOCOL_DB.locate_handles(Some(*protocol))}
     },
@@ -426,7 +473,7 @@ eficall! {fn locate_handle_buffer (
   r_efi::efi::Status::SUCCESS
 }}
 
-eficall! {fn locate_protocol(
+eficall! {pub fn locate_protocol(
   protocol: *mut r_efi::efi::Guid,
   registration: *mut c_void,
   interface: *mut *mut c_void) -> r_efi::efi::Status {

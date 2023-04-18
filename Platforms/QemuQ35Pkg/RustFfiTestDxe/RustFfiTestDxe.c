@@ -6,6 +6,7 @@
 **/
 
 #include <Uefi.h>
+#include <Protocol/Timer.h>
 #include <Library/DebugLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/MemoryAllocationLib.h>
@@ -519,6 +520,403 @@ TestOpenCloseProtocolInterface (
   DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
 }
 
+#define EVENT_TEST_CONTEXT_SIG  SIGNATURE_32('e','t','s','t')
+typedef enum {
+  NotifySignal,
+  NotifyWait,
+  ProtocolNotify,
+  TimerNotify,
+} EVENT_TEST_TYPE;
+
+typedef struct {
+  UINT32             Signature;
+  EVENT_TEST_TYPE    TestType;
+  BOOLEAN            Signalled;
+  BOOLEAN            Handled;
+  EFI_EVENT          EventOrder[2];
+  UINTN              WaitCycles;
+  EFI_EVENT          WaitEventToSignal;
+  EFI_GUID           *TestProtocol;
+  VOID               *RegistrationKey;
+  EFI_HANDLE         Handle;
+} EVENT_TEST_CONTEXT;
+
+EVENT_TEST_CONTEXT  mTestContext = {
+  .Signature = EVENT_TEST_CONTEXT_SIG
+};
+EFI_EVENT           mTestEvent;
+EFI_EVENT           mTestEvent2;
+EFI_EVENT           mTestEvent3;
+
+VOID
+EFIAPI
+EventNotifyCallback (
+  IN EFI_EVENT  Event,
+  VOID          *Context
+  )
+{
+  EFI_STATUS          Status;
+  EVENT_TEST_CONTEXT  *TestContext;
+  UINTN               Idx;
+  UINTN               HandleCount;
+  EFI_HANDLE          *HandleBuffer;
+
+  ASSERT (Context != NULL);
+  TestContext = (EVENT_TEST_CONTEXT *)Context;
+  ASSERT (TestContext == &mTestContext);
+  ASSERT (TestContext->Signature == EVENT_TEST_CONTEXT_SIG);
+  TestContext->Handled = TRUE;
+
+  switch (TestContext->TestType) {
+    case NotifySignal:
+      for (Idx = 0; Idx < ARRAY_SIZE (TestContext->EventOrder); Idx++) {
+        if (TestContext->EventOrder[Idx] == 0) {
+          TestContext->EventOrder[Idx] = Event;
+          break;
+        }
+      }
+
+      ASSERT (Idx < ARRAY_SIZE (TestContext->EventOrder));
+      break;
+    case NotifyWait:
+      if (TestContext->WaitCycles == 0) {
+        Status = gBS->SignalEvent (TestContext->WaitEventToSignal);
+        ASSERT_EFI_ERROR (Status);
+      } else {
+        TestContext->WaitCycles--;
+      }
+
+      break;
+    case ProtocolNotify:
+      Status = gBS->LocateHandleBuffer (ByRegisterNotify, TestContext->TestProtocol, TestContext->RegistrationKey, &HandleCount, &HandleBuffer);
+      ASSERT_EFI_ERROR (Status);
+      ASSERT (HandleCount == 1);
+      TestContext->Handle = HandleBuffer[0];
+      break;
+    case TimerNotify:
+      break;
+  }
+}
+
+VOID
+TestEventing (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+
+  // {07bad930-66f4-4442-80d5-59b21410a3fa}
+  EFI_GUID  EventGroup = {
+    0x07bad930, 0x66f4, 0x4442, { 0x80, 0xd5, 0x59, 0xb2, 0x14, 0x10, 0xa3, 0xfa }
+  };
+
+  // {8e5b5f58-5545-4790-818b-2a288f99567f}
+  EFI_GUID  TestProtocol = {
+    0x8e5b5f58, 0x5545, 0x4790, { 0x81, 0x8b, 0x2a, 0x28, 0x8f, 0x99, 0x56, 0x7f }
+  };
+
+  VOID        *Registration;
+  EFI_HANDLE  Handle;
+
+  DEBUG ((DEBUG_INFO, "[%a] Entry\n", __FUNCTION__));
+
+  DEBUG ((DEBUG_INFO, "[%a] CreateEvent creates an event.\n", __FUNCTION__));
+
+  Status = gBS->CreateEvent (EVT_NOTIFY_SIGNAL, TPL_CALLBACK, EventNotifyCallback, &mTestContext, &mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (mTestEvent != 0);
+
+  DEBUG ((DEBUG_INFO, "[%a] SignalEvent signals an event.\n", __FUNCTION__));
+  mTestContext.Handled   = FALSE;
+  mTestContext.Signalled = TRUE;
+  mTestContext.TestType  = NotifySignal;
+  Status                 = gBS->SignalEvent (mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+
+  // SignalEvent ensures signalled events dispatched before return (respecting current TPL).
+  // This is not a spec requirement; if we were strict here, a raise/restore tpl or timer would be needed
+  // to ensure pending event notifies are dispatched.
+
+  ASSERT (mTestContext.Signature == EVENT_TEST_CONTEXT_SIG);
+  ASSERT (mTestContext.Signalled == TRUE);
+  ASSERT (mTestContext.Handled == TRUE);
+
+  DEBUG ((DEBUG_INFO, "[%a] CloseEvent prevents an event from being signalled.\n", __FUNCTION__));
+  Status = gBS->CloseEvent (mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+
+  mTestContext.Handled   = FALSE;
+  mTestContext.Signalled = TRUE;
+  Status                 = gBS->SignalEvent (mTestEvent);
+  ASSERT (EFI_ERROR (Status));
+
+  ASSERT (mTestContext.Signature == EVENT_TEST_CONTEXT_SIG);
+  ASSERT (mTestContext.Signalled == TRUE);
+  ASSERT (mTestContext.Handled == FALSE);
+
+  DEBUG ((DEBUG_INFO, "[%a] EventGroups should be notified and dispatched in TPL order when signalled.\n", __FUNCTION__));
+  mTestEvent = 0;
+  Status     = gBS->CreateEventEx (EVT_NOTIFY_SIGNAL, TPL_CALLBACK, EventNotifyCallback, &mTestContext, &EventGroup, &mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (mTestEvent != 0);
+
+  mTestEvent2 = 0;
+  Status      = gBS->CreateEventEx (EVT_NOTIFY_SIGNAL, TPL_NOTIFY, EventNotifyCallback, &mTestContext, &EventGroup, &mTestEvent2);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (mTestEvent2 != 0);
+  ASSERT (mTestEvent != mTestEvent2);
+
+  mTestContext.Handled       = FALSE;
+  mTestContext.Signalled     = TRUE;
+  mTestContext.EventOrder[0] = 0;
+  mTestContext.EventOrder[1] = 0;
+  Status                     = gBS->SignalEvent (mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+
+  ASSERT (mTestContext.Signature == EVENT_TEST_CONTEXT_SIG);
+  ASSERT (mTestContext.Signalled == TRUE);
+  ASSERT (mTestContext.Handled == TRUE);
+  ASSERT (mTestContext.EventOrder[0] == mTestEvent2); // TPL_NOTIFY first
+  ASSERT (mTestContext.EventOrder[1] == mTestEvent);  // TPL_CALLBACK second.
+
+  Status = gBS->CloseEvent (mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+  Status = gBS->CloseEvent (mTestEvent2);
+  ASSERT_EFI_ERROR (Status);
+
+  DEBUG ((DEBUG_INFO, "[%a] Test Wait For Event loop\n", __FUNCTION__));
+  mTestEvent = 0;
+  Status     = gBS->CreateEventEx (EVT_NOTIFY_WAIT, TPL_CALLBACK, EventNotifyCallback, &mTestContext, NULL, &mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (mTestEvent != 0);
+
+  mTestEvent2 = 0;
+  Status      = gBS->CreateEventEx (EVT_NOTIFY_WAIT, TPL_NOTIFY, EventNotifyCallback, &mTestContext, NULL, &mTestEvent2);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (mTestEvent2 != 0);
+  ASSERT (mTestEvent != mTestEvent2);
+
+  mTestEvent3 = 0;
+  Status      = gBS->CreateEventEx (EVT_NOTIFY_WAIT, TPL_NOTIFY, EventNotifyCallback, &mTestContext, NULL, &mTestEvent3);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (mTestEvent3 != 0);
+  ASSERT (mTestEvent != mTestEvent3);
+
+  EFI_HANDLE  HandleList[] = {
+    mTestEvent,
+    mTestEvent2,
+    mTestEvent3,
+  };
+  UINTN       Index = 0;
+
+  mTestContext.Signalled = TRUE;
+  mTestContext.TestType  = NotifyWait;
+
+  mTestContext.WaitCycles        = 15;
+  mTestContext.WaitEventToSignal = mTestEvent2;
+
+  Status = gBS->WaitForEvent (3, HandleList, &Index);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (mTestContext.WaitCycles == 0);
+  ASSERT (Index == 1);
+
+  Status = gBS->CloseEvent (mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+  Status = gBS->CloseEvent (mTestEvent2);
+  ASSERT_EFI_ERROR (Status);
+  Status = gBS->CloseEvent (mTestEvent3);
+  ASSERT_EFI_ERROR (Status);
+
+  DEBUG ((DEBUG_INFO, "[%a] Test RegisterProtocolNotify\n", __FUNCTION__));
+  Status = gBS->CreateEvent (EVT_NOTIFY_SIGNAL, TPL_CALLBACK, EventNotifyCallback, &mTestContext, &mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (mTestEvent != 0);
+
+  Status = gBS->RegisterProtocolNotify (&TestProtocol, mTestEvent, &Registration);
+  ASSERT_EFI_ERROR (Status);
+
+  mTestContext.Signalled       = TRUE;
+  mTestContext.Handled         = FALSE;
+  mTestContext.TestType        = ProtocolNotify;
+  mTestContext.TestProtocol    = &TestProtocol;
+  mTestContext.RegistrationKey = Registration;
+
+  Handle = NULL;
+  Status = gBS->InstallProtocolInterface (&Handle, &TestProtocol, EFI_NATIVE_INTERFACE, NULL);
+  ASSERT_EFI_ERROR (Status);
+
+  ASSERT (mTestContext.Handled == TRUE);
+  ASSERT (mTestContext.Handle == Handle);
+
+  Status = gBS->CloseEvent (mTestEvent);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
+}
+
+EFI_TIMER_NOTIFY  mTimerNotifyFunction = NULL;
+
+EFI_STATUS
+EFIAPI
+TimerRegisterHandler (
+  IN EFI_TIMER_ARCH_PROTOCOL  *This,
+  IN EFI_TIMER_NOTIFY         NotifyFunction
+  )
+{
+  mTimerNotifyFunction = NotifyFunction;
+  DEBUG ((DEBUG_INFO, "[%a] registered notify function %p\n", __FUNCTION__, NotifyFunction));
+  return EFI_SUCCESS;
+}
+
+EFI_STATUS
+EFIAPI
+SetTimerPeriod (
+  IN EFI_TIMER_ARCH_PROTOCOL  *This,
+  IN UINT64                   TimerPeriod
+  )
+{
+  return EFI_UNSUPPORTED;
+}
+
+EFI_STATUS
+EFIAPI
+GetTimerPeriod (
+  IN EFI_TIMER_ARCH_PROTOCOL  *This,
+  OUT UINT64                  *TimerPeriod
+  )
+{
+  return EFI_UNSUPPORTED;
+}
+
+EFI_STATUS
+EFIAPI
+GenerateSoftInterrupt (
+  IN EFI_TIMER_ARCH_PROTOCOL  *This
+  )
+{
+  return EFI_UNSUPPORTED;
+}
+
+EFI_TIMER_ARCH_PROTOCOL  MockTimer = {
+  TimerRegisterHandler,
+  SetTimerPeriod,
+  GetTimerPeriod,
+  GenerateSoftInterrupt
+};
+
+VOID
+TestTimerEvents (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  EFI_HANDLE  Handle;
+
+  DEBUG ((DEBUG_INFO, "[%a] Installing Architectural Timer Mock implementation.\n", __FUNCTION__));
+  Handle = NULL;
+  Status = gBS->InstallProtocolInterface (&Handle, &gEfiTimerArchProtocolGuid, EFI_NATIVE_INTERFACE, &MockTimer);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (mTimerNotifyFunction != NULL);
+
+  DEBUG ((DEBUG_INFO, "[%a] Verifying TimerRelative Events are fired.\n", __FUNCTION__));
+
+  Status = gBS->CreateEvent (EVT_NOTIFY_SIGNAL | EVT_TIMER, TPL_CALLBACK, EventNotifyCallback, &mTestContext, &mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (mTestEvent != 0);
+
+  Status = gBS->SetTimer (mTestEvent, TimerRelative, 1000);
+  ASSERT_EFI_ERROR (Status);
+
+  mTestContext.TestType  = TimerNotify;
+  mTestContext.Signalled = TRUE;
+  mTestContext.Handled   = FALSE;
+
+  // Tick, but not enough to trigger event.
+  mTimerNotifyFunction (100);
+  ASSERT (mTestContext.Handled == FALSE);
+
+  // Tick again, enough to trigger event.
+  mTimerNotifyFunction (900);
+  ASSERT (mTestContext.Handled == TRUE);
+
+  Status = gBS->CloseEvent (mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+
+  DEBUG ((DEBUG_INFO, "[%a] Verifying that TimerPeriodic Events are fired.\n", __FUNCTION__));
+
+  Status = gBS->CreateEvent (EVT_NOTIFY_SIGNAL | EVT_TIMER, TPL_CALLBACK, EventNotifyCallback, &mTestContext, &mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (mTestEvent != 0);
+
+  Status = gBS->SetTimer (mTestEvent, TimerPeriodic, 500);
+  ASSERT_EFI_ERROR (Status);
+
+  mTestContext.TestType  = TimerNotify;
+  mTestContext.Signalled = TRUE;
+  mTestContext.Handled   = FALSE;
+
+  // Tick, but not enough to trigger event.
+  mTimerNotifyFunction (100);
+  ASSERT (mTestContext.Handled == FALSE);
+
+  // Tick again, enough to trigger event.
+  mTimerNotifyFunction (400);
+  ASSERT (mTestContext.Handled == TRUE);
+
+  mTestContext.Handled = FALSE;
+
+  // tick again, not enough to trigger
+  mTimerNotifyFunction (100);
+  ASSERT (mTestContext.Handled == FALSE);
+
+  // tick again, enough to trigger
+  mTimerNotifyFunction (400);
+  ASSERT (mTestContext.Handled == TRUE);
+
+  mTestContext.Handled = FALSE;
+  // close the event.
+  Status = gBS->CloseEvent (mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+
+  // tick again, enough to trigger
+  mTimerNotifyFunction (1000);
+  ASSERT (mTestContext.Handled == FALSE);
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify that TimerCancel shuts down timers.\n", __FUNCTION__));
+  Status = gBS->CreateEvent (EVT_NOTIFY_SIGNAL | EVT_TIMER, TPL_CALLBACK, EventNotifyCallback, &mTestContext, &mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (mTestEvent != 0);
+
+  Status = gBS->SetTimer (mTestEvent, TimerPeriodic, 500);
+  ASSERT_EFI_ERROR (Status);
+
+  mTestContext.TestType  = TimerNotify;
+  mTestContext.Signalled = TRUE;
+  mTestContext.Handled   = FALSE;
+
+  // Tick, but not enough to trigger event.
+  mTimerNotifyFunction (100);
+  ASSERT (mTestContext.Handled == FALSE);
+
+  // Tick again, enough to trigger event.
+  mTimerNotifyFunction (400);
+  ASSERT (mTestContext.Handled == TRUE);
+
+  mTestContext.Handled = FALSE;
+
+  // Cancel the timer
+  Status = gBS->SetTimer (mTestEvent, TimerCancel, 0);
+  ASSERT_EFI_ERROR (Status);
+
+  // Tick again, enough to trigger event.
+  mTimerNotifyFunction (1000);
+  ASSERT (mTestContext.Handled == FALSE);
+
+  Status = gBS->CloseEvent (mTestEvent);
+  ASSERT_EFI_ERROR (Status);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
+}
+
 EFI_STATUS
 EFIAPI
 RustFfiTestEntry (
@@ -530,6 +928,8 @@ RustFfiTestEntry (
   TestProtocolInstallUninstallInterface ();
   TestHandleProtocolInterface ();
   TestOpenCloseProtocolInterface ();
+  TestEventing ();
+  TestTimerEvents ();
 
   return EFI_SUCCESS;
 }

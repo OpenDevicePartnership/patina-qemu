@@ -9,6 +9,7 @@ use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
 
 extern crate alloc;
 pub mod allocator;
+pub mod events;
 pub mod gdt;
 #[cfg(target_os = "uefi")]
 pub mod interrupts;

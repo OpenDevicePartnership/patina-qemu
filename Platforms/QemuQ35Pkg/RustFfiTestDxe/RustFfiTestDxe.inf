@@ -29,5 +29,8 @@
   UefiBootServicesTableLib
   UefiDriverEntryPoint
 
+[Protocols]
+  gEfiTimerArchProtocolGuid
+
 [Depex]
   TRUE

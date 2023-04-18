@@ -1,7 +1,6 @@
 #![no_std]
 #![no_main]
 #![feature(custom_test_frameworks)]
-#![feature(abi_efiapi)]
 
 extern crate alloc;
 
@@ -17,6 +16,7 @@ use core::{
 };
 use dxe_rust::{
     allocator::{init_memory_support, ALL_ALLOCATORS},
+    events::init_events_support,
     pe32, physical_memory, println,
     protocols::init_protocol_support,
     systemtables::EfiSystemTable,
@@ -175,6 +175,7 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     let st = EfiSystemTable::init_system_table();
 
     init_memory_support(st.boot_services());
+    init_events_support(st.boot_services());
     init_protocol_support(st.boot_services());
 
     //

@@ -13,6 +13,7 @@ FvLib = {path = "Platforms/QemuQ35Pkg/Library/FvLib"}
 DynamicFrameAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/DynamicFrameAllocatorLib"}
 UefiRustAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/UefiRustAllocatorLib"}
 UefiProtocolDbLib = {path = "Platforms/QemuQ35Pkg/Library/UefiProtocolDbLib"}
+UefiEventLib = {path = "Platforms/QemuQ35Pkg/Library/UefiEventLib"}
 
 crc32fast = { version = "1.3.2", default-features = false }
 goblin = { version = "0.5.3", default-features = false, features = ["pe32", "pe64"] }
@@ -27,4 +28,4 @@ uart_16550 = "0.2.0"
 uuid = { version = "1", default-features = false }
 volatile = "0.2.6"
 x86_64 = "0.14.2"
-r-pi = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/r-pi"}
+r-pi = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/r-pi", rev = "e1f2a1be6d202248a0856d5b654d94b55e47723e"}
