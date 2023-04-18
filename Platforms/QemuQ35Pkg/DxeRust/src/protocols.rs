@@ -5,6 +5,7 @@ use r_efi::{
     eficall, eficall_abi,
     system::{BootServices, OpenProtocolInformationEntry},
 };
+use uefi_device_path_lib::remaining_device_path;
 use uefi_protocol_db_lib::SpinLockedProtocolDb;
 
 use crate::{
@@ -494,6 +495,58 @@ eficall! {pub fn locate_protocol(
   r_efi::efi::Status::SUCCESS
 }}
 
+eficall! {fn locate_device_path (
+  protocol: *mut r_efi::efi::Guid,
+  device_path: *mut *mut r_efi::protocols::device_path::Protocol,
+  device: *mut r_efi::efi::Handle) -> r_efi::efi::Status {
+
+  if protocol.is_null() || device_path.is_null() || unsafe {*device_path}.is_null() || device.is_null() {
+    return r_efi::efi::Status::INVALID_PARAMETER;
+  }
+
+  let device_path_protocol_guid = &r_efi::protocols::device_path::PROTOCOL_GUID as *const _ as *mut r_efi::efi::Guid;
+
+  let mut best_device: r_efi::efi::Handle = core::ptr::null_mut();
+  let mut best_match: isize = -1;
+  let mut best_remaining_path: *const r_efi::protocols::device_path::Protocol = core::ptr::null_mut();
+
+  let handles = match PROTOCOL_DB.locate_handles(Some(unsafe {*protocol})) {
+    Err(err) => return err,
+    Ok(handles) => handles
+  };
+
+  for handle in handles {
+    let mut temp_device_path: *mut r_efi::protocols::device_path::Protocol = core::ptr::null_mut();
+    let temp_device_path_ptr: *mut *mut c_void = &mut temp_device_path as *mut _ as *mut *mut c_void;
+    let status = handle_protocol(handle, device_path_protocol_guid, temp_device_path_ptr);
+    if status != r_efi::efi::Status::SUCCESS {
+      continue;
+    }
+
+    let (remaining_path, matching_nodes) = match remaining_device_path(temp_device_path, unsafe {*device_path}) {
+      Some ((remaining_path, matching_nodes)) => (remaining_path, matching_nodes as isize),
+      None => continue
+    };
+
+    if matching_nodes > best_match {
+      best_match = matching_nodes;
+      best_device = handle;
+      best_remaining_path = remaining_path;
+    }
+  }
+
+  if best_match == -1 {
+    return r_efi::efi::Status::NOT_FOUND;
+  }
+
+  unsafe {
+    device.write(best_device);
+    device_path.write(best_remaining_path as *mut r_efi::protocols::device_path::Protocol);
+  }
+
+  r_efi::efi::Status::SUCCESS
+}}
+
 pub fn init_protocol_support(bs: &mut BootServices) {
     //This bit of trickery is needed because r_efi definition of (Un)InstallMultipleProtocolInterfaces
     //is not variadic, due to rust only supporting variadics for "unsafe extern C" and not "efiapi"
@@ -523,4 +576,5 @@ pub fn init_protocol_support(bs: &mut BootServices) {
     bs.protocols_per_handle = protocols_per_handle;
     bs.locate_handle_buffer = locate_handle_buffer;
     bs.locate_protocol = locate_protocol;
+    bs.locate_device_path = locate_device_path;
 }

@@ -1012,7 +1012,10 @@
   QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
 
   # Simple C Test DXE driver used to test Rust DXE Core FFI interfaces.
-  QemuQ35Pkg/RustFfiTestDxe/RustFfiTestDxe.inf
+  QemuQ35Pkg/RustFfiTestDxe/RustFfiTestDxe.inf {
+    <LibraryClasses>
+      DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
+  }
 
   MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
   MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf

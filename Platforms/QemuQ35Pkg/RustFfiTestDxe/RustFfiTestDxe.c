@@ -7,7 +7,9 @@
 
 #include <Uefi.h>
 #include <Protocol/Timer.h>
+#include <Protocol/DevicePath.h>
 #include <Library/DebugLib.h>
+#include <Library/DevicePathLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
@@ -917,6 +919,119 @@ TestTimerEvents (
   DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
 }
 
+VOID
+TestDevicePathSupport (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+
+  // {82eea697-4fc9-49db-9e64-e94358e8aab4}
+  EFI_GUID  TestProtocol = {
+    0x82eea697, 0x4fc9, 0x49db, { 0x9e, 0x64, 0xe9, 0x43, 0x58, 0xe8, 0xaa, 0xb4 }
+  };
+
+  CHAR16  DevPathStr1[]  = L"PcieRoot(0x3)";
+  CHAR16  DevPathStr2[]  = L"PcieRoot(0x3)/Pci(0x0,0x0)";
+  CHAR16  DevPathStr3[]  = L"PcieRoot(0x3)/Pci(0x0,0x0)/Pci(0x0,0x0)";
+  CHAR16  BogusPathStr[] = L"/Pci(0x0,0x0)/Pci(0x0,0x0)";
+
+  EFI_DEVICE_PATH_PROTOCOL  *DevPath1;
+  EFI_DEVICE_PATH_PROTOCOL  *DevPath2;
+  EFI_DEVICE_PATH_PROTOCOL  *DevPath3;
+  EFI_DEVICE_PATH_PROTOCOL  *BogusPath;
+  EFI_DEVICE_PATH_PROTOCOL  *TestDevicePath;
+  EFI_DEVICE_PATH_PROTOCOL  *TestDevicePath2;
+
+  EFI_HANDLE  Handle1         = NULL;
+  EFI_HANDLE  Handle2         = NULL;
+  EFI_HANDLE  Handle3         = NULL;
+  EFI_HANDLE  NoDevPathHandle = NULL;
+  EFI_HANDLE  TestHandle      = NULL;
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Device Path support.\n", __FUNCTION__));
+
+  DevPath1  = ConvertTextToDevicePath (DevPathStr1);
+  DevPath2  = ConvertTextToDevicePath (DevPathStr2);
+  DevPath3  = ConvertTextToDevicePath (DevPathStr3);
+  BogusPath = ConvertTextToDevicePath (BogusPathStr);
+
+  ASSERT ((DevPath1 != NULL) && (DevPath2 != NULL) && (DevPath3 != NULL));
+
+  // Install device path
+  Status = gBS->InstallProtocolInterface (&Handle1, &gEfiDevicePathProtocolGuid, EFI_NATIVE_INTERFACE, DevPath1);
+  ASSERT_EFI_ERROR (Status);
+
+  Status = gBS->InstallProtocolInterface (&Handle2, &gEfiDevicePathProtocolGuid, EFI_NATIVE_INTERFACE, DevPath2);
+  ASSERT_EFI_ERROR (Status);
+
+  Status = gBS->InstallProtocolInterface (&Handle3, &gEfiDevicePathProtocolGuid, EFI_NATIVE_INTERFACE, DevPath3);
+  ASSERT_EFI_ERROR (Status);
+
+  // Install a copy of test protocol on a new handle without a device path - this tests that the "No Device Path" handle
+  // is not returned below, which would be an error.
+  Status = gBS->InstallProtocolInterface (&NoDevPathHandle, &TestProtocol, EFI_NATIVE_INTERFACE, NULL);
+  ASSERT_EFI_ERROR (Status);
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify LocateDevicePath returns NOT_FOUND when the desired protocol doesn't exist.\n", __FUNCTION__));
+  // Locate Device Path should fail if no handles with both TestProtocol and DevicePathProtocol exist.
+  TestDevicePath = DevPath3;
+  Status         = gBS->LocateDevicePath (&TestProtocol, &TestDevicePath, &TestHandle);
+  ASSERT (Status == EFI_NOT_FOUND); // Test protocol is not installed on any handles.
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify LocateDevicePath returns success with correct handle and remaining device path.\n", __FUNCTION__));
+
+  // TestProtocol only exists on Handle1
+  Status = gBS->InstallProtocolInterface (&Handle1, &TestProtocol, EFI_NATIVE_INTERFACE, NULL);
+  ASSERT_EFI_ERROR (Status);
+
+  TestDevicePath = DevPath3;
+  Status         = gBS->LocateDevicePath (&TestProtocol, &TestDevicePath, &TestHandle);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (TestHandle == Handle1);
+  TestDevicePath2 = NextDevicePathNode (DevPath3);
+  ASSERT (TestDevicePath2 != NULL);
+  ASSERT (TestDevicePath == TestDevicePath2);
+
+  // TestProtocol exists on Handle1 and Handle2
+  Status = gBS->InstallProtocolInterface (&Handle2, &TestProtocol, EFI_NATIVE_INTERFACE, NULL);
+  ASSERT_EFI_ERROR (Status);
+
+  TestDevicePath = DevPath3;
+  Status         = gBS->LocateDevicePath (&TestProtocol, &TestDevicePath, &TestHandle);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (TestHandle == Handle2);
+  TestDevicePath2 = DevPath3;
+  TestDevicePath2 = NextDevicePathNode (TestDevicePath2);
+  TestDevicePath2 = NextDevicePathNode (TestDevicePath2);
+  ASSERT (TestDevicePath2 != NULL);
+  ASSERT (TestDevicePath == TestDevicePath2);
+
+  // TestProtocol exists on Handle1, Handle2, and Handle3.
+  Status = gBS->InstallProtocolInterface (&Handle3, &TestProtocol, EFI_NATIVE_INTERFACE, NULL);
+  ASSERT_EFI_ERROR (Status);
+
+  TestDevicePath = DevPath3;
+  Status         = gBS->LocateDevicePath (&TestProtocol, &TestDevicePath, &TestHandle);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (TestHandle == Handle3);
+  TestDevicePath2 = DevPath3;
+  TestDevicePath2 = NextDevicePathNode (TestDevicePath2);
+  TestDevicePath2 = NextDevicePathNode (TestDevicePath2);
+  TestDevicePath2 = NextDevicePathNode (TestDevicePath2);
+  ASSERT (TestDevicePath2 != NULL);
+  ASSERT (TestDevicePath == TestDevicePath2);
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify LocateDevicePath returns NOT_FOUND when the device path used doesn't match any device path.\n", __FUNCTION__));
+
+  TestDevicePath = BogusPath;
+  Status         = gBS->LocateDevicePath (&TestProtocol, &TestDevicePath, &TestHandle);
+  ASSERT (Status == EFI_NOT_FOUND); // BogusPath is not a sub path of any other path.
+
+  FreePool (BogusPath); // Note: other test device paths are still installed on handles, so to be safe just leave them allocated.
+  DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
+}
+
 EFI_STATUS
 EFIAPI
 RustFfiTestEntry (
@@ -930,6 +1045,7 @@ RustFfiTestEntry (
   TestOpenCloseProtocolInterface ();
   TestEventing ();
   TestTimerEvents ();
+  TestDevicePathSupport ();
 
   return EFI_SUCCESS;
 }

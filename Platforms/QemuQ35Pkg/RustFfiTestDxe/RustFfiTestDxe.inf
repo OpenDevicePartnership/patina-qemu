@@ -24,6 +24,7 @@
 
 [LibraryClasses]
   DebugLib
+  DevicePathLib
   BaseMemoryLib
   MemoryAllocationLib
   UefiBootServicesTableLib
