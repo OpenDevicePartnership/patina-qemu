@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from edk2toolext.environment.plugintypes.ci_build_plugin import ICiBuildPlugin
 from edk2toollib.utility_functions import GetHostInfo
+import re
 
 
 class RustCoverageCheck(ICiBuildPlugin):
@@ -81,7 +82,14 @@ class RustCoverageCheck(ICiBuildPlugin):
 
         xml = Path(workspace.path) / "target" / "cobertura.xml"
         out = Path(workspace.path) / "Build"
-        xml.rename(out / xml.name)
+        xml = xml.rename(out / "coverage.xml")
+
+        with open(xml, 'r') as f:
+            contents = f.read()
+            contents = re.sub(r'<source>(.*?)</source>', r'<source>.</source>', contents)
+        
+        with open (xml, "w") as f:
+            f.write(contents)
 
     def run_package_coverage(self, package: 'RustPackage'):
         """Runs coverage on the package and places the output at the output path."""
