@@ -2,19 +2,19 @@
 
 # Add packages that generate binaries here
 members = [
-    "Platforms/QemuQ35Pkg/RustDriverDxe",
     "Platforms/QemuQ35Pkg/DxeRust",
+    "Platforms/QemuQ35Pkg/RustDriverDxe",
 ]
 
 # Add packages that generate libraries here
 [workspace.dependencies]
 DxeRust = {path = "Platforms/QemuQ35Pkg/DxeRust"}
-FvLib = {path = "Platforms/QemuQ35Pkg/Library/FvLib"}
 DynamicFrameAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/DynamicFrameAllocatorLib"}
-UefiRustAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/UefiRustAllocatorLib"}
-UefiProtocolDbLib = {path = "Platforms/QemuQ35Pkg/Library/UefiProtocolDbLib"}
-UefiEventLib = {path = "Platforms/QemuQ35Pkg/Library/UefiEventLib"}
+FvLib = {path = "Platforms/QemuQ35Pkg/Library/FvLib"}
 UefiDevicePathLib = {path = "Platforms/QemuQ35Pkg/Library/UefiDevicePathLib"}
+UefiEventLib = {path = "Platforms/QemuQ35Pkg/Library/UefiEventLib"}
+UefiProtocolDbLib = {path = "Platforms/QemuQ35Pkg/Library/UefiProtocolDbLib"}
+UefiRustAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/UefiRustAllocatorLib"}
 
 crc32fast = { version = "1.3.2", default-features = false }
 goblin = { version = "0.5.3", default-features = false, features = ["pe32", "pe64"] }
@@ -23,10 +23,10 @@ lazy_static = { version = "1.0.0", features = ["spin_no_std"] }
 linked_list_allocator = "0.9.0"
 num-traits = { version = "0.2", default-features = false}
 r-efi = "4.0.0"
+r-pi = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/r-pi", rev = "e1f2a1be6d202248a0856d5b654d94b55e47723e"}
 scroll = { version = "0.11", default-features = false, features = ["derive"]}
 spin = "0.5.2"
 uart_16550 = "0.2.0"
 uuid = { version = "1", default-features = false }
 volatile = "0.2.6"
 x86_64 = "0.14.2"
-r-pi = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/r-pi", rev = "e1f2a1be6d202248a0856d5b654d94b55e47723e"}

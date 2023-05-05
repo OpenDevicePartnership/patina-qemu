@@ -14,23 +14,23 @@ path = "src/main.rs"
 test = false
 
 [dependencies]
-FvLib = {workspace=true}
+crc32fast = {workspace = true}
 DynamicFrameAllocatorLib = {workspace=true}
-UefiRustAllocatorLib = {workspace=true}
-UefiProtocolDbLib = {workspace=true}
-UefiEventLib = {workspace=true}
-UefiDevicePathLib = {workspace=true}
-linked_list_allocator = {workspace=true}
-r-efi = {workspace = true}
-spin = {workspace = true}
+FvLib = {workspace=true}
+goblin = {workspace = true}
 indoc = {workspace = true}
+lazy_static = {workspace = true}
+linked_list_allocator = {workspace=true}
+num-traits = {workspace = true}
+r-efi = {workspace = true}
+r-pi = {workspace = true}
+scroll = {workspace = true}
+spin = {workspace = true}
 uart_16550 = {workspace = true}
+UefiDevicePathLib = {workspace=true}
+UefiEventLib = {workspace=true}
+UefiProtocolDbLib = {workspace=true}
+UefiRustAllocatorLib = {workspace=true}
+uuid = {workspace = true}
 volatile = {workspace = true}
 x86_64 = {workspace = true}
-lazy_static = {workspace = true}
-uuid = {workspace = true}
-goblin = {workspace = true}
-num-traits = {workspace = true}
-scroll = {workspace = true}
-crc32fast = {workspace = true}
-r-pi = {workspace = true}

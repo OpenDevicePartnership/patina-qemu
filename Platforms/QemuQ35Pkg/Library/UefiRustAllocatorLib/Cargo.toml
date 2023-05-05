@@ -11,5 +11,5 @@ path = "src/lib.rs"
 [dependencies]
 DynamicFrameAllocatorLib = {workspace=true}
 linked_list_allocator = {workspace=true}
-spin = {workspace=true}
 r-efi = {workspace=true}
+spin = {workspace=true}

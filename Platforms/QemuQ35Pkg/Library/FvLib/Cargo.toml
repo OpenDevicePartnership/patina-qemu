@@ -9,6 +9,6 @@ path = "src/lib.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-x86_64 = {workspace=true}
 r-efi = {workspace=true}
 uuid = {workspace=true}
+x86_64 = {workspace=true}
