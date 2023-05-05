@@ -2,7 +2,7 @@
 name = "DxeRust"
 version = "0.1.0"
 authors = ["Hackathon Team"]
-edition = "2018"
+edition = "2021"
 
 [lib]
 name = "dxe_rust"
