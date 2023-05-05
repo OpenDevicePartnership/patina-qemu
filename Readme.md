@@ -267,7 +267,6 @@ argument to the build command.
   A code coverage report will be printed to the terminal and an html report can be found at target/tarpaulin-report.html
 
   **WARNING**: Tarpaulin code coverage is supported on windows, however it has only been verified to work on nightly 1.70+.
-    If you experience any errors when
 
 ## Supported Build Combinations
 
