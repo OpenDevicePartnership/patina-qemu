@@ -3,8 +3,6 @@
 
 use core::ptr::slice_from_raw_parts;
 
-use r_efi;
-
 /// returns the number of nodes in the given device path and the size of the device path in bytes.
 /// node count and byte size both include the terminating end node.
 pub fn device_path_node_count(device_path: *const r_efi::protocols::device_path::Protocol) -> (usize, usize) {

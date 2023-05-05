@@ -2,7 +2,7 @@
 //! Provides implementation of UEFI event services.
 #![no_std]
 #![warn(missing_docs)]
-#![feature(no_coverage)]
+#![cfg_attr(feature = "nightly", feature(no_coverage))]
 
 extern crate alloc;
 
@@ -135,7 +135,7 @@ pub struct EventNotification {
 }
 
 impl fmt::Debug for EventNotification {
-    #[no_coverage]
+    #[cfg_attr(feature = "nightly", feature(no_coverage))]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("EventNotification")
             .field("event", &self.event)
@@ -201,7 +201,7 @@ struct Event {
 }
 
 impl fmt::Debug for Event {
-    #[no_coverage]
+    #[cfg_attr(feature = "nightly", feature(no_coverage))]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut notify_func = 0;
         if self.notify_function.is_some() {
