@@ -2,6 +2,7 @@ use core::{
     alloc::{Allocator, Layout},
     ffi::c_void,
     ptr::NonNull,
+    slice::{from_raw_parts, from_raw_parts_mut},
 };
 
 use crate::FRAME_ALLOCATOR;
@@ -153,9 +154,29 @@ eficall! {fn free_pages (memory:r_efi::efi::PhysicalAddress, pages:usize) -> Sta
     }
 }}
 
+eficall! {fn copy_mem (destination: *mut c_void, source: *mut c_void, length: usize){
+    //nothing about this is safe.
+    unsafe {
+        let dst_buffer = from_raw_parts_mut(destination as *mut u8, length);
+        let src_buffer = from_raw_parts(source as *mut u8, length);
+
+        dst_buffer.copy_from_slice(src_buffer);
+    }
+}}
+
+eficall! {fn set_mem (buffer: *mut c_void, size: usize, value: u8) {
+    //nothing about this is safe.
+    unsafe {
+        let dst_buffer = from_raw_parts_mut(buffer as *mut u8, size);
+        dst_buffer.fill(value);
+    }
+}}
+
 pub fn init_memory_support(bs: &mut BootServices) {
     bs.allocate_pages = allocate_pages;
     bs.free_pages = free_pages;
     bs.allocate_pool = allocate_pool;
     bs.free_pool = free_pool;
+    bs.copy_mem = copy_mem;
+    bs.set_mem = set_mem;
 }
