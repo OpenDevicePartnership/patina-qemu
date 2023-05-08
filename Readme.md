@@ -211,7 +211,7 @@ argument to the build command.
    cargo make build DxeRust
    cargo make build
    cargo make -p release build DxeRust
-   cargo make -e ARCH=IA32 build FvLib
+   cargo make -e ARCH=IA32 build UefiEventLib
   ```
 
   If a package is not specified, all packages will be built.

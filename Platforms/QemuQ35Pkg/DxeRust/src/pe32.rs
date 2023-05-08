@@ -1,7 +1,7 @@
 use crate::println;
 use alloc::vec::Vec;
 use core::convert::TryInto;
-use fv_lib::{FfsFileType, FfsSection, FirmwareVolume};
+use r_pi::firmware_volume::{FfsFileType, FfsSection, FirmwareVolume};
 use r_pi::hob::{Hob, HobList};
 use scroll::Pread;
 

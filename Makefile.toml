@@ -21,7 +21,7 @@ RUSTC_PROFILE = "release"
 RUSTC_TARGET = "release"
 
 [tasks.build]
-description = """Builds a single rust package. 
+description = """Builds a single rust package.
 
 Customizations:
     -p [development|release]: Builds in debug or release. Default: development
@@ -30,7 +30,7 @@ Customizations:
 Example:
     `cargo make build DxeRust`
     `cargo make -p release build DxeRust`
-    `cargo make -e ARCH=IA32 build FvLib`
+    `cargo make -e ARCH=IA32 build UefiEventLib`
 """
 clear = true
 workspace = true

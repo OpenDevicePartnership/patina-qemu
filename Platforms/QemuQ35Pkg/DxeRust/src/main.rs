@@ -6,6 +6,7 @@
 extern crate alloc;
 
 use r_pi::hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable};
+use r_pi::firmware_volume::{FfsSection, FfsSectionType, FirmwareVolume};
 
 use alloc::{vec, vec::Vec};
 use core::{ffi::c_void, mem::transmute, panic::PanicInfo, str::FromStr};
@@ -17,7 +18,6 @@ use dxe_rust::{
     systemtables::EfiSystemTable,
     FRAME_ALLOCATOR,
 };
-use fv_lib::{FfsSection, FfsSectionType, FirmwareVolume};
 use r_efi::efi::Guid;
 use x86_64::{align_down, align_up, structures::paging::PageTableFlags};
 

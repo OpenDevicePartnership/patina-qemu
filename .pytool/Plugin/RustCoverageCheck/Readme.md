@@ -15,7 +15,7 @@ As a default, this plugin requires 75% coverage, though this can be configured w
     "Default": 1,
     "PackageOverrides": {
         "DxeRust": 0.0,
-        "FvLib": 0.0,
+        "UefiEventLib": 0.0,
     }
 }
 ```
