@@ -5,15 +5,17 @@
 
 extern crate alloc;
 
-use r_pi::hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable};
-use r_pi::firmware_volume::{FfsSection, FfsSectionType, FirmwareVolume};
+use r_pi::{
+    firmware_volume::{FfsSection, FfsSectionType, FirmwareVolume},
+    hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
+};
 
-use alloc::{vec, vec::Vec};
-use core::{ffi::c_void, mem::transmute, panic::PanicInfo, str::FromStr};
+use core::{ffi::c_void, panic::PanicInfo, str::FromStr};
 use dxe_rust::{
     allocator::{init_memory_support, ALL_ALLOCATORS},
     events::init_events_support,
-    pe32, physical_memory, println,
+    image::{core_load_image, get_dxe_core_handle, init_image_support, start_image},
+    physical_memory, println,
     protocols::init_protocol_support,
     systemtables::EfiSystemTable,
     FRAME_ALLOCATOR,
@@ -22,7 +24,7 @@ use r_efi::efi::Guid;
 use x86_64::{align_down, align_up, structures::paging::PageTableFlags};
 
 #[cfg_attr(target_os = "uefi", export_name = "efi_main")]
-pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
+pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     // initialize IDT and GDT for exception handling
     dxe_rust::init();
 
@@ -33,7 +35,7 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     // 1. Initialize global frame allocator with free memory region from PHIT hob.
     //    Note: this is _required_ before the global heap is used, since we need
     //    a source of frames to expand the global heap once it starts being used.
-    let phit_hob: *const PhaseHandoffInformationTable = hob_list as *const PhaseHandoffInformationTable;
+    let phit_hob: *const PhaseHandoffInformationTable = physical_hob_list as *const PhaseHandoffInformationTable;
     let free_start = unsafe { align_up((*phit_hob).free_memory_bottom, 0x1000) };
     let free_size = unsafe { align_down((*phit_hob).free_memory_top, 0x1000) - free_start };
     unsafe {
@@ -54,11 +56,11 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
             .expect("Failed to initialize page table");
     }
 
-    let mut the_hob_list = HobList::default();
-    the_hob_list.discover_hobs(hob_list);
+    let mut hob_list = HobList::default();
+    hob_list.discover_hobs(physical_hob_list);
 
     // 3. iterate over the hob list and map memory ranges from the pre-DXE memory allocation hobs.
-    for hob in the_hob_list.iter() {
+    for hob in hob_list.iter() {
         let range = match hob {
             Hob::MemoryAllocation(MemoryAllocation { header: _, alloc_descriptor: desc })
             | Hob::MemoryAllocationModule(MemoryAllocationModule {
@@ -104,11 +106,12 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
     init_memory_support(st.boot_services());
     init_events_support(st.boot_services());
     init_protocol_support(st.boot_services());
+    init_image_support(&hob_list, &st);
 
     //
     // attempt to load and execute an external module's entry point.
     //
-    let fv_hob = the_hob_list
+    let fv_hob = hob_list
         .iter()
         .find_map(|h| {
             if let Hob::FirmwareVolume(fv) = h {
@@ -138,32 +141,11 @@ pub extern "efiapi" fn _start(hob_list: *const c_void) -> ! {
         })
         .expect("Target module not found.");
 
-    let target_pe = goblin::pe::PE::parse(target_module_pe32.section_data()).unwrap();
-    let size_of_target = target_pe.header.optional_header.unwrap().windows_fields.size_of_image;
-    //allocate space for the image on the heap
-    let mut loaded_target: Vec<u8> = vec![0; size_of_target as usize];
-    pe32::pe32_load_image(target_module_pe32.section_data(), &mut loaded_target).expect("failed to load target");
-    //apply relocation to the target image at its current address
-    let target_image_addr = loaded_target.as_mut() as *mut [u8] as *mut u8 as usize;
-    pe32::pe32_relocate_image(target_image_addr, &mut loaded_target).expect("failed to relocate target");
+    let image_handle =
+        core_load_image(get_dxe_core_handle(), core::ptr::null_mut(), Some(target_module_pe32.section_data())).unwrap();
+    let status = start_image(image_handle, core::ptr::null_mut(), core::ptr::null_mut());
 
-    //relocated image is ready to execute, compute entry point address
-    let target_entry_point_addr = target_image_addr + target_pe.entry;
-
-    println!("Invoking target module.");
-    let ptr = target_entry_point_addr as *const ();
-
-    //TODO: This definition treats the system table as const; however, entry points can modify it.
-    //Even more challenging is that they can hang on to the system table pointer and modify it later (e.g. in a protocol notify).
-    //So this should really be a mut - but to make it mut and enforce semantics around modifying it (e.g. only allowing modification
-    //in the entry point function, or requiring a call back into rust to modify instead of writing directly) would break
-    //current semantics. This needs further thought/review.
-    let entry_point: unsafe extern "efiapi" fn(*const c_void, *const r_efi::system::SystemTable) -> u64 =
-        unsafe { transmute(ptr) };
-
-    let status = unsafe { entry_point(ptr as *const c_void, st.as_ref()) };
-
-    println!("Back from target module with status {:#x}", status);
+    println!("Back from target module with status {:#x}", status.as_usize());
 
     for allocator in ALL_ALLOCATORS {
         println!("{}", allocator);

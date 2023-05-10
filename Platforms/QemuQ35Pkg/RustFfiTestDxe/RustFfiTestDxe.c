@@ -8,6 +8,7 @@
 #include <Uefi.h>
 #include <Protocol/Timer.h>
 #include <Protocol/DevicePath.h>
+#include <Protocol/LoadedImage.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/BaseMemoryLib.h>
@@ -1032,6 +1033,56 @@ TestDevicePathSupport (
   DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
 }
 
+VOID
+TestImaging (
+  EFI_HANDLE        ImageHandle,
+  EFI_SYSTEM_TABLE  *SystemTable
+  )
+{
+  EFI_STATUS                 Status;
+  EFI_LOADED_IMAGE_PROTOCOL  *LoadedImage;
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Imaging support.\n", __FUNCTION__));
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify contents of Loaded Image protocol on our handle.\n", __FUNCTION__));
+  Status = gBS->HandleProtocol (ImageHandle, &gEfiLoadedImageProtocolGuid, (VOID **)&LoadedImage);
+  ASSERT_EFI_ERROR (Status);
+
+  ASSERT (LoadedImage->ParentHandle != NULL);
+  ASSERT (LoadedImage->ImageBase != 0);
+  ASSERT (LoadedImage->ImageSize != 0);
+  ASSERT (LoadedImage->ImageCodeType == EfiBootServicesCode);
+  ASSERT (LoadedImage->ImageDataType == EfiBootServicesData);
+  ASSERT (LoadedImage->SystemTable == SystemTable);
+
+  ASSERT (LoadedImage->ImageBase <= (VOID *)TestImaging);
+  ASSERT ((VOID *)TestImaging < (VOID *)((UINTN)LoadedImage->ImageBase + LoadedImage->ImageSize));
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify contents of Loaded Image protocol on parent handle (i.e. DXE core)\n", __FUNCTION__));
+  Status = gBS->HandleProtocol (LoadedImage->ParentHandle, &gEfiLoadedImageProtocolGuid, (VOID **)&LoadedImage);
+  ASSERT_EFI_ERROR (Status);
+
+  ASSERT (LoadedImage->ParentHandle == NULL);
+  ASSERT (LoadedImage->ImageBase != 0);
+  ASSERT (LoadedImage->ImageSize != 0);
+  ASSERT (LoadedImage->ImageCodeType == EfiBootServicesCode);
+  ASSERT (LoadedImage->ImageDataType == EfiBootServicesData);
+  ASSERT (LoadedImage->SystemTable == SystemTable);
+
+  ASSERT (LoadedImage->ImageBase <= (VOID *)gBS->HandleProtocol);
+  ASSERT ((VOID *)gBS->HandleProtocol < (VOID *)((UINTN)LoadedImage->ImageBase + LoadedImage->ImageSize));
+
+  // TODO: functional tests of LoadImage and StartImage require being able to find images to load
+  // but FV protocols are not yet supported.
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Complete. Calling exit.\n", __FUNCTION__));
+
+  Status = gBS->Exit (ImageHandle, EFI_SUCCESS, 0, NULL);
+  ASSERT_EFI_ERROR (Status);
+  // should not get here.
+  ASSERT (FALSE);
+}
+
 EFI_STATUS
 EFIAPI
 RustFfiTestEntry (
@@ -1046,6 +1097,9 @@ RustFfiTestEntry (
   TestEventing ();
   TestTimerEvents ();
   TestDevicePathSupport ();
+
+  // Note: this calls gBS->Exit(), so it should be last as it will not return.
+  TestImaging (ImageHandle, SystemTable);
 
   return EFI_SUCCESS;
 }

@@ -2,18 +2,19 @@
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
 #![feature(const_option)]
-#![feature(allocator_api)]
+#![feature(allocator_api, new_uninit)]
 #![feature(slice_ptr_get)]
 #![feature(c_variadic)]
+#![feature(pointer_byte_offsets)]
 use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
 
 extern crate alloc;
 pub mod allocator;
 pub mod events;
 pub mod gdt;
+pub mod image;
 #[cfg(target_os = "uefi")]
 pub mod interrupts;
-pub mod pe32;
 pub mod physical_memory;
 pub mod protocols;
 pub mod serial;

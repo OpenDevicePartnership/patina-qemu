@@ -32,6 +32,7 @@
 
 [Protocols]
   gEfiTimerArchProtocolGuid
+  gEfiLoadedImageProtocolGuid
 
 [Depex]
   TRUE

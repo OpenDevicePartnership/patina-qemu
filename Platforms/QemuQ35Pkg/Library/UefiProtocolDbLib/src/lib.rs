@@ -19,10 +19,10 @@ use r_efi::system::{
 /// This structure is used to track open protocol information on a handle.
 #[derive(Clone, Copy, Debug)]
 pub struct OpenProtocolInformation {
-    agent_handle: Option<r_efi::efi::Handle>,
-    controller_handle: Option<r_efi::efi::Handle>,
-    attributes: u32,
-    open_count: u32,
+    pub agent_handle: Option<r_efi::efi::Handle>,
+    pub controller_handle: Option<r_efi::efi::Handle>,
+    pub attributes: u32,
+    pub open_count: u32,
 }
 
 impl PartialEq for OpenProtocolInformation {

@@ -43,6 +43,7 @@ steps:
     git config --global credential.helper "store --file $(pwd)/temp-git-credentials";
 
     # Start adding creds. One for each domain, or repo for DevOps.
+    echo https://$(windowspartners-authuser):$(windowspartners-authpat)@dev.azure.com/microsoft/MsUEFI/_git/corosensei_fork >> $(pwd)/temp-git-credentials;
     echo https://$(windowspartners-authuser):$(windowspartners-authpat)@dev.azure.com/microsoft/MsUEFI/_git/r-pi >> $(pwd)/temp-git-credentials;
 
     # Add additional creds below...

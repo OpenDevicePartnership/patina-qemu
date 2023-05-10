@@ -15,6 +15,27 @@ use crate::{
 
 pub static PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
+pub fn core_install_protocol_interface(
+    handle: Option<r_efi::efi::Handle>,
+    protocol: r_efi::efi::Guid,
+    interface: *mut c_void,
+) -> Result<r_efi::efi::Handle, r_efi::efi::Status> {
+    let (handle, notifies) = PROTOCOL_DB.install_protocol_interface(handle, protocol, interface)?;
+
+    let mut closed_events = Vec::new();
+
+    for notify in notifies {
+        match signal_event(notify.event) {
+            r_efi::efi::Status::INVALID_PARAMETER => closed_events.push(notify.event), //means event doesn't exist (probably closed).
+            _ => (), // Other error cases not actionable.
+        }
+    }
+
+    PROTOCOL_DB.unregister_protocol_notify_events(closed_events);
+
+    Ok(handle)
+}
+
 eficall! {pub fn install_protocol_interface (
   handle: *mut r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
@@ -33,27 +54,12 @@ eficall! {pub fn install_protocol_interface (
 
   let caller_handle = if caller_handle.is_null() { None } else { Some(caller_handle) };
 
-  let notifies = match PROTOCOL_DB.install_protocol_interface(caller_handle, caller_protocol, interface) {
+  let installed_handle = match core_install_protocol_interface(caller_handle, caller_protocol, interface) {
     Err(err) => return err,
-    Ok((installed_handle,notifies)) => {
-      unsafe {
-        *handle = installed_handle;
-      }
-      notifies
-    }
+    Ok(handle) => handle
   };
 
-
-  let mut closed_events = Vec::new();
-
-  for notify in notifies {
-    match signal_event(notify.event) {
-      r_efi::efi::Status::INVALID_PARAMETER => closed_events.push(notify.event), //means event doesn't exist (probably closed).
-      _ => (), // Other error cases not actionable.
-    }
-  }
-
-  PROTOCOL_DB.unregister_protocol_notify_events(closed_events);
+  unsafe {*handle = installed_handle};
 
   r_efi::efi::Status::SUCCESS
 }}
@@ -495,6 +501,48 @@ eficall! {pub fn locate_protocol(
   r_efi::efi::Status::SUCCESS
 }}
 
+pub fn core_locate_device_path(
+    protocol: r_efi::efi::Guid,
+    device_path: *const r_efi::protocols::device_path::Protocol,
+) -> Result<(*mut r_efi::protocols::device_path::Protocol, r_efi::efi::Handle), r_efi::efi::Status> {
+    let device_path_protocol_guid = &r_efi::protocols::device_path::PROTOCOL_GUID as *const _ as *mut r_efi::efi::Guid;
+
+    let mut best_device: r_efi::efi::Handle = core::ptr::null_mut();
+    let mut best_match: isize = -1;
+    let mut best_remaining_path: *const r_efi::protocols::device_path::Protocol = core::ptr::null_mut();
+
+    let handles = match PROTOCOL_DB.locate_handles(Some(protocol)) {
+        Err(err) => return Err(err),
+        Ok(handles) => handles,
+    };
+
+    for handle in handles {
+        let mut temp_device_path: *mut r_efi::protocols::device_path::Protocol = core::ptr::null_mut();
+        let temp_device_path_ptr: *mut *mut c_void = &mut temp_device_path as *mut _ as *mut *mut c_void;
+        let status = handle_protocol(handle, device_path_protocol_guid, temp_device_path_ptr);
+        if status != r_efi::efi::Status::SUCCESS {
+            continue;
+        }
+
+        let (remaining_path, matching_nodes) = match remaining_device_path(temp_device_path, device_path) {
+            Some((remaining_path, matching_nodes)) => (remaining_path, matching_nodes as isize),
+            None => continue,
+        };
+
+        if matching_nodes > best_match {
+            best_match = matching_nodes;
+            best_device = handle;
+            best_remaining_path = remaining_path;
+        }
+    }
+
+    if best_match == -1 {
+        return Err(r_efi::efi::Status::NOT_FOUND);
+    }
+
+    Ok((best_remaining_path as *mut r_efi::protocols::device_path::Protocol, best_device))
+}
+
 eficall! {fn locate_device_path (
   protocol: *mut r_efi::efi::Guid,
   device_path: *mut *mut r_efi::protocols::device_path::Protocol,
@@ -504,40 +552,10 @@ eficall! {fn locate_device_path (
     return r_efi::efi::Status::INVALID_PARAMETER;
   }
 
-  let device_path_protocol_guid = &r_efi::protocols::device_path::PROTOCOL_GUID as *const _ as *mut r_efi::efi::Guid;
-
-  let mut best_device: r_efi::efi::Handle = core::ptr::null_mut();
-  let mut best_match: isize = -1;
-  let mut best_remaining_path: *const r_efi::protocols::device_path::Protocol = core::ptr::null_mut();
-
-  let handles = match PROTOCOL_DB.locate_handles(Some(unsafe {*protocol})) {
+  let (best_remaining_path, best_device) = match core_locate_device_path(unsafe {*protocol}, unsafe {*device_path}) {
     Err(err) => return err,
-    Ok(handles) => handles
+    Ok((path, device)) => (path, device)
   };
-
-  for handle in handles {
-    let mut temp_device_path: *mut r_efi::protocols::device_path::Protocol = core::ptr::null_mut();
-    let temp_device_path_ptr: *mut *mut c_void = &mut temp_device_path as *mut _ as *mut *mut c_void;
-    let status = handle_protocol(handle, device_path_protocol_guid, temp_device_path_ptr);
-    if status != r_efi::efi::Status::SUCCESS {
-      continue;
-    }
-
-    let (remaining_path, matching_nodes) = match remaining_device_path(temp_device_path, unsafe {*device_path}) {
-      Some ((remaining_path, matching_nodes)) => (remaining_path, matching_nodes as isize),
-      None => continue
-    };
-
-    if matching_nodes > best_match {
-      best_match = matching_nodes;
-      best_device = handle;
-      best_remaining_path = remaining_path;
-    }
-  }
-
-  if best_match == -1 {
-    return r_efi::efi::Status::NOT_FOUND;
-  }
 
   unsafe {
     device.write(best_device);

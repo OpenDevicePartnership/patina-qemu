@@ -14,6 +14,7 @@ path = "src/main.rs"
 test = false
 
 [dependencies]
+corosensei = {workspace = true}
 crc32fast = {workspace = true}
 DynamicFrameAllocatorLib = {workspace=true}
 goblin = {workspace = true}
@@ -28,6 +29,7 @@ spin = {workspace = true}
 uart_16550 = {workspace = true}
 UefiDevicePathLib = {workspace=true}
 UefiEventLib = {workspace=true}
+UefiPe32Lib = {workspace=true}
 UefiProtocolDbLib = {workspace=true}
 UefiRustAllocatorLib = {workspace=true}
 uuid = {workspace = true}
