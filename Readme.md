@@ -150,7 +150,7 @@ Multiple approaches are supported to build Rust UEFI modules.
 
   Currently supported:
 
-  1. [Building](#build-with-cargo-make) i.e. `cargo make build <optional: Rust Package>`
+  1. [Building](#build-with-cargo-make) i.e. `cargo make build <Rust Package>`
   2. [Testing](#test-with-cargo-make) i.e. `cargo make test <optional: Rust Package>`
   3. [Coverage](#coverage-with-cargo-make) i.e. `cargo make cov <optional: Rust Package>`
 
@@ -197,24 +197,29 @@ argument to the build command.
   From the root directory, such as C:/src/UefiRust, run the following command:
 
   ```cmd
-  cargo make build <Optional: Module Name>
+  cargo make build <Module Name>
   ```
 
   The following command line options are available:
 
   1. -p PROFILE [development|release]. DEFAULT = development (debug)
-  2. -e ARCH=[IA32|X64]. DEFAULT = X64
+  2. -e ARCH=[IA32|X64|LOCAL]. DEFAULT = X64
+  3. -e TARGET_TRIPLE=[triple].
+
+  `ARCH=LOCAL` is used to build any locally executable tools associated with a rust library package (e.g. a
+  depex parser executable included with a depex library)
+
+  `TARGET_TRIPLE=<triple>` is used to cross-compile locally executable tools associated with a rust library package.
 
   Examples:
 
   ```cmd
    cargo make build DxeRust
-   cargo make build
    cargo make -p release build DxeRust
    cargo make -e ARCH=IA32 build UefiEventLib
   ```
 
-  If a package is not specified, all packages will be built.
+  A package must be specified.
 
   the output is target/[x86_64-unknown-uefi|i686-unknown-uefi]/[debug|release]/module_name.[efi|rlib]
 
