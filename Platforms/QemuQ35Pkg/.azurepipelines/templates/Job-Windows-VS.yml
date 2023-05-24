@@ -99,11 +99,15 @@ jobs:
               git-fetch-with-cli = true" | Out-File -FilePath .cargo/config.toml -Append -encoding ASCII
 
           displayName: Overriding default crates-io with internal ms-crates-io
-        - task: Powershell@2
+        - task: DownloadPipelineArtifact@2
           inputs:
-            targetType: 'inline'
-            script: cargo install --force cargo-make
-          displayName: Install Cargo Make
+            buildType: 'specific'
+            project: 'MsUEFI'
+            definition: 101356 # The pipeline definition
+            targetPath: $(CARGO_HOME)\bin\
+            itemPattern: '**/cargo-make.exe'
+            artifactName: 'Binaries'
+          displayName: Download Cargo Make
         artifacts_identifier: '$(package) $(tool_chain_tag) $(Build.Target)'
         artifacts_binary: $(Build.ArtifactsBinary)
     - task: PublishCodeCoverageResults@1
