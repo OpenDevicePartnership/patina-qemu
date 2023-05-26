@@ -11,6 +11,7 @@ use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
 extern crate alloc;
 pub mod allocator;
 pub mod events;
+pub mod fv;
 pub mod gdt;
 pub mod image;
 #[cfg(target_os = "uefi")]

@@ -8,6 +8,8 @@
 #include <Uefi.h>
 #include <Protocol/Timer.h>
 #include <Protocol/DevicePath.h>
+#include <Protocol/FirmwareVolume2.h>
+#include <Protocol/FirmwareVolumeBlock.h>
 #include <Protocol/LoadedImage.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
@@ -1034,6 +1036,258 @@ TestDevicePathSupport (
 }
 
 VOID
+TestFvbSupport (
+  VOID
+  )
+{
+  EFI_STATUS                           Status;
+  UINTN                                HandleCount;
+  UINTN                                HandleIdx;
+  EFI_HANDLE                           *HandleBuffer;
+  EFI_FIRMWARE_VOLUME_BLOCK2_PROTOCOL  *Fvb;
+  EFI_PHYSICAL_ADDRESS                 FvbAddr;
+  EFI_FVB_ATTRIBUTES_2                 FvbAttributes;
+  UINTN                                BufferSize;
+  UINT8                                Buffer[0x100];
+  UINTN                                BlockSize;
+  UINTN                                CurrentBlock;
+  UINTN                                NumberOfBlocks;
+  UINT8                                *TestAddr;
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing FVB support.\n", __FUNCTION__));
+  Status = gBS->LocateHandleBuffer (ByProtocol, &gEfiFirmwareVolumeBlockProtocolGuid, NULL, &HandleCount, &HandleBuffer);
+  ASSERT_EFI_ERROR (Status);
+
+  for (HandleIdx = 0; HandleIdx < HandleCount; HandleIdx++) {
+    Status = gBS->HandleProtocol (HandleBuffer[HandleIdx], &gEfiFirmwareVolumeBlockProtocolGuid, (VOID **)&Fvb);
+    ASSERT_EFI_ERROR (Status);
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying GetAttributes for FVB instance %d\n", __FUNCTION__, HandleIdx));
+    Status = Fvb->GetAttributes (Fvb, &FvbAttributes);
+    ASSERT_EFI_ERROR (Status);
+    DEBUG ((DEBUG_INFO, "[%a] FVB attributes: 0x%x\n", __FUNCTION__, FvbAttributes));
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying SetAttributes for FVB instance %d\n", __FUNCTION__, HandleIdx));
+    Status = Fvb->SetAttributes (Fvb, &FvbAttributes);
+    ASSERT (Status == EFI_UNSUPPORTED);
+    // All the FVs exposed by the DXE core should be memory-mapped - we assume this in the tests below
+    // this assert is to verify that no other types of FVB protocols are exposed at time of test.
+    // If that changes, then this assert should be removed, and we should skip testing FVBs that
+    // don't have this bit set.
+    ASSERT ((FvbAttributes & EFI_FVB2_MEMORY_MAPPED) == EFI_FVB2_MEMORY_MAPPED);
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying GetPhysicalAddress for FVB instance %d\n", __FUNCTION__, HandleIdx));
+    Status = Fvb->GetPhysicalAddress (Fvb, &FvbAddr);
+    ASSERT_EFI_ERROR (Status);
+
+    DEBUG ((DEBUG_INFO, "[%a] FVB physical address: %p\n", __FUNCTION__, FvbAddr));
+    ASSERT (FvbAddr != 0);
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying GetBlockSize for FVB instance %d\n", __FUNCTION__, HandleIdx));
+    Status = Fvb->GetBlockSize (Fvb, 0, &BlockSize, &NumberOfBlocks);
+    ASSERT_EFI_ERROR (Status);
+    DEBUG ((DEBUG_INFO, "[%a] FVB LBA 0 BlockSize: 0x%x, NumBlocks: 0x%x\n", __FUNCTION__, BlockSize, NumberOfBlocks));
+    // it's assumed for test purposes that most FVs will have a large enough blocksize -
+    // if this breaks, decrease the size of "Buffer" above to accomodate.
+    ASSERT (BlockSize >= sizeof (Buffer) * 2);
+
+    // Try reading from an offset in each block and comparing it to the same data directly read from memory.
+    // Note: test is limited to the range of blocks starting at LBA 0, currently. If an FV contains
+    // a mix of block size (i.e. block map contains more than one entry with different sized blocks),
+    // that is not covered here.
+    DEBUG ((DEBUG_INFO, "[%a] Verifying Read for FVB instance %d\n", __FUNCTION__, HandleIdx));
+    for (CurrentBlock = 0; CurrentBlock < NumberOfBlocks; CurrentBlock++) {
+      BufferSize = sizeof (Buffer);
+      // Note: we pass the buffer size as "offset" so as to exercise reading a non-zero offset.
+      Status = Fvb->Read (Fvb, CurrentBlock, BufferSize, &BufferSize, Buffer);
+      ASSERT_EFI_ERROR (Status);
+      ASSERT (BufferSize == sizeof (Buffer));
+      TestAddr = (UINT8 *)(FvbAddr + BlockSize * CurrentBlock + BufferSize);
+      // DUMP_HEX (DEBUG_INFO, 0, Buffer, BufferSize, "[Buffer %d]", CurrentBlock);
+      // DUMP_HEX (DEBUG_INFO, 0, TestAddr, BufferSize, "[MMIO %d]", CurrentBlock);
+
+      // Read() should return the same data as direct MMIO to the calculated address.
+      // Test note: this only works for memory-mapped FVs, but logic above should ensure that all FVBs tested here are.
+      ASSERT (CompareMem (Buffer, TestAddr, BufferSize) == 0);
+
+      // try reading across block boundary - should return BAD_BUFFER_SIZE but fill the buffer with
+      // data through the end of the block.
+      BufferSize = sizeof (Buffer);
+      Status     = Fvb->Read (Fvb, CurrentBlock, BlockSize-BufferSize/2, &BufferSize, Buffer);
+      ASSERT (Status == EFI_BAD_BUFFER_SIZE);
+      ASSERT (BufferSize == sizeof (Buffer)/2);
+      TestAddr = (UINT8 *)(FvbAddr + BlockSize * CurrentBlock + BlockSize-BufferSize);
+
+      // DUMP_HEX (DEBUG_INFO, 0, Buffer, BufferSize, "[BufferPartial %d]", CurrentBlock);
+      // DUMP_HEX (DEBUG_INFO, 0, TestAddr, BufferSize, "[MMIOPartial %d]", CurrentBlock);
+      ASSERT (CompareMem (Buffer, TestAddr, BufferSize) == 0);
+    }
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying Write for FVB instance %d\n", __FUNCTION__, HandleIdx));
+    Status = Fvb->Write (Fvb, 0, 0, &BufferSize, Buffer);
+    ASSERT (Status == EFI_UNSUPPORTED);
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying EraseBlocks for FVB instance %d\n", __FUNCTION__, HandleIdx));
+    Status = Fvb->EraseBlocks (Fvb, EFI_LBA_LIST_TERMINATOR);
+    ASSERT (Status == EFI_UNSUPPORTED);
+  }
+
+  FreePool (HandleBuffer);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
+}
+
+VOID
+TestFvSupport (
+  VOID
+  )
+{
+  EFI_STATUS                     Status;
+  UINTN                          HandleCount;
+  EFI_HANDLE                     *HandleBuffer;
+  UINTN                          HandleIdx;
+  EFI_FIRMWARE_VOLUME2_PROTOCOL  *Fv;
+  EFI_FV_ATTRIBUTES              FvAttributes;
+  UINT8                          *Buffer;
+  UINTN                          BufferSize;
+  EFI_FV_FILETYPE                FileType;
+  EFI_FV_FILE_ATTRIBUTES         FileAttributes;
+  UINT32                         AuthStatus;
+  UINTN                          Idx;
+  BOOLEAN                        FoundString;
+  VOID                           *Key;
+  EFI_GUID                       NameGuid;
+  BOOLEAN                        FoundDriver;
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing FV support.\n", __FUNCTION__));
+
+  Status = gBS->LocateHandleBuffer (ByProtocol, &gEfiFirmwareVolume2ProtocolGuid, NULL, &HandleCount, &HandleBuffer);
+  ASSERT_EFI_ERROR (Status);
+
+  for (HandleIdx = 0; HandleIdx < HandleCount; HandleIdx++) {
+    Status = gBS->HandleProtocol (HandleBuffer[HandleIdx], &gEfiFirmwareVolume2ProtocolGuid, (VOID **)&Fv);
+    ASSERT_EFI_ERROR (Status);
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying GetVolumeAttributes for FV2 instance\n", __FUNCTION__));
+    Status = Fv->GetVolumeAttributes (Fv, &FvAttributes);
+    ASSERT_EFI_ERROR (Status);
+
+    DEBUG ((DEBUG_INFO, "[%a] FV2 attributes: 0x%x\n", __FUNCTION__, FvAttributes));
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying SetVolumeAttributes for FV2 instance\n", __FUNCTION__));
+    Status = Fv->SetVolumeAttributes (Fv, &FvAttributes);
+    ASSERT (Status == EFI_UNSUPPORTED);
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying ReadFile for FV2 instance\n", __FUNCTION__));
+    BufferSize = 0;
+    Buffer     = NULL;
+    Status     = Fv->ReadFile (Fv, &gEfiCallerIdGuid, (VOID **)&Buffer, &BufferSize, &FileType, &FileAttributes, &AuthStatus);
+    if (Status == EFI_NOT_FOUND) {
+      DEBUG ((DEBUG_INFO, "[%a] Didn't find test driver in current FV instance - skipping\n", __FUNCTION__));
+      continue; // Only operate on FVs containing this driver, since test details below are predicated on that.
+    }
+
+    ASSERT_EFI_ERROR (Status);
+
+    ASSERT (Buffer != NULL);
+    ASSERT (BufferSize > sizeof ("[%a] Verifying ReadFile for FV2 instance\n"));
+    ASSERT (FileType == EFI_FV_FILETYPE_DRIVER);
+
+    DEBUG ((DEBUG_INFO, "[%a] Scanning file for known string\n", __FUNCTION__));
+    FoundString = FALSE;
+    for (Idx = 0; Idx < BufferSize - sizeof ("[%a] Verifying ReadFile for FV2 instance\n"); Idx++) {
+      if (CompareMem (
+            &Buffer[Idx],
+            "[%a] Verifying ReadFile for FV2 instance\n",
+            sizeof ("[%a] Verifying ReadFile for FV2 instance\n")
+            ) == 0)
+      {
+        DEBUG ((DEBUG_INFO, "[%a] Found string at offset: 0x%x\n", __FUNCTION__, Idx));
+        FoundString = TRUE;
+        break;
+      }
+    }
+
+    ASSERT (FoundString);
+    FreePool (Buffer);
+    Buffer = NULL;
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying ReadSection for FV2 instance\n", __FUNCTION__));
+    Status = Fv->ReadSection (Fv, &gEfiCallerIdGuid, EFI_SECTION_PE32, 0, (VOID **)&Buffer, &BufferSize, &AuthStatus);
+    ASSERT_EFI_ERROR (Status);
+
+    ASSERT (Buffer != NULL);
+    ASSERT (BufferSize > sizeof ("[%a] Verifying ReadSection for FV2 instance\n"));
+
+    DEBUG ((DEBUG_INFO, "[%a] Scanning section for known string\n", __FUNCTION__));
+    FoundString = FALSE;
+    for (Idx = 0; Idx < BufferSize - sizeof ("[%a] Verifying ReadSection for FV2 instance\n"); Idx++) {
+      if (CompareMem (
+            &Buffer[Idx],
+            "[%a] Verifying ReadSection for FV2 instance\n",
+            sizeof ("[%a] Verifying ReadSection for FV2 instance\n")
+            ) == 0)
+      {
+        DEBUG ((DEBUG_INFO, "[%a] Found string at offset: 0x%x\n", __FUNCTION__, Idx));
+        FoundString = TRUE;
+        break;
+      }
+    }
+
+    ASSERT (FoundString);
+    FreePool (Buffer);
+    Buffer = NULL;
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying WriteFile for FV2 instance\n", __FUNCTION__));
+    Status = Fv->WriteFile (Fv, 0, EFI_FV_UNRELIABLE_WRITE, NULL);
+    ASSERT (Status == EFI_UNSUPPORTED);
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying GetNextFile()\n", __FUNCTION__));
+    Key         = AllocateZeroPool (Fv->KeySize);
+    FoundDriver = FALSE;
+    while (TRUE) {
+      FileType = EFI_FV_FILETYPE_ALL;
+      Status   = Fv->GetNextFile (Fv, Key, &FileType, &NameGuid, &FileAttributes, &BufferSize);
+      if (Status == EFI_NOT_FOUND) {
+        break;
+      }
+
+      ASSERT_EFI_ERROR (Status);
+      DEBUG ((
+        DEBUG_INFO,
+        "[%a] found file: {%g}, type: 0x%x, attrib: 0x%x, size: 0x%x\n",
+        __FUNCTION__,
+        NameGuid,
+        FileType,
+        FileAttributes,
+        BufferSize
+        ));
+
+      ASSERT (BufferSize > 0);
+      ASSERT (FileType != EFI_FV_FILETYPE_ALL);
+      ASSERT ((FileAttributes & EFI_FV_FILE_ATTRIB_MEMORY_MAPPED) == EFI_FV_FILE_ATTRIB_MEMORY_MAPPED);
+      if (CompareGuid (&NameGuid, &gEfiCallerIdGuid)) {
+        FoundDriver = TRUE;
+      }
+    }
+
+    ASSERT (FoundDriver);
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying GetInfo for Fv2 instance\n", __FUNCTION__));
+    Status = Fv->GetInfo (Fv, NULL, NULL, NULL);
+    ASSERT (Status == EFI_UNSUPPORTED);
+
+    DEBUG ((DEBUG_INFO, "[%a] Verifying SetInfo for Fv2 instance\n", __FUNCTION__));
+    Status = Fv->SetInfo (Fv, NULL, 0, NULL);
+    ASSERT (Status == EFI_UNSUPPORTED);
+  }
+
+  FreePool (HandleBuffer);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
+}
+
+VOID
 TestImaging (
   EFI_HANDLE        ImageHandle,
   EFI_SYSTEM_TABLE  *SystemTable
@@ -1097,6 +1351,8 @@ RustFfiTestEntry (
   TestEventing ();
   TestTimerEvents ();
   TestDevicePathSupport ();
+  TestFvbSupport ();
+  TestFvSupport ();
 
   // Note: this calls gBS->Exit(), so it should be last as it will not return.
   TestImaging (ImageHandle, SystemTable);

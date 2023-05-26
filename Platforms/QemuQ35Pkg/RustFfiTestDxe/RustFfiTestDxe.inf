@@ -33,6 +33,8 @@
 [Protocols]
   gEfiTimerArchProtocolGuid
   gEfiLoadedImageProtocolGuid
+  gEfiFirmwareVolumeBlockProtocolGuid
+  gEfiFirmwareVolume2ProtocolGuid
 
 [Depex]
   TRUE

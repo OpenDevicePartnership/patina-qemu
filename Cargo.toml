@@ -24,7 +24,7 @@ lazy_static = { version = "1.0.0", features = ["spin_no_std"] }
 linked_list_allocator = "0.9.0"
 num-traits = { version = "0.2", default-features = false}
 r-efi = "4.0.0"
-r-pi = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/r-pi", rev = "9c16012b37ba21db78f180fd0fefacfdb8c89827"}
+r-pi = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/r-pi", rev = "3a897b6c2f57e1900d2447f74849cafb0078523b"}
 scroll = { version = "0.11", default-features = false, features = ["derive"]}
 spin = "0.5.2"
 uart_16550 = "0.2.0"
