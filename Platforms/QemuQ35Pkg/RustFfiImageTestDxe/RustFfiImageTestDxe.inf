@@ -1,0 +1,35 @@
+## @file
+#  This driver is a test driver for DxeRust FFI image load and start interfaces.
+#
+#  Copyright (c) Microsoft Corporation. All rights reserved.
+#
+##
+
+[Defines]
+  INF_VERSION                    = 1.27
+  BASE_NAME                      = RustFfiImageTestDxe
+  FILE_GUID                      = C1C9EC35-2493-453A-B400-8C55A3D60B3E
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+
+  ENTRY_POINT                    = RustFfiImageTestEntry
+
+[Sources.common]
+  RustFfiImageTestDxe.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  QemuQ35Pkg/QemuQ35Pkg.dec
+
+[LibraryClasses]
+  BaseMemoryLib
+  DebugLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+
+[Protocols]
+
+[Depex]
+  TRUE

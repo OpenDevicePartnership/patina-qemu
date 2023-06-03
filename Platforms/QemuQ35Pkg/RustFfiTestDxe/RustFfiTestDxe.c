@@ -1293,8 +1293,21 @@ TestImaging (
   EFI_SYSTEM_TABLE  *SystemTable
   )
 {
-  EFI_STATUS                 Status;
-  EFI_LOADED_IMAGE_PROTOCOL  *LoadedImage;
+  EFI_STATUS                     Status;
+  EFI_LOADED_IMAGE_PROTOCOL      *LoadedImage;
+  UINTN                          HandleCount;
+  UINTN                          HandleIdx;
+  EFI_HANDLE                     *HandleBuffer;
+  EFI_FIRMWARE_VOLUME2_PROTOCOL  *Fv;
+  UINT8                          *Buffer;
+  UINTN                          BufferSize;
+  UINT32                         AuthStatus;
+  EFI_GUID                       RustFfiImageTestGuid = {
+    0xc1c9ec35, 0x2493, 0x453a, { 0xb4, 0x00, 0x8c, 0x55, 0xa3, 0xd6, 0x0b, 0x3e }
+  };
+  EFI_HANDLE                     NewImageHandle;
+  UINTN                          ExitDataSize;
+  CHAR16                         *ExitData;
 
   DEBUG ((DEBUG_INFO, "[%a] Testing Imaging support.\n", __FUNCTION__));
 
@@ -1326,8 +1339,54 @@ TestImaging (
   ASSERT (LoadedImage->ImageBase <= (VOID *)gBS->HandleProtocol);
   ASSERT ((VOID *)gBS->HandleProtocol < (VOID *)((UINTN)LoadedImage->ImageBase + LoadedImage->ImageSize));
 
-  // TODO: functional tests of LoadImage and StartImage require being able to find images to load
-  // but FV protocols are not yet supported.
+  // Locate RustFfiImageTestDxe driver and use it to test LoadImage and StartImage.
+  Status = gBS->LocateHandleBuffer (ByProtocol, &gEfiFirmwareVolume2ProtocolGuid, NULL, &HandleCount, &HandleBuffer);
+  ASSERT_EFI_ERROR (Status);
+
+  DEBUG ((DEBUG_INFO, "[%a] Locating test driver.\n", __FUNCTION__));
+  for (HandleIdx = 0; HandleIdx < HandleCount; HandleIdx++) {
+    Status = gBS->HandleProtocol (HandleBuffer[HandleIdx], &gEfiFirmwareVolume2ProtocolGuid, (VOID **)&Fv);
+    ASSERT_EFI_ERROR (Status);
+
+    BufferSize = 0;
+    Buffer     = NULL;
+    Status     = Fv->ReadSection (Fv, &RustFfiImageTestGuid, EFI_SECTION_PE32, 0, (VOID **)&Buffer, &BufferSize, &AuthStatus);
+    if (Status == EFI_NOT_FOUND) {
+      continue;
+    }
+
+    ASSERT (Buffer != NULL);
+    ASSERT (BufferSize != 0);
+
+    DEBUG ((DEBUG_INFO, "[%a] Loading test driver with buffer at %p, size 0x%x.\n", __FUNCTION__, Buffer, BufferSize));
+    NewImageHandle = NULL;
+    Status         = gBS->LoadImage (FALSE, ImageHandle, NULL, Buffer, BufferSize, &NewImageHandle);
+    ASSERT_EFI_ERROR (Status);
+
+    ASSERT (NewImageHandle != NULL);
+
+    DEBUG ((DEBUG_INFO, "[%a] Starting test driver.\n", __FUNCTION__));
+    ExitDataSize = 0;
+    Status       = gBS->StartImage (NewImageHandle, &ExitDataSize, &ExitData);
+    ASSERT_EFI_ERROR (Status);
+    ASSERT (ExitData != NULL);
+
+    DEBUG ((DEBUG_INFO, "[%a] received exit data: %s\n", __FUNCTION__, ExitData));
+
+    ASSERT (ExitDataSize == sizeof (L"TestExitDataBufferData"));
+    ASSERT (CompareMem (ExitData, L"TestExitDataBufferData", sizeof (L"TestExitDataBufferData")) == 0);
+
+    FreePool (ExitData);
+    FreePool (Buffer);
+    break;
+  }
+
+  if (HandleIdx == HandleCount) {
+    // error status here indicates we made it through the loop and didn't find the file we were looking for.
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  FreePool (HandleBuffer);
 
   DEBUG ((DEBUG_INFO, "[%a] Testing Complete. Calling exit.\n", __FUNCTION__));
 
