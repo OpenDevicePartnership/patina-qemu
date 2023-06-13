@@ -4,8 +4,8 @@ use alloc::{boxed::Box, collections::BTreeMap};
 use r_efi::{eficall, eficall_abi};
 use r_pi::{
     firmware_volume::{
-        EfiFvAttributes, EfiFvFileType, EfiSectionType, FirmwareVolume, EFI_FVB2_READ_STATUS, EFI_FV_FILETYPE_ALL,
-        EFI_SECTION_ALL, EFI_FVB2_MEMORY_MAPPED,
+        EfiFvAttributes, EfiFvFileType, EfiSectionType, FirmwareVolume, FfsFileType,
+        EFI_FVB2_READ_STATUS, EFI_FV_FILETYPE_ALL, EFI_SECTION_ALL, EFI_FVB2_MEMORY_MAPPED,
     },
     hob::{Hob, HobList},
     protocols::{firmware_volume::{self, EFI_FV_FILE_ATTRIB_MEMORY_MAPPED}, firmware_volume_block},
@@ -472,37 +472,45 @@ eficall! {fn fv_get_next_file(
     return r_efi::efi::Status::ACCESS_DENIED;
   }
 
-  let local_key = unsafe {*(key as *mut usize)};
+  let mut local_key = unsafe {*(key as *mut usize)};
   let local_file_type = unsafe {*(file_type)};
 
-  let file = fv
-    .ffs_files()
-    .filter(|file|{
-      local_file_type == EFI_FV_FILETYPE_ALL ||
-      file.file_type().and_then(|file_type|{Some(file_type as u8 == local_file_type)}) == Some(true)
-    }).nth(local_key);
+  loop {
+    let file = fv
+      .ffs_files()
+      .filter(|file|{
+        local_file_type == EFI_FV_FILETYPE_ALL ||
+        file.file_type().and_then(|file_type|{Some(file_type as u8 == local_file_type)}) == Some(true)
+      }).nth(local_key);
 
-  if file.is_none() {
-    return r_efi::efi::Status::NOT_FOUND;
+    if let Some(ffs_file) = file {
+      match ffs_file.file_type() {
+         Some(FfsFileType::EfiFvFileTypeFfsPad) | Some(FfsFileType::EfiFvFileTypeFfsUnknown) => {
+             local_key +=1;
+             continue;
+         },
+         Some(_) => {
+          let mut file_attributes = ffs_file.file_attributes();
+          if (fv.attributes() & EFI_FVB2_MEMORY_MAPPED) == EFI_FVB2_MEMORY_MAPPED {
+            file_attributes |= EFI_FV_FILE_ATTRIB_MEMORY_MAPPED;
+          }
+
+          //found a matching file. Update the key and outputs.
+          unsafe {
+            (key as *mut usize).write(local_key+1);
+            name_guid.write(ffs_file.file_name());
+            attributes.write(file_attributes);
+            size.write(ffs_file.file_data_size());
+            file_type.write(ffs_file.file_type_raw());
+          }
+          return r_efi::efi::Status::SUCCESS;
+         },
+         None => return r_efi::efi::Status::NOT_FOUND,
+      }
+    } else {
+      return r_efi::efi::Status::NOT_FOUND;
+    }
   }
-
-  let file = file.unwrap();
-
-  let mut file_attributes = file.file_attributes();
-  if (fv.attributes() & EFI_FVB2_MEMORY_MAPPED) == EFI_FVB2_MEMORY_MAPPED {
-    file_attributes |= EFI_FV_FILE_ATTRIB_MEMORY_MAPPED;
-  }
-
-  //found a matching file. Update the key and outputs.
-  unsafe {
-    (key as *mut usize).write(local_key+1);
-    name_guid.write(file.file_name());
-    attributes.write(file_attributes);
-    size.write(file.file_data_size());
-    file_type.write(file.file_type_raw());
-  }
-
-  r_efi::efi::Status::SUCCESS
 }}
 
 eficall! {fn fv_get_info(
