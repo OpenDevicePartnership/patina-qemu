@@ -362,3 +362,8 @@ rustup toolchain install 1.68.2-x86_64-pc-windows-msvc
 # Add the rust-src back for the toolchain
 rustup component add rust-src --toolchain 1.68.2-x86_64-pc-windows-msvc
 ```
+
+## Contributing
+
+- Review Rust Documentation Conventions at `docs/RustdocConventions.md`
+- Review [Testing](#test-with-cargo-make) on how to test changes

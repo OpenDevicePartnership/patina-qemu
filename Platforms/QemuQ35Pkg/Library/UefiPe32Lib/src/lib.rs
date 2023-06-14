@@ -1,3 +1,36 @@
+//! PE32 Management
+//! 
+//! This library provides high-level functionality for operating on and representing PE32 images.
+//! 
+//! ## Examples and Usage
+//! 
+//! ```
+//! extern crate std;
+//! 
+//! use std::{fs::File, io::Read};
+//! use uefi_pe32_lib::{pe32_get_image_info, pe32_load_image, pe32_relocate_image
+//! };
+//! 
+//! let mut file: File = File::open(concat!(env!("CARGO_MANIFEST_DIR"), "/resources/test/","test_image.pe32"))
+//!   .expect("failed to open test file.");
+//! 
+//! let mut image: Vec<u8> = Vec::new();
+//! file.read_to_end(&mut image).expect("Failed to read test file");
+//! 
+//! let image_info = pe32_get_image_info(&image).unwrap();
+//! 
+//! let mut relocated_image: Vec<u8> = vec![0; image_info.size_of_image as usize];
+//! pe32_load_image(&image, &mut relocated_image).unwrap();
+//! 
+//! pe32_relocate_image(0x04158000, &mut relocated_image).unwrap();
+//! ```
+//! 
+//! ## License
+//! 
+//! Copyright (C) Microsoft Corporation. All rights reserved.
+//! 
+//! SPDX-License-Identifier: BSD-2-Clause-Patent
+//! 
 #![no_std]
 
 extern crate alloc;
@@ -9,22 +42,34 @@ use alloc::{
 use goblin;
 use scroll::Pread;
 
+/// Type for describing errors that result from working with PE32 images.
 #[derive(Debug)]
 pub enum Pe32Error {
-  ParseError(goblin::error::Error),
-  NoOptionalHeader,
-  LoadError,
-  RelocationError,
+    /// Goblin failed to parse the PE32 image. 
+    /// 
+    /// See the enclosed goblin error for a reason why the parsing failed.
+    ParseError(goblin::error::Error),
+    /// The parsed PE32 image does not contain an Optional Header.
+    NoOptionalHeader,
+    /// Failed to load the PE32 image into the provided memory buffer.
+    LoadError,
+    /// Failed to relocate the loaded image to the destination.
+    RelocationError,
 }
 
-/// A struct containing information about a PE32 image.
+/// Type containing information about a PE32 image.
 #[derive(PartialEq, Debug)]
 pub struct Pe32ImageInfo {
-  pub entry_point_offset: usize,
-  pub image_type: u16,
-  pub size_of_image: u32,
-  pub section_alignment: u32,
-  pub filename: Option<String>,
+    /// The offset of the entry point relative to the start address of the PE32 image.
+    pub entry_point_offset: usize,
+    /// The subsystem type (IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER \[0xB\], etc.).
+    pub image_type: u16,
+    /// The total length of the image.
+    pub size_of_image: u32,
+    /// The size of an individual section in a power of 2 (4K \[0x1000\], etc.).
+    pub section_alignment: u32,
+    /// The ascii string representation of a file (\[filenname\].efi).
+    pub filename: Option<String>,
 }
 
 impl Pe32ImageInfo {
@@ -33,7 +78,36 @@ impl Pe32ImageInfo {
   }
 }
 
-/// Returns a Pe32ImageInfo for the image contained in the input buffer.
+/// Attempts to parse a PE32 image and return information about the image.
+/// 
+/// Parses the bytes buffer containing a PE32 image and generates a [Pe32ImageInfo] struct
+/// containing general information about the image otherwise an error.
+/// 
+/// ## Errors
+/// 
+/// Returns [`ParseError`](Pe32Error::ParseError) if parsing the PE32 image failed. Contains the
+/// exact parsing [`Error`](goblin::error::Error).
+/// 
+/// Returns [`NoOptionalHeader`](Pe32Error::NoOptionalHeader) if the parsed PE32 image does not
+/// contain the OptionalHeader necessary to provide information about the image.
+/// 
+/// ## Examples
+/// 
+/// ```
+/// extern crate std;
+/// 
+/// use std::{fs::File, io::Read};
+/// use uefi_pe32_lib::pe32_get_image_info;
+/// 
+/// let mut file: File = File::open(concat!(env!("CARGO_MANIFEST_DIR"), "/resources/test/","test_image.pe32"))
+///   .expect("failed to open test file.");
+/// 
+/// let mut buffer: Vec<u8> = Vec::new();
+/// file.read_to_end(&mut buffer).expect("Failed to read test file");
+/// 
+/// let image_info = pe32_get_image_info(&buffer).unwrap();
+/// ```
+/// 
 pub fn pe32_get_image_info(image: &[u8]) -> Result<Pe32ImageInfo, Pe32Error> {
   let parsed_pe = goblin::pe::PE::parse(image).map_err(|e| Pe32Error::ParseError(e))?;
 
@@ -68,7 +142,43 @@ pub fn pe32_get_image_info(image: &[u8]) -> Result<Pe32ImageInfo, Pe32Error> {
   Ok(pe_info)
 }
 
-///does a PE32 load for the image specified by image into the memory buffer specified by loaded_image.
+/// Attempts to load the image into the specified bytes buffer.
+/// 
+/// Copies the provided image, section by section, into the zero'd out buffer after copying the
+/// headers, returning an error if it failed.
+/// 
+/// ## Errors
+/// 
+/// Returns [`ParseError`](Pe32Error::ParseError) if parsing the PE32 image failed. Contains the
+/// exact parsing [`Error`](goblin::error::Error).
+/// 
+/// Returns [`LoadError`](Pe32Error::LoadError) if the index of the source or destination buffer
+/// is out of bounds when copying the headers or individual sections.
+/// 
+/// ## Panics
+/// 
+/// Panics if the loaded_image buffer is not the same length as the image.
+/// 
+/// ## Examples
+/// 
+/// ```
+/// extern crate std;
+/// 
+/// use std::{fs::File, io::Read};
+/// use uefi_pe32_lib::{pe32_get_image_info, pe32_load_image};
+/// 
+/// let mut file: File = File::open(concat!(env!("CARGO_MANIFEST_DIR"), "/resources/test/","test_image.pe32"))
+///   .expect("failed to open test file.");
+/// 
+/// let mut image: Vec<u8> = Vec::new();
+/// file.read_to_end(&mut image).expect("Failed to read test file");
+/// 
+/// let image_info = pe32_get_image_info(&image).unwrap();
+/// 
+/// let mut relocated_image: Vec<u8> = vec![0; image_info.size_of_image as usize];
+/// pe32_load_image(&image, &mut relocated_image).unwrap();
+/// ```
+/// 
 pub fn pe32_load_image(image: &[u8], loaded_image: &mut [u8]) -> Result<(), Pe32Error> {
   let pe = goblin::pe::PE::parse(image).map_err(|e| Pe32Error::ParseError(e))?;
   let size_of_headers = pe.header.optional_header.ok_or(Pe32Error::LoadError)?.windows_fields.size_of_headers as usize;
@@ -142,9 +252,47 @@ fn parse_relocation_blocks(block: &[u8]) -> Result<Vec<RelocationBlock>, Pe32Err
   Ok(blocks)
 }
 
-/// relocate the given image at the base address specified by destination.
-/// the image base in the header is updated, and all relocation fixups are applied.
-/// Note: image is expected to have already been loaded by pe32_load_image.
+/// Attempts to relocate the image to the specified destination.
+/// 
+/// Relocates the already loaded image to the destination address, applying
+/// all relocation fixups, returning an error if it failed.
+/// 
+/// ## Errors
+/// 
+/// Returns [`RelocationError`](Pe32Error::NoOptionalHeader) if the PE32 image does not contain the
+/// OptionalHeader.
+/// 
+/// Returns [`RelocationError`](Pe32Error::RelocationError) if the destination size is too small or a
+/// fixup fails.
+/// 
+/// ## Safety
+/// 
+/// Writes the new image base by dereferencing a raw pointer. This pointer is calculated assuming the
+/// Optional Header Windows-Specific Fields exist in the image. As the optional_header is required,
+/// this should not be an issue unless the PE image is malformed.
+/// 
+/// ## Examples
+/// 
+/// ```
+/// extern crate std;
+/// 
+/// use std::{fs::File, io::Read};
+/// use uefi_pe32_lib::{pe32_get_image_info, pe32_load_image, pe32_relocate_image
+/// };
+/// 
+/// let mut file: File = File::open(concat!(env!("CARGO_MANIFEST_DIR"), "/resources/test/","test_image.pe32"))
+///   .expect("failed to open test file.");
+/// 
+/// let mut image: Vec<u8> = Vec::new();
+/// file.read_to_end(&mut image).expect("Failed to read test file");
+/// 
+/// let image_info = pe32_get_image_info(&image).unwrap();
+/// 
+/// let mut relocated_image: Vec<u8> = vec![0; image_info.size_of_image as usize];
+/// pe32_load_image(&image, &mut relocated_image).unwrap();
+/// 
+/// pe32_relocate_image(0x04158000, &mut relocated_image).unwrap();
+/// ```
 pub fn pe32_relocate_image(destination: usize, image: &mut [u8]) -> Result<(), Pe32Error> {
   let pe = goblin::pe::PE::parse(&image).map_err(|e| Pe32Error::ParseError(e))?;
   let current_base = pe.header.optional_header.ok_or(Pe32Error::RelocationError)?.windows_fields.image_base;
@@ -165,7 +313,7 @@ pub fn pe32_relocate_image(destination: usize, image: &mut [u8]) -> Result<(), P
       (*windows_fields).image_base = destination as u64;
     }
 
-    let pe_opt_header = pe.header.optional_header.ok_or(Pe32Error::RelocationError)?;
+    let pe_opt_header = pe.header.optional_header.ok_or(Pe32Error::NoOptionalHeader)?;
 
     let reloc_section_option = pe_opt_header.data_directories.get_base_relocation_table();
 
