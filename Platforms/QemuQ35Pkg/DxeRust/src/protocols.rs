@@ -2,38 +2,38 @@ use core::{ffi::c_void, mem::size_of};
 
 use alloc::{slice, vec, vec::Vec};
 use r_efi::{
-    eficall, eficall_abi,
-    system::{BootServices, OpenProtocolInformationEntry},
+  eficall, eficall_abi,
+  system::{BootServices, OpenProtocolInformationEntry},
 };
 use uefi_device_path_lib::remaining_device_path;
 use uefi_protocol_db_lib::SpinLockedProtocolDb;
 
 use crate::{
-    allocator::allocate_pool,
-    events::{signal_event, EVENT_DB},
+  allocator::allocate_pool,
+  events::{signal_event, EVENT_DB},
 };
 
 pub static PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
 pub fn core_install_protocol_interface(
-    handle: Option<r_efi::efi::Handle>,
-    protocol: r_efi::efi::Guid,
-    interface: *mut c_void,
+  handle: Option<r_efi::efi::Handle>,
+  protocol: r_efi::efi::Guid,
+  interface: *mut c_void,
 ) -> Result<r_efi::efi::Handle, r_efi::efi::Status> {
-    let (handle, notifies) = PROTOCOL_DB.install_protocol_interface(handle, protocol, interface)?;
+  let (handle, notifies) = PROTOCOL_DB.install_protocol_interface(handle, protocol, interface)?;
 
-    let mut closed_events = Vec::new();
+  let mut closed_events = Vec::new();
 
-    for notify in notifies {
-        match signal_event(notify.event) {
-            r_efi::efi::Status::INVALID_PARAMETER => closed_events.push(notify.event), //means event doesn't exist (probably closed).
-            _ => (), // Other error cases not actionable.
-        }
+  for notify in notifies {
+    match signal_event(notify.event) {
+      r_efi::efi::Status::INVALID_PARAMETER => closed_events.push(notify.event), //means event doesn't exist (probably closed).
+      _ => (),                                                                   // Other error cases not actionable.
     }
+  }
 
-    PROTOCOL_DB.unregister_protocol_notify_events(closed_events);
+  PROTOCOL_DB.unregister_protocol_notify_events(closed_events);
 
-    Ok(handle)
+  Ok(handle)
 }
 
 eficall! {pub fn install_protocol_interface (
@@ -333,51 +333,51 @@ eficall! {pub fn open_protocol_information (
 }}
 
 pub unsafe extern "C" fn install_multiple_protocol_interfaces(
-    handle: *mut r_efi::efi::Handle,
-    mut args: ...
+  handle: *mut r_efi::efi::Handle,
+  mut args: ...
 ) -> r_efi::efi::Status {
-    if handle.is_null() {
-        return r_efi::efi::Status::INVALID_PARAMETER;
-    }
+  if handle.is_null() {
+    return r_efi::efi::Status::INVALID_PARAMETER;
+  }
 
-    loop {
-        //consume the protocol, break the loop if it is null.
-        let protocol: *mut r_efi::efi::Guid = args.arg();
-        if protocol.is_null() {
-            break;
-        }
-        let interface: *mut c_void = args.arg();
-        match install_protocol_interface(handle, protocol, r_efi::efi::NATIVE_INTERFACE, interface) {
-            r_efi::efi::Status::SUCCESS => continue,
-            err => return err,
-        }
+  loop {
+    //consume the protocol, break the loop if it is null.
+    let protocol: *mut r_efi::efi::Guid = args.arg();
+    if protocol.is_null() {
+      break;
     }
+    let interface: *mut c_void = args.arg();
+    match install_protocol_interface(handle, protocol, r_efi::efi::NATIVE_INTERFACE, interface) {
+      r_efi::efi::Status::SUCCESS => continue,
+      err => return err,
+    }
+  }
 
-    r_efi::efi::Status::SUCCESS
+  r_efi::efi::Status::SUCCESS
 }
 
 pub unsafe extern "C" fn uninstall_multiple_protocol_interfaces(
-    handle: r_efi::efi::Handle,
-    mut args: ...
+  handle: r_efi::efi::Handle,
+  mut args: ...
 ) -> r_efi::efi::Status {
-    if handle.is_null() {
-        return r_efi::efi::Status::INVALID_PARAMETER;
-    }
+  if handle.is_null() {
+    return r_efi::efi::Status::INVALID_PARAMETER;
+  }
 
-    loop {
-        //consume the protocol, break the loop if it is null.
-        let protocol: *mut r_efi::efi::Guid = args.arg();
-        if protocol.is_null() {
-            break;
-        }
-        let interface: *mut c_void = args.arg();
-        match uninstall_protocol_interface(handle, protocol, interface) {
-            r_efi::efi::Status::SUCCESS => continue,
-            err => return err,
-        }
+  loop {
+    //consume the protocol, break the loop if it is null.
+    let protocol: *mut r_efi::efi::Guid = args.arg();
+    if protocol.is_null() {
+      break;
     }
+    let interface: *mut c_void = args.arg();
+    match uninstall_protocol_interface(handle, protocol, interface) {
+      r_efi::efi::Status::SUCCESS => continue,
+      err => return err,
+    }
+  }
 
-    r_efi::efi::Status::SUCCESS
+  r_efi::efi::Status::SUCCESS
 }
 
 eficall! {pub fn protocols_per_handle (
@@ -502,45 +502,45 @@ eficall! {pub fn locate_protocol(
 }}
 
 pub fn core_locate_device_path(
-    protocol: r_efi::efi::Guid,
-    device_path: *const r_efi::protocols::device_path::Protocol,
+  protocol: r_efi::efi::Guid,
+  device_path: *const r_efi::protocols::device_path::Protocol,
 ) -> Result<(*mut r_efi::protocols::device_path::Protocol, r_efi::efi::Handle), r_efi::efi::Status> {
-    let device_path_protocol_guid = &r_efi::protocols::device_path::PROTOCOL_GUID as *const _ as *mut r_efi::efi::Guid;
+  let device_path_protocol_guid = &r_efi::protocols::device_path::PROTOCOL_GUID as *const _ as *mut r_efi::efi::Guid;
 
-    let mut best_device: r_efi::efi::Handle = core::ptr::null_mut();
-    let mut best_match: isize = -1;
-    let mut best_remaining_path: *const r_efi::protocols::device_path::Protocol = core::ptr::null_mut();
+  let mut best_device: r_efi::efi::Handle = core::ptr::null_mut();
+  let mut best_match: isize = -1;
+  let mut best_remaining_path: *const r_efi::protocols::device_path::Protocol = core::ptr::null_mut();
 
-    let handles = match PROTOCOL_DB.locate_handles(Some(protocol)) {
-        Err(err) => return Err(err),
-        Ok(handles) => handles,
+  let handles = match PROTOCOL_DB.locate_handles(Some(protocol)) {
+    Err(err) => return Err(err),
+    Ok(handles) => handles,
+  };
+
+  for handle in handles {
+    let mut temp_device_path: *mut r_efi::protocols::device_path::Protocol = core::ptr::null_mut();
+    let temp_device_path_ptr: *mut *mut c_void = &mut temp_device_path as *mut _ as *mut *mut c_void;
+    let status = handle_protocol(handle, device_path_protocol_guid, temp_device_path_ptr);
+    if status != r_efi::efi::Status::SUCCESS {
+      continue;
+    }
+
+    let (remaining_path, matching_nodes) = match remaining_device_path(temp_device_path, device_path) {
+      Some((remaining_path, matching_nodes)) => (remaining_path, matching_nodes as isize),
+      None => continue,
     };
 
-    for handle in handles {
-        let mut temp_device_path: *mut r_efi::protocols::device_path::Protocol = core::ptr::null_mut();
-        let temp_device_path_ptr: *mut *mut c_void = &mut temp_device_path as *mut _ as *mut *mut c_void;
-        let status = handle_protocol(handle, device_path_protocol_guid, temp_device_path_ptr);
-        if status != r_efi::efi::Status::SUCCESS {
-            continue;
-        }
-
-        let (remaining_path, matching_nodes) = match remaining_device_path(temp_device_path, device_path) {
-            Some((remaining_path, matching_nodes)) => (remaining_path, matching_nodes as isize),
-            None => continue,
-        };
-
-        if matching_nodes > best_match {
-            best_match = matching_nodes;
-            best_device = handle;
-            best_remaining_path = remaining_path;
-        }
+    if matching_nodes > best_match {
+      best_match = matching_nodes;
+      best_device = handle;
+      best_remaining_path = remaining_path;
     }
+  }
 
-    if best_match == -1 {
-        return Err(r_efi::efi::Status::NOT_FOUND);
-    }
+  if best_match == -1 {
+    return Err(r_efi::efi::Status::NOT_FOUND);
+  }
 
-    Ok((best_remaining_path as *mut r_efi::protocols::device_path::Protocol, best_device))
+  Ok((best_remaining_path as *mut r_efi::protocols::device_path::Protocol, best_device))
 }
 
 eficall! {fn locate_device_path (
@@ -566,33 +566,33 @@ eficall! {fn locate_device_path (
 }}
 
 pub fn init_protocol_support(bs: &mut BootServices) {
-    //This bit of trickery is needed because r_efi definition of (Un)InstallMultipleProtocolInterfaces
-    //is not variadic, due to rust only supporting variadics for "unsafe extern C" and not "efiapi"
-    //until very recently. For x86_64 "efiapi" and "extern C" match, so we can get away with a
-    //transmute here. Fixing it for other architectures more generally would require an upstream
-    //change in r_efi to pick up. There is also a bug in r_efi definition for
-    //uninstall_multiple_program_interfaces - per spec, the first argument is a handle, but
-    //r_efi has it as *mut handle.
-    bs.install_multiple_protocol_interfaces = unsafe {
-        let ptr = install_multiple_protocol_interfaces as *const ();
-        core::mem::transmute(ptr)
-    };
-    bs.uninstall_multiple_protocol_interfaces = unsafe {
-        let ptr = uninstall_multiple_protocol_interfaces as *const ();
-        core::mem::transmute(ptr)
-    };
+  //This bit of trickery is needed because r_efi definition of (Un)InstallMultipleProtocolInterfaces
+  //is not variadic, due to rust only supporting variadics for "unsafe extern C" and not "efiapi"
+  //until very recently. For x86_64 "efiapi" and "extern C" match, so we can get away with a
+  //transmute here. Fixing it for other architectures more generally would require an upstream
+  //change in r_efi to pick up. There is also a bug in r_efi definition for
+  //uninstall_multiple_program_interfaces - per spec, the first argument is a handle, but
+  //r_efi has it as *mut handle.
+  bs.install_multiple_protocol_interfaces = unsafe {
+    let ptr = install_multiple_protocol_interfaces as *const ();
+    core::mem::transmute(ptr)
+  };
+  bs.uninstall_multiple_protocol_interfaces = unsafe {
+    let ptr = uninstall_multiple_protocol_interfaces as *const ();
+    core::mem::transmute(ptr)
+  };
 
-    bs.install_protocol_interface = install_protocol_interface;
-    bs.uninstall_protocol_interface = uninstall_protocol_interface;
-    bs.reinstall_protocol_interface = reinstall_protocol_interface;
-    bs.register_protocol_notify = register_protocol_notify;
-    bs.locate_handle = locate_handle;
-    bs.handle_protocol = handle_protocol;
-    bs.open_protocol = open_protocol;
-    bs.close_protocol = close_protocol;
-    bs.open_protocol_information = open_protocol_information;
-    bs.protocols_per_handle = protocols_per_handle;
-    bs.locate_handle_buffer = locate_handle_buffer;
-    bs.locate_protocol = locate_protocol;
-    bs.locate_device_path = locate_device_path;
+  bs.install_protocol_interface = install_protocol_interface;
+  bs.uninstall_protocol_interface = uninstall_protocol_interface;
+  bs.reinstall_protocol_interface = reinstall_protocol_interface;
+  bs.register_protocol_notify = register_protocol_notify;
+  bs.locate_handle = locate_handle;
+  bs.handle_protocol = handle_protocol;
+  bs.open_protocol = open_protocol;
+  bs.close_protocol = close_protocol;
+  bs.open_protocol_information = open_protocol_information;
+  bs.protocols_per_handle = protocols_per_handle;
+  bs.locate_handle_buffer = locate_handle_buffer;
+  bs.locate_protocol = locate_protocol;
+  bs.locate_device_path = locate_device_path;
 }

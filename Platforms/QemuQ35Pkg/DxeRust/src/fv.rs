@@ -3,36 +3,36 @@ use core::{ffi::c_void, mem::size_of, slice};
 use alloc::{boxed::Box, collections::BTreeMap};
 use r_efi::{eficall, eficall_abi};
 use r_pi::{
-    firmware_volume::{
-        EfiFvAttributes, EfiFvFileType, EfiSectionType, FfsFileType, FirmwareVolume, EFI_FVB2_MEMORY_MAPPED,
-        EFI_FVB2_READ_STATUS, EFI_FV_FILETYPE_ALL, EFI_SECTION_ALL,
-    },
-    hob::{Hob, HobList},
-    protocols::{
-        firmware_volume::{self, EFI_FV_FILE_ATTRIB_MEMORY_MAPPED},
-        firmware_volume_block,
-    },
+  firmware_volume::{
+    EfiFvAttributes, EfiFvFileType, EfiSectionType, FfsFileType, FirmwareVolume, EFI_FVB2_MEMORY_MAPPED,
+    EFI_FVB2_READ_STATUS, EFI_FV_FILETYPE_ALL, EFI_SECTION_ALL,
+  },
+  hob::{Hob, HobList},
+  protocols::{
+    firmware_volume::{self, EFI_FV_FILE_ATTRIB_MEMORY_MAPPED},
+    firmware_volume_block,
+  },
 };
 
 use crate::{allocator::allocate_pool, protocols::core_install_protocol_interface};
 
 struct PrivateFvbData {
-    _interface: Box<firmware_volume_block::Protocol>,
-    physical_address: u64,
+  _interface: Box<firmware_volume_block::Protocol>,
+  physical_address: u64,
 }
 
 struct PrivateFvData {
-    _interface: Box<firmware_volume::Protocol>,
-    physical_address: u64,
+  _interface: Box<firmware_volume::Protocol>,
+  physical_address: u64,
 }
 
 enum PrivateDataItem {
-    FvbData(PrivateFvbData),
-    FvData(PrivateFvData),
+  FvbData(PrivateFvbData),
+  FvData(PrivateFvData),
 }
 
 struct PrivateGlobalData {
-    fv_information: BTreeMap<*mut c_void, PrivateDataItem>,
+  fv_information: BTreeMap<*mut c_void, PrivateDataItem>,
 }
 
 //access to private global data is only through mutex guard, so safe to mark sync/send.
@@ -40,7 +40,7 @@ unsafe impl Sync for PrivateGlobalData {}
 unsafe impl Send for PrivateGlobalData {}
 
 static PRIVATE_FV_DATA: spin::Mutex<PrivateGlobalData> =
-    spin::Mutex::new(PrivateGlobalData { fv_information: BTreeMap::new() });
+  spin::Mutex::new(PrivateGlobalData { fv_information: BTreeMap::new() });
 
 eficall! {fn fvb_get_attributes(
   this: *mut firmware_volume_block::Protocol,
@@ -206,33 +206,33 @@ eficall! {fn fvb_erase_blocks(
 }}
 
 fn install_fvb_protocol(
-    handle: Option<r_efi::efi::Handle>,
-    parent_handle: Option<r_efi::efi::Handle>,
-    base_address: u64,
+  handle: Option<r_efi::efi::Handle>,
+  parent_handle: Option<r_efi::efi::Handle>,
+  base_address: u64,
 ) -> Result<r_efi::efi::Handle, r_efi::efi::Status> {
-    let mut fvb_interface = Box::from(firmware_volume_block::Protocol {
-        get_attributes: fvb_get_attributes,
-        set_attributes: fvb_set_attributes,
-        get_physical_address: fvb_get_physical_address,
-        get_block_size: fvb_get_block_size,
-        read: fvb_read,
-        write: fvb_write,
-        erase_blocks: fvb_erase_blocks,
-        parent_handle: match parent_handle {
-            Some(handle) => handle,
-            None => core::ptr::null_mut(),
-        },
-    });
+  let mut fvb_interface = Box::from(firmware_volume_block::Protocol {
+    get_attributes: fvb_get_attributes,
+    set_attributes: fvb_set_attributes,
+    get_physical_address: fvb_get_physical_address,
+    get_block_size: fvb_get_block_size,
+    read: fvb_read,
+    write: fvb_write,
+    erase_blocks: fvb_erase_blocks,
+    parent_handle: match parent_handle {
+      Some(handle) => handle,
+      None => core::ptr::null_mut(),
+    },
+  });
 
-    let fvb_ptr = fvb_interface.as_mut() as *mut firmware_volume_block::Protocol as *mut c_void;
+  let fvb_ptr = fvb_interface.as_mut() as *mut firmware_volume_block::Protocol as *mut c_void;
 
-    let private_data = PrivateFvbData { _interface: fvb_interface, physical_address: base_address };
+  let private_data = PrivateFvbData { _interface: fvb_interface, physical_address: base_address };
 
-    // save the protocol structure we're about to install in the private data.
-    PRIVATE_FV_DATA.lock().fv_information.insert(fvb_ptr, PrivateDataItem::FvbData(private_data));
+  // save the protocol structure we're about to install in the private data.
+  PRIVATE_FV_DATA.lock().fv_information.insert(fvb_ptr, PrivateDataItem::FvbData(private_data));
 
-    // install the protocol and return status
-    core_install_protocol_interface(handle, firmware_volume_block::PROTOCOL_GUID, fvb_ptr)
+  // install the protocol and return status
+  core_install_protocol_interface(handle, firmware_volume_block::PROTOCOL_GUID, fvb_ptr)
 }
 
 eficall! {fn fv_get_volume_attributes(
@@ -537,49 +537,49 @@ eficall! {fn fv_set_info(
 }}
 
 fn install_fv_protocol(
-    handle: Option<r_efi::efi::Handle>,
-    parent_handle: Option<r_efi::efi::Handle>,
-    base_address: u64,
+  handle: Option<r_efi::efi::Handle>,
+  parent_handle: Option<r_efi::efi::Handle>,
+  base_address: u64,
 ) -> Result<r_efi::efi::Handle, r_efi::efi::Status> {
-    let mut fv_interface = Box::from(firmware_volume::Protocol {
-        get_volume_attributes: fv_get_volume_attributes,
-        set_volume_attributes: fv_set_volume_attributes,
-        read_file: fv_read_file,
-        read_section: fv_read_section,
-        write_file: fv_write_file,
-        get_next_file: fv_get_next_file,
-        key_size: size_of::<usize>() as u32,
-        parent_handle: match parent_handle {
-            Some(handle) => handle,
-            None => core::ptr::null_mut(),
-        },
-        get_info: fv_get_info,
-        set_info: fv_set_info,
-    });
+  let mut fv_interface = Box::from(firmware_volume::Protocol {
+    get_volume_attributes: fv_get_volume_attributes,
+    set_volume_attributes: fv_set_volume_attributes,
+    read_file: fv_read_file,
+    read_section: fv_read_section,
+    write_file: fv_write_file,
+    get_next_file: fv_get_next_file,
+    key_size: size_of::<usize>() as u32,
+    parent_handle: match parent_handle {
+      Some(handle) => handle,
+      None => core::ptr::null_mut(),
+    },
+    get_info: fv_get_info,
+    set_info: fv_set_info,
+  });
 
-    let fv_ptr = fv_interface.as_mut() as *mut firmware_volume::Protocol as *mut c_void;
+  let fv_ptr = fv_interface.as_mut() as *mut firmware_volume::Protocol as *mut c_void;
 
-    let private_data = PrivateFvData { _interface: fv_interface, physical_address: base_address };
+  let private_data = PrivateFvData { _interface: fv_interface, physical_address: base_address };
 
-    // save the protocol structure we're about to install in the private data.
-    PRIVATE_FV_DATA.lock().fv_information.insert(fv_ptr, PrivateDataItem::FvData(private_data));
+  // save the protocol structure we're about to install in the private data.
+  PRIVATE_FV_DATA.lock().fv_information.insert(fv_ptr, PrivateDataItem::FvData(private_data));
 
-    // install the protocol and return status
-    core_install_protocol_interface(handle, firmware_volume::PROTOCOL_GUID, fv_ptr)
+  // install the protocol and return status
+  core_install_protocol_interface(handle, firmware_volume::PROTOCOL_GUID, fv_ptr)
 }
 
 fn initialize_hob_fvs(hob_list: &HobList) -> Result<(), r_efi::efi::Status> {
-    let fv_hobs = hob_list.iter().filter_map(|h| if let Hob::FirmwareVolume(&fv) = h { Some(fv) } else { None });
+  let fv_hobs = hob_list.iter().filter_map(|h| if let Hob::FirmwareVolume(&fv) = h { Some(fv) } else { None });
 
-    for fv in fv_hobs {
-        let handle = install_fvb_protocol(None, None, fv.base_address)?;
-        install_fv_protocol(Some(handle), None, fv.base_address)?;
-    }
+  for fv in fv_hobs {
+    let handle = install_fvb_protocol(None, None, fv.base_address)?;
+    install_fv_protocol(Some(handle), None, fv.base_address)?;
+  }
 
-    Ok(())
+  Ok(())
 }
 
 /// Initializes FV services for the DXE core.
 pub fn init_fv_support(hob_list: &HobList) {
-    initialize_hob_fvs(hob_list).expect("Unexpected error initializing FVs from hob_list");
+  initialize_hob_fvs(hob_list).expect("Unexpected error initializing FVs from hob_list");
 }

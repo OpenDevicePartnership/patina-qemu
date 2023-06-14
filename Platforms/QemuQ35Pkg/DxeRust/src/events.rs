@@ -1,12 +1,12 @@
 use core::{
-    convert::TryFrom,
-    ffi::c_void,
-    sync::atomic::{AtomicU64, AtomicUsize, Ordering},
+  convert::TryFrom,
+  ffi::c_void,
+  sync::atomic::{AtomicU64, AtomicUsize, Ordering},
 };
 
 use r_efi::{
-    eficall, eficall_abi,
-    system::{BootServices, EVT_NOTIFY_SIGNAL, TPL_APPLICATION, TPL_CALLBACK, TPL_HIGH_LEVEL},
+  eficall, eficall_abi,
+  system::{BootServices, EVT_NOTIFY_SIGNAL, TPL_APPLICATION, TPL_CALLBACK, TPL_HIGH_LEVEL},
 };
 
 use r_pi::timer::{TimerArchProtocol, TIMER_ARCH_PROTOCOL_GUID};
@@ -275,22 +275,22 @@ eficall! {fn timer_available_callback (event: r_efi::efi::Event, _context: *mut 
 }}
 
 pub fn init_events_support(bs: &mut BootServices) {
-    bs.create_event = create_event;
-    bs.create_event_ex = create_event_ex;
-    bs.close_event = close_event;
-    bs.signal_event = signal_event;
-    bs.wait_for_event = wait_for_event;
-    bs.check_event = check_event;
-    bs.set_timer = set_timer;
-    bs.raise_tpl = raise_tpl;
-    bs.restore_tpl = restore_tpl;
+  bs.create_event = create_event;
+  bs.create_event_ex = create_event_ex;
+  bs.close_event = close_event;
+  bs.signal_event = signal_event;
+  bs.wait_for_event = wait_for_event;
+  bs.check_event = check_event;
+  bs.set_timer = set_timer;
+  bs.raise_tpl = raise_tpl;
+  bs.restore_tpl = restore_tpl;
 
-    //set up call back for timer arch protocol installation.
-    let event = EVENT_DB
-        .create_event(EVT_NOTIFY_SIGNAL, TPL_CALLBACK, Some(timer_available_callback), None, None)
-        .expect("Failed to create timer available callback.");
+  //set up call back for timer arch protocol installation.
+  let event = EVENT_DB
+    .create_event(EVT_NOTIFY_SIGNAL, TPL_CALLBACK, Some(timer_available_callback), None, None)
+    .expect("Failed to create timer available callback.");
 
-    PROTOCOL_DB
-        .register_protocol_notify(TIMER_ARCH_PROTOCOL_GUID, event)
-        .expect("Failed to register protocol notify on timer arch callback.");
+  PROTOCOL_DB
+    .register_protocol_notify(TIMER_ARCH_PROTOCOL_GUID, event)
+    .expect("Failed to register protocol notify on timer arch callback.");
 }

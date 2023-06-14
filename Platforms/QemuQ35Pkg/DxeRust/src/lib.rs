@@ -26,31 +26,31 @@ pub static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicF
 
 #[cfg(target_os = "uefi")]
 pub fn init() {
-    gdt::init();
-    interrupts::init_idt();
-    x86_64::instructions::interrupts::enable();
+  gdt::init();
+  interrupts::init_idt();
+  x86_64::instructions::interrupts::enable();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 pub enum QemuExitCode {
-    Success = 0x10,
-    Failed = 0x11,
+  Success = 0x10,
+  Failed = 0x11,
 }
 
 pub fn exit_qemu(exit_code: QemuExitCode) {
-    use x86_64::instructions::port::Port;
+  use x86_64::instructions::port::Port;
 
-    unsafe {
-        let mut port = Port::new(0xf4);
-        port.write(exit_code as u32);
-    }
+  unsafe {
+    let mut port = Port::new(0xf4);
+    port.write(exit_code as u32);
+  }
 }
 
 pub fn hlt_loop() -> ! {
-    loop {
-        x86_64::instructions::hlt();
-    }
+  loop {
+    x86_64::instructions::hlt();
+  }
 }
 
 #[macro_export]
