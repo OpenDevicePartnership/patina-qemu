@@ -19,7 +19,7 @@ use dxe_rust::{
   misc_boot_services::init_misc_boot_services_support,
   physical_memory, println,
   protocols::init_protocol_support,
-  systemtables::EfiSystemTable,
+  systemtables::{init_system_table, SYSTEM_TABLE},
   FRAME_ALLOCATOR,
 };
 use r_efi::efi::Guid;
@@ -97,18 +97,23 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
   }
 
   // Instantiate system table. TODO: this instantiates it on the stack. It needs to be instantiated in runtime memory.
-  let mut st = EfiSystemTable::init_system_table();
+  init_system_table();
 
-  init_memory_support(st.boot_services());
-  init_events_support(st.boot_services());
-  init_protocol_support(st.boot_services());
-  init_misc_boot_services_support(st.boot_services());
-  init_image_support(&hob_list, &st);
-  init_fv_support(&hob_list);
+  // use a block to limit the lifetime of the lock guard on the SYSTEM_TABLE reference.
+  {
+    let mut st = SYSTEM_TABLE.lock();
+    let st = st.as_mut().expect("System Table not initialized!");
 
-  // re-checksum the system tables after above initialization.
-  st.checksum_all();
+    init_memory_support(st.boot_services());
+    init_events_support(st.boot_services());
+    init_protocol_support(st.boot_services());
+    init_misc_boot_services_support(st.boot_services());
+    init_image_support(&hob_list, &st);
+    init_fv_support(&hob_list);
 
+    // re-checksum the system tables after above initialization.
+    st.checksum_all();
+  }
   //
   // attempt to load and execute an external module's entry point.
   //

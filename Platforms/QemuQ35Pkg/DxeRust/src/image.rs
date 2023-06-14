@@ -637,7 +637,7 @@ eficall! {fn exit (
 pub fn init_image_support(hob_list: &HobList, system_table: &EfiSystemTable) {
   // initialize system table entry in private global.
   let mut private_data = PRIVATE_IMAGE_DATA.lock();
-  private_data.system_table = system_table.as_ref() as *mut r_efi::efi::SystemTable;
+  private_data.system_table = system_table.as_ptr() as *mut r_efi::efi::SystemTable;
   drop(private_data);
 
   // install the image protocol for the dxe_core.

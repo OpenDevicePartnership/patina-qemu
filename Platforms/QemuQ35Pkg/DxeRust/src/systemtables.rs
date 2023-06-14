@@ -12,6 +12,8 @@ use r_efi::{
 
 use crate::allocator::EFI_RUNTIME_SERVICES_DATA_ALLOCATOR;
 
+pub static SYSTEM_TABLE: spin::Mutex<Option<EfiSystemTable>> = spin::Mutex::new(None);
+
 pub struct EfiRuntimeServicesTable {
   runtime_services: Box<RuntimeServices, &'static dyn Allocator>,
 }
@@ -368,45 +370,20 @@ pub struct EfiSystemTable {
 }
 
 impl EfiSystemTable {
-  pub fn init_system_table() -> EfiSystemTable {
-    let mut st = SystemTable {
-      hdr: TableHeader {
-        signature: r_efi::system::SYSTEM_TABLE_SIGNATURE,
-        revision: r_efi::system::SYSTEM_TABLE_REVISION,
-        header_size: 0,
-        crc32: 0,
-        reserved: 0,
-      },
-      firmware_vendor: core::ptr::null_mut() as *mut u16,
-      firmware_revision: 0,
-      console_in_handle: core::ptr::null_mut() as *mut c_void,
-      con_in: core::ptr::null_mut() as *mut simple_text_input::Protocol,
-      console_out_handle: core::ptr::null_mut() as *mut c_void,
-      con_out: core::ptr::null_mut() as *mut simple_text_output::Protocol,
-      standard_error_handle: core::ptr::null_mut() as *mut c_void,
-      std_err: core::ptr::null_mut() as *mut simple_text_output::Protocol,
-      runtime_services: core::ptr::null_mut() as *mut RuntimeServices,
-      boot_services: core::ptr::null_mut() as *mut BootServices,
-      number_of_table_entries: 0,
-      configuration_table: core::ptr::null_mut() as *mut r_efi::system::ConfigurationTable,
-    };
-    let mut bs = EfiBootServicesTable::init_boot_services_table();
-    let mut rt = EfiRuntimeServicesTable::init_runtime_services_table();
-    st.boot_services = bs.boot_services.as_mut();
-    st.runtime_services = rt.runtime_services.as_mut();
-
-    st.hdr.header_size = size_of::<SystemTable>() as u32;
-
-    let mut table = EfiSystemTable {
-      system_table: Box::new_in(st, &EFI_RUNTIME_SERVICES_DATA_ALLOCATOR),
-      boot_service: bs,
-      runtime_service: rt,
-    };
-    table.checksum();
-    table
-  }
-  pub fn as_ref(&self) -> *const SystemTable {
+  pub fn as_ptr(&self) -> *const SystemTable {
     self.system_table.as_ref() as *const SystemTable
+  }
+
+  pub fn as_mut_ptr(&self) -> *mut SystemTable {
+    self.as_ptr() as *mut SystemTable
+  }
+
+  pub fn as_ref(&self) -> &SystemTable {
+    self.system_table.as_ref()
+  }
+
+  pub fn as_mut(&mut self) -> &mut SystemTable {
+    self.system_table.as_mut()
   }
 
   pub fn boot_services(&self) -> &mut BootServices {
@@ -429,4 +406,46 @@ impl EfiSystemTable {
     self.runtime_service.checksum();
     self.checksum();
   }
+}
+
+//access to global system table is only through mutex guard, so safe to mark sync/send.
+unsafe impl Sync for EfiSystemTable {}
+unsafe impl Send for EfiSystemTable {}
+
+pub fn init_system_table() {
+  let mut st = SystemTable {
+    hdr: TableHeader {
+      signature: r_efi::system::SYSTEM_TABLE_SIGNATURE,
+      revision: r_efi::system::SYSTEM_TABLE_REVISION,
+      header_size: 0,
+      crc32: 0,
+      reserved: 0,
+    },
+    firmware_vendor: core::ptr::null_mut() as *mut u16,
+    firmware_revision: 0,
+    console_in_handle: core::ptr::null_mut() as *mut c_void,
+    con_in: core::ptr::null_mut() as *mut simple_text_input::Protocol,
+    console_out_handle: core::ptr::null_mut() as *mut c_void,
+    con_out: core::ptr::null_mut() as *mut simple_text_output::Protocol,
+    standard_error_handle: core::ptr::null_mut() as *mut c_void,
+    std_err: core::ptr::null_mut() as *mut simple_text_output::Protocol,
+    runtime_services: core::ptr::null_mut() as *mut RuntimeServices,
+    boot_services: core::ptr::null_mut() as *mut BootServices,
+    number_of_table_entries: 0,
+    configuration_table: core::ptr::null_mut() as *mut r_efi::system::ConfigurationTable,
+  };
+  let mut bs = EfiBootServicesTable::init_boot_services_table();
+  let mut rt = EfiRuntimeServicesTable::init_runtime_services_table();
+  st.boot_services = bs.boot_services.as_mut();
+  st.runtime_services = rt.runtime_services.as_mut();
+
+  st.hdr.header_size = size_of::<SystemTable>() as u32;
+
+  let mut table = EfiSystemTable {
+    system_table: Box::new_in(st, &EFI_RUNTIME_SERVICES_DATA_ALLOCATOR),
+    boot_service: bs,
+    runtime_service: rt,
+  };
+  table.checksum();
+  _ = SYSTEM_TABLE.lock().insert(table);
 }
