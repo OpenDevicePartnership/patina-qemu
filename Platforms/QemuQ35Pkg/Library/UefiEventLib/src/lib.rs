@@ -322,13 +322,7 @@ impl EventDb {
 
     //signal all the members of the same event group (including the current one), if present.
     if let Some(target_group) = current_event.event_group {
-      for member_event in self.events.values_mut().filter(|e| e.event_group == Some(target_group)) {
-        member_event.signalled = true;
-        if member_event.event_type.is_notify_signal() {
-          Self::queue_notify_event(&mut self.pending_notifies, member_event, self.notify_tags);
-          self.notify_tags += 1;
-        }
-      }
+      self.signal_group(target_group);
     } else {
       // if no group, signal the event by itself.
       current_event.signalled = true;
@@ -338,6 +332,16 @@ impl EventDb {
       }
     }
     Ok(())
+  }
+
+  fn signal_group(&mut self, group: r_efi::efi::Guid) {
+    for member_event in self.events.values_mut().filter(|e| e.event_group == Some(group)) {
+      member_event.signalled = true;
+      if member_event.event_type.is_notify_signal() {
+        Self::queue_notify_event(&mut self.pending_notifies, member_event, self.notify_tags);
+        self.notify_tags += 1;
+      }
+    }
   }
 
   fn clear_signal(&mut self, event: r_efi::efi::Event) -> Result<(), r_efi::efi::Status> {
@@ -527,6 +531,11 @@ impl SpinLockedEventDb {
   /// marks an event as signalled, and queues it for dispatch if it is of type NotifySignalEvent
   pub fn signal_event(&self, event: r_efi::efi::Event) -> Result<(), r_efi::efi::Status> {
     self.lock().signal_event(event)
+  }
+
+  /// signals an event group
+  pub fn signal_group(&self, group: r_efi::efi::Guid) {
+    self.lock().signal_group(group)
   }
 
   /// returns the event type for the given event
@@ -722,10 +731,13 @@ mod tests {
     let group1: r_efi::efi::Guid = unsafe { core::mem::transmute(*uuid.as_bytes()) };
     let uuid = Uuid::from_str("3a08a8c7-054b-4268-8aed-bc6a3aef999f").unwrap();
     let group2: r_efi::efi::Guid = unsafe { core::mem::transmute(*uuid.as_bytes()) };
+    let uuid = Uuid::from_str("745e8316-4889-4f58-be3c-6b718b7170ec").unwrap();
+    let group3: r_efi::efi::Guid = unsafe { core::mem::transmute(*uuid.as_bytes()) };
 
     static SPIN_LOCKED_EVENT_DB: SpinLockedEventDb = SpinLockedEventDb::new();
     let mut group1_events: Vec<r_efi::efi::Event> = Vec::new();
     let mut group2_events: Vec<r_efi::efi::Event> = Vec::new();
+    let mut group3_events: Vec<r_efi::efi::Event> = Vec::new();
     let mut ungrouped_events: Vec<r_efi::efi::Event> = Vec::new();
 
     for _ in 0..10 {
@@ -740,6 +752,14 @@ mod tests {
       group2_events.push(
         SPIN_LOCKED_EVENT_DB
           .create_event(EVT_TIMER | EVT_NOTIFY_SIGNAL, TPL_NOTIFY, Some(test_notify_function), None, Some(group2))
+          .unwrap(),
+      );
+    }
+
+    for _ in 0..10 {
+      group3_events.push(
+        SPIN_LOCKED_EVENT_DB
+          .create_event(EVT_TIMER | EVT_NOTIFY_SIGNAL, TPL_NOTIFY, Some(test_notify_function), None, Some(group3))
           .unwrap(),
       );
     }
@@ -786,7 +806,7 @@ mod tests {
       assert!(!SPIN_LOCKED_EVENT_DB.is_signalled(event));
     }
 
-    //signal an event in a different group.
+    //signal an event in a different group
     SPIN_LOCKED_EVENT_DB.signal_event(group2_events[0]).unwrap();
 
     //first event group should remain signalled.
@@ -796,6 +816,28 @@ mod tests {
 
     //second event group should now be signalled.
     for event in group2_events.clone() {
+      assert!(SPIN_LOCKED_EVENT_DB.is_signalled(event));
+    }
+
+    //third event group should not be signalled.
+    for event in group3_events.clone() {
+      assert!(!SPIN_LOCKED_EVENT_DB.is_signalled(event));
+    }
+
+    //signal events in third group using signal_group
+    SPIN_LOCKED_EVENT_DB.signal_group(group3);
+    //first event group should remain signalled.
+    for event in group1_events.clone() {
+      assert!(SPIN_LOCKED_EVENT_DB.is_signalled(event));
+    }
+
+    //second event group should remain signalled.
+    for event in group2_events.clone() {
+      assert!(SPIN_LOCKED_EVENT_DB.is_signalled(event));
+    }
+
+    //third event group should now be signalled.
+    for event in group3_events.clone() {
       assert!(SPIN_LOCKED_EVENT_DB.is_signalled(event));
     }
 
