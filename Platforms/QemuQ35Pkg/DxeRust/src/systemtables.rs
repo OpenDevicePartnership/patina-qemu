@@ -100,11 +100,17 @@ impl EfiRuntimeServicesTable {
     };
 
     rt.hdr.header_size = size_of::<RuntimeServices>() as u32;
-    let rt_ptr = &rt as *const RuntimeServices as *const u8;
-    let rt_slice = unsafe { from_raw_parts(rt_ptr, size_of::<RuntimeServices>()) };
-    rt.hdr.crc32 = crc32fast::hash(rt_slice);
 
-    EfiRuntimeServicesTable { runtime_services: Box::new_in(rt, &EFI_RUNTIME_SERVICES_DATA_ALLOCATOR) }
+    let mut table = EfiRuntimeServicesTable { runtime_services: Box::new_in(rt, &EFI_RUNTIME_SERVICES_DATA_ALLOCATOR) };
+    table.checksum();
+    table
+  }
+
+  pub fn checksum(&mut self) {
+    self.runtime_services.hdr.crc32 = 0;
+    let rs_ptr = self.runtime_services.as_ref() as *const RuntimeServices as *const u8;
+    let rs_slice = unsafe { from_raw_parts(rs_ptr, size_of::<RuntimeServices>()) };
+    self.runtime_services.hdr.crc32 = crc32fast::hash(rs_slice);
   }
 }
 
@@ -342,18 +348,23 @@ impl EfiBootServicesTable {
     };
 
     bs.hdr.header_size = size_of::<BootServices>() as u32;
-    let bs_ptr = &bs as *const BootServices as *const u8;
-    let bs_slice = unsafe { from_raw_parts(bs_ptr, size_of::<RuntimeServices>()) };
-    bs.hdr.crc32 = crc32fast::hash(bs_slice);
+    let mut table = EfiBootServicesTable { boot_services: Box::new(bs) };
+    table.checksum();
+    table
+  }
 
-    EfiBootServicesTable { boot_services: Box::new(bs) }
+  pub fn checksum(&mut self) {
+    self.boot_services.hdr.crc32 = 0;
+    let bs_ptr = self.boot_services.as_ref() as *const BootServices as *const u8;
+    let bs_slice = unsafe { from_raw_parts(bs_ptr, size_of::<BootServices>()) };
+    self.boot_services.hdr.crc32 = crc32fast::hash(bs_slice);
   }
 }
 
 pub struct EfiSystemTable {
   system_table: Box<SystemTable, &'static dyn Allocator>,
-  _boot_service: EfiBootServicesTable, // These fields ensure the BootServices and RuntimeServices structure pointers (in
-  _runtime_service: EfiRuntimeServicesTable, // the system_table) have the same lifetime as the EfiSystemTable.
+  boot_service: EfiBootServicesTable, // These fields ensure the BootServices and RuntimeServices structure pointers (in
+  runtime_service: EfiRuntimeServicesTable, // the system_table) have the same lifetime as the EfiSystemTable.
 }
 
 impl EfiSystemTable {
@@ -385,15 +396,14 @@ impl EfiSystemTable {
     st.runtime_services = rt.runtime_services.as_mut();
 
     st.hdr.header_size = size_of::<SystemTable>() as u32;
-    let st_ptr = &st as *const SystemTable as *const u8;
-    let st_slice = unsafe { from_raw_parts(st_ptr, size_of::<SystemTable>()) };
-    st.hdr.crc32 = crc32fast::hash(st_slice);
 
-    EfiSystemTable {
+    let mut table = EfiSystemTable {
       system_table: Box::new_in(st, &EFI_RUNTIME_SERVICES_DATA_ALLOCATOR),
-      _boot_service: bs,
-      _runtime_service: rt,
-    }
+      boot_service: bs,
+      runtime_service: rt,
+    };
+    table.checksum();
+    table
   }
   pub fn as_ref(&self) -> *const SystemTable {
     self.system_table.as_ref() as *const SystemTable
@@ -401,5 +411,22 @@ impl EfiSystemTable {
 
   pub fn boot_services(&self) -> &mut BootServices {
     unsafe { self.system_table.boot_services.as_mut().expect("BootServices uninitialized") }
+  }
+
+  pub fn runtime_services(&self) -> &mut RuntimeServices {
+    unsafe { self.system_table.runtime_services.as_mut().expect("RuntimeServices uninitialized") }
+  }
+
+  pub fn checksum(&mut self) {
+    self.system_table.hdr.crc32 = 0;
+    let st_ptr = self.system_table.as_ref() as *const SystemTable as *const u8;
+    let st_slice = unsafe { from_raw_parts(st_ptr, size_of::<SystemTable>()) };
+    self.system_table.hdr.crc32 = crc32fast::hash(st_slice);
+  }
+
+  pub fn checksum_all(&mut self) {
+    self.boot_service.checksum();
+    self.runtime_service.checksum();
+    self.checksum();
   }
 }

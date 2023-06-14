@@ -16,6 +16,7 @@ use dxe_rust::{
   events::init_events_support,
   fv::init_fv_support,
   image::{core_load_image, get_dxe_core_handle, init_image_support, start_image},
+  misc_boot_services::init_misc_boot_services_support,
   physical_memory, println,
   protocols::init_protocol_support,
   systemtables::EfiSystemTable,
@@ -96,13 +97,17 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
   }
 
   // Instantiate system table. TODO: this instantiates it on the stack. It needs to be instantiated in runtime memory.
-  let st = EfiSystemTable::init_system_table();
+  let mut st = EfiSystemTable::init_system_table();
 
   init_memory_support(st.boot_services());
   init_events_support(st.boot_services());
   init_protocol_support(st.boot_services());
+  init_misc_boot_services_support(st.boot_services());
   init_image_support(&hob_list, &st);
   init_fv_support(&hob_list);
+
+  // re-checksum the system tables after above initialization.
+  st.checksum_all();
 
   //
   // attempt to load and execute an external module's entry point.

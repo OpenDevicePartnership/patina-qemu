@@ -11,11 +11,13 @@
 #include <Protocol/FirmwareVolume2.h>
 #include <Protocol/FirmwareVolumeBlock.h>
 #include <Protocol/LoadedImage.h>
+#include <Library/BaseLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/UefiRuntimeServicesTableLib.h>
 
 EFI_MEMORY_TYPE  ValidMemoryTypes[] = {
   EfiLoaderCode,
@@ -121,6 +123,56 @@ TestMemoryInterface (
   DEBUG ((DEBUG_INFO, "[%a] Attempt FreePages with bad address that doesn't overflow.\n", __FUNCTION__));
   Status = gBS->FreePages (MAX_UINT64 - 0x2000, 1);
   ASSERT (Status == EFI_NOT_FOUND);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
+}
+
+VOID
+TestCrc (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  UINT32      Crc;
+
+  DEBUG ((DEBUG_INFO, "[%a] Entry\n", __FUNCTION__));
+
+  // Verify against reference implementation in BaseLib.
+  DEBUG ((DEBUG_INFO, "[%a] test that gBS->CalculateCrc32() produces correct CRC\n", __FUNCTION__));
+  Status = gBS->CalculateCrc32 ((VOID *)gST, sizeof (EFI_SYSTEM_TABLE), &Crc);
+  ASSERT_EFI_ERROR (Status);
+  DEBUG ((
+    DEBUG_INFO,
+    "[%a] gBS->CalculateCrc32 CRC expected: 0x%x, actual: 0x%x\n",
+    __FUNCTION__,
+    CalculateCrc32 ((VOID *)gST, sizeof (EFI_SYSTEM_TABLE)),
+    Crc
+    ));
+  ASSERT (Crc == CalculateCrc32 ((VOID *)gST, sizeof (EFI_SYSTEM_TABLE)));
+
+  DEBUG ((DEBUG_INFO, "[%a] test that gST header has correct CRC\n", __FUNCTION__));
+  Crc            = gST->Hdr.CRC32;
+  gST->Hdr.CRC32 = 0;
+  Status         = gBS->CalculateCrc32 ((VOID *)gST, sizeof (EFI_SYSTEM_TABLE), &gST->Hdr.CRC32);
+  ASSERT_EFI_ERROR (Status);
+  DEBUG ((DEBUG_INFO, "[%a] gST Table CRC expected: 0x%x, actual: 0x%x\n", __FUNCTION__, Crc, gST->Hdr.CRC32));
+  ASSERT (Crc == gST->Hdr.CRC32);
+
+  DEBUG ((DEBUG_INFO, "[%a] test that gBS header has correct CRC\n", __FUNCTION__));
+  Crc            = gBS->Hdr.CRC32;
+  gBS->Hdr.CRC32 = 0;
+  Status         = gBS->CalculateCrc32 ((VOID *)gBS, sizeof (EFI_BOOT_SERVICES), &gBS->Hdr.CRC32);
+  ASSERT_EFI_ERROR (Status);
+  DEBUG ((DEBUG_INFO, "[%a] gBS Table CRC expected: 0x%x, actual: 0x%x\n", __FUNCTION__, Crc, gBS->Hdr.CRC32));
+  ASSERT (Crc == gBS->Hdr.CRC32);
+
+  DEBUG ((DEBUG_INFO, "[%a] test that gRT header has correct CRC\n", __FUNCTION__));
+  Crc            = gRT->Hdr.CRC32;
+  gRT->Hdr.CRC32 = 0;
+  Status         = gBS->CalculateCrc32 ((VOID *)gRT, sizeof (EFI_RUNTIME_SERVICES), &gRT->Hdr.CRC32);
+  ASSERT_EFI_ERROR (Status);
+  DEBUG ((DEBUG_INFO, "[%a] gRT Table CRC expected: 0x%x, actual: 0x%x\n", __FUNCTION__, Crc, gRT->Hdr.CRC32));
+  ASSERT (Crc == gRT->Hdr.CRC32);
 
   DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
 }
@@ -1404,6 +1456,7 @@ RustFfiTestEntry (
   )
 {
   TestMemoryInterface ();
+  TestCrc ();
   TestProtocolInstallUninstallInterface ();
   TestHandleProtocolInterface ();
   TestOpenCloseProtocolInterface ();

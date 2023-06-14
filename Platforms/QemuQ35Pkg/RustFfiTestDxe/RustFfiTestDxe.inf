@@ -23,12 +23,14 @@
   QemuQ35Pkg/QemuQ35Pkg.dec
 
 [LibraryClasses]
+  BaseLib
   DebugLib
   DevicePathLib
   BaseMemoryLib
   MemoryAllocationLib
   UefiBootServicesTableLib
   UefiDriverEntryPoint
+  UefiRuntimeServicesTableLib
 
 [Protocols]
   gEfiTimerArchProtocolGuid

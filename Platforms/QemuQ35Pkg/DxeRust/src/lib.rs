@@ -16,6 +16,7 @@ pub mod gdt;
 pub mod image;
 #[cfg(target_os = "uefi")]
 pub mod interrupts;
+pub mod misc_boot_services;
 pub mod physical_memory;
 pub mod protocols;
 pub mod serial;
