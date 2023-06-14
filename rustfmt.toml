@@ -18,5 +18,4 @@ reorder_modules = true        # Do reorder mod declarations alphabetically for r
 tab_spaces = 2                # Use 2 spaces for indentation (Rust default is 4).
 unstable_features = false     # Do not use unstable rustfmt features.
 use_small_heuristics = "Max"  # Set all granular width settings to the same as max_width (do not use heuristics)
-use_tabs = false              # Use spaces instead of tabs for indentation
 wrap_comments = false         # Leave comment formatting to author's discretion
