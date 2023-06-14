@@ -135,7 +135,7 @@ TestCrc (
   EFI_STATUS  Status;
   UINT32      Crc;
 
-  DEBUG ((DEBUG_INFO, "[%a] Entry\n", __FUNCTION__));
+  DEBUG ((DEBUG_INFO, "[%a] Testing CRC\n", __FUNCTION__));
 
   // Verify against reference implementation in BaseLib.
   DEBUG ((DEBUG_INFO, "[%a] test that gBS->CalculateCrc32() produces correct CRC\n", __FUNCTION__));
@@ -1340,6 +1340,74 @@ TestFvSupport (
 }
 
 VOID
+TestInstallConfigTableSupport (
+  VOID
+  )
+{
+  EFI_STATUS  Status;
+  EFI_GUID    VendorGuid = {
+    0xb5e96d83, 0x07fc, 0x478d, { 0xa4, 0x8d, 0x60, 0xfc, 0x4c, 0x06, 0x19, 0x57 }
+  };
+  VOID        *TablePtr;
+  EFI_GUID    VendorGuid2 = {
+    0xcc6116f7, 0xb90e, 0x4ea7, { 0xa0, 0xb2, 0x7c, 0x00, 0x47, 0x75, 0xc0, 0x04 }
+  };
+  VOID        *TablePtr2;
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing ConfigTableSupport\n", __FUNCTION__));
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify that table is initially empty.\n", __FUNCTION__));
+  ASSERT (gST->ConfigurationTable == NULL);
+  ASSERT (gST->NumberOfTableEntries == 0);
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify that adding an entry populates the table.\n", __FUNCTION__));
+  TablePtr = (VOID *)0x12345678;
+  Status   = gBS->InstallConfigurationTable (&VendorGuid, TablePtr);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (gST->NumberOfTableEntries == 1);
+  ASSERT (CompareGuid (&gST->ConfigurationTable[0].VendorGuid, &VendorGuid));
+  ASSERT (gST->ConfigurationTable[0].VendorTable == TablePtr);
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify that adding a second entry populates the table.\n", __FUNCTION__));
+  TablePtr2 = (VOID *)0x43218765;
+  Status    = gBS->InstallConfigurationTable (&VendorGuid2, TablePtr2);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (gST->NumberOfTableEntries == 2);
+  ASSERT (CompareGuid (&gST->ConfigurationTable[0].VendorGuid, &VendorGuid));
+  ASSERT (gST->ConfigurationTable[0].VendorTable == TablePtr);
+  ASSERT (CompareGuid (&gST->ConfigurationTable[1].VendorGuid, &VendorGuid2));
+  ASSERT (gST->ConfigurationTable[1].VendorTable == TablePtr2);
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify that deleting the first entry shifts the second entry down to first position.\n", __FUNCTION__));
+  Status = gBS->InstallConfigurationTable (&VendorGuid, NULL);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (gST->NumberOfTableEntries == 1);
+  ASSERT (CompareGuid (&gST->ConfigurationTable[0].VendorGuid, &VendorGuid2));
+  ASSERT (gST->ConfigurationTable[0].VendorTable == TablePtr2);
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify that attempting to delete a non-existent GUID fails with not found and does not modify the table list.\n", __FUNCTION__));
+  Status = gBS->InstallConfigurationTable (&VendorGuid, NULL);
+  ASSERT (Status == EFI_NOT_FOUND);
+  ASSERT (gST->NumberOfTableEntries == 1);
+  ASSERT (CompareGuid (&gST->ConfigurationTable[0].VendorGuid, &VendorGuid2));
+  ASSERT (gST->ConfigurationTable[0].VendorTable == TablePtr2);
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify that deleting the last entry results in an empty table.\n", __FUNCTION__));
+  Status = gBS->InstallConfigurationTable (&VendorGuid2, NULL);
+  ASSERT_EFI_ERROR (Status);
+  ASSERT (gST->NumberOfTableEntries == 0);
+  ASSERT (gST->ConfigurationTable == NULL);
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify that attempting to delete a from an empty table fails with not found and does not modify the table list.\n", __FUNCTION__));
+  Status = gBS->InstallConfigurationTable (&VendorGuid2, NULL);
+  ASSERT (Status == EFI_NOT_FOUND);
+  ASSERT (gST->NumberOfTableEntries == 0);
+  ASSERT (gST->ConfigurationTable == NULL);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
+}
+
+VOID
 TestImaging (
   EFI_HANDLE        ImageHandle,
   EFI_SYSTEM_TABLE  *SystemTable
@@ -1465,6 +1533,7 @@ RustFfiTestEntry (
   TestDevicePathSupport ();
   TestFvbSupport ();
   TestFvSupport ();
+  TestInstallConfigTableSupport ();
 
   // Note: this calls gBS->Exit(), so it should be last as it will not return.
   TestImaging (ImageHandle, SystemTable);
