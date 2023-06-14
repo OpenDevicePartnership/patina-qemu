@@ -81,24 +81,10 @@ jobs:
           condition: and(gt(variables.pkg_count, 0), succeeded())
         - task: RustInstaller@1
           inputs:
+            cratesIoFeedOverride: $(CratesIoFeedOverride)
             rustVersion: ms-$(RustVersion)
-            authenticationToken: $(RustInstallerToken)
+            toolchainFeed: $(RustToolChainFeed)
           displayName: Install Microsoft Rust toolchain
-        - task: Powershell@2 # In order to comply with msrustup
-          inputs:
-            targetType: 'inline'
-            script: |
-              New-Item -Path .cargo -ItemType Directory
-              New-Item -Path .cargo/config.toml -ItemType File
-              "
-              [source]
-              crates-io = { replace-with = 'ms-crates-io' }
-              ms-crates-io = { registry = '$(MsCratesIO)' }
-
-              [net]
-              git-fetch-with-cli = true" | Out-File -FilePath .cargo/config.toml -Append -encoding ASCII
-
-          displayName: Overriding default crates-io with internal ms-crates-io
         - task: DownloadPipelineArtifact@2
           inputs:
             buildType: 'specific'
