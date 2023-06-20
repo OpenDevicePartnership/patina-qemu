@@ -64,13 +64,15 @@ impl OpenProtocolInformation {
     }
     Ok(OpenProtocolInformation { agent_handle, controller_handle, attributes, open_count: 1 })
   }
+}
 
-  pub fn to_efi_open_protocol(&self) -> r_efi::system::OpenProtocolInformationEntry {
+impl From<OpenProtocolInformation> for r_efi::efi::OpenProtocolInformationEntry {
+  fn from(item: OpenProtocolInformation) -> Self {
     r_efi::system::OpenProtocolInformationEntry {
-      agent_handle: self.agent_handle.unwrap_or(core::ptr::null_mut()),
-      controller_handle: self.controller_handle.unwrap_or(core::ptr::null_mut()),
-      attributes: self.attributes,
-      open_count: self.open_count,
+      agent_handle: item.agent_handle.unwrap_or(core::ptr::null_mut()),
+      controller_handle: item.controller_handle.unwrap_or(core::ptr::null_mut()),
+      attributes: item.attributes,
+      open_count: item.open_count,
     }
   }
 }
@@ -1294,7 +1296,7 @@ mod tests {
       .unwrap();
 
     for info in SPIN_LOCKED_PROTOCOL_DB.get_open_protocol_information(handle, guid1).unwrap() {
-      let efi_info = info.to_efi_open_protocol();
+      let efi_info = r_efi::efi::OpenProtocolInformationEntry::from(info);
       assert_eq!(efi_info.agent_handle, info.agent_handle.unwrap());
       assert_eq!(efi_info.controller_handle, info.controller_handle.unwrap());
       assert_eq!(efi_info.attributes, info.attributes);

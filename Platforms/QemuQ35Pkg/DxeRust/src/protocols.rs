@@ -308,7 +308,7 @@ eficall! {pub fn open_protocol_information (
 
   let mut open_info: Vec<OpenProtocolInformationEntry> = match PROTOCOL_DB.get_open_protocol_information(handle, unsafe {*protocol}) {
     Err(err) => return err,
-    Ok(info) => info.into_iter().map(|x|x.to_efi_open_protocol()).collect()
+    Ok(info) => info.into_iter().map(|x|OpenProtocolInformationEntry::from(x)).collect()
   };
 
   open_info.shrink_to_fit();
