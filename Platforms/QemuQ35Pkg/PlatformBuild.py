@@ -211,6 +211,10 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         parserObj.add_argument('-a', "--arch", dest="build_arch", type=str, default="IA32,X64",
             help="Optional - CSV of architecture to build.  IA32,X64 will use IA32 for PEI and "
             "X64 for DXE and is the only valid option for this platform.")
+        parserObj.add_argument('-p', '--package', dest='package', type=str, default="QemuQ35Pkg",
+                               help="Optional - Support common CI builds. Must be QemuQ35Pkg")
+        parserObj.add_argument('-t', '--target', dest='target', type=str, default = None,
+                               help="Optional - A second way to set the target, to support common CI builds.")
 
         CommonPlatform.add_common_command_line_options(parserObj)
 
@@ -218,6 +222,12 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         '''  Retrieve command line options from the argparser '''
         if args.build_arch.upper() != "IA32,X64":
             raise Exception("Invalid Arch Specified.  Please see comments in PlatformBuild.py::PlatformBuilder::AddCommandLineOptions")
+        
+        if args.package.upper() != "QEMUQ35PKG":
+            raise Exception("Invalid Package specified. Must be QemuQ35Pkg")
+        
+        if args.target is not None:
+            shell_environment.GetBuildVars().SetValue("TARGET", args.target, "Set via command line argument")
 
         self.codeql = CommonPlatform.retrieve_common_command_line_options(args)
 

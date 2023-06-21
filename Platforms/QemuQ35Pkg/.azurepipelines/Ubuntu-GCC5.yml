@@ -8,17 +8,47 @@
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
-
-resources:
-  repositories:
-    - repository: mu_devops
-      type: github
-      endpoint: microsoft
-      name: microsoft/mu_devops
-      ref: main
-
 variables:
- - group: 'UEFI Rust Tokens'
+- group: architectures-x86-64
+- group: tool-chain-ubuntu-gcc
+- group: 'UEFI Rust Tokens'
 
-jobs:
-  - template: templates/Job-Ubuntu-GCC5.yml
+extends:
+  template: ../../../.azurepipelines/MuDevOpsWrapper.yml
+  parameters:
+    build_file: Platforms/QemuQ35Pkg/PlatformBuild.py
+    do_ci_build: false
+    do_ci_setup: false
+    do_non_ci_build: true
+    do_non_ci_setup: true
+    do_pr_eval: true
+    container_build: true
+    extra_steps:
+    - template: ../../../.azurepipelines/templates/git-config-auth.yml
+    # - script: sudo apt-get install libssl-dev
+    #  displayName: Install openssl
+    - task: RustInstaller@1
+      inputs:
+        cratesIoFeedOverride: $(CratesIoFeedOverride)
+        rustVersion: ms-$(RustVersion)
+        toolchainFeed: $(RustToolChainFeed)
+      displayName: Install Microsoft Rust toolchain
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'specific'
+        project: 'MsUEFI'
+        definition: 101356 # The pipeline definition
+        targetPath: '$(CARGO_HOME)\bin\'
+        itemPattern: '**/cargo-make'
+        artifactName: 'Binaries'
+      displayName: Download Cargo Make
+    - script: sudo chmod +x $(CARGO_HOME)/bin/cargo-make
+    build_matrix:
+      TARGET_Q35_RELEASE:
+        Pkgs: 'QemuQ35Pkg'
+        Targets: 'RELEASE'
+        ArchList: 'IA32,X64'
+      TARGET_Q35_DEBUG:
+        Pkgs: 'QemuQ35Pkg'
+        Targets: 'DEBUG'
+        ArchList: 'IA32,X64'

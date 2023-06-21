@@ -11,28 +11,26 @@
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
 
-resources:
-  repositories:
-    - repository: mu_devops
-      type: github
-      endpoint: microsoft
-      name: microsoft/mu_devops
-      ref: refs/tags/v2.3.1
-
 variables:
 - group: architectures-x86-64
 - group: tool-chain-windows-visual-studio-latest
 - group: 'UEFI Rust Tokens'
 
-jobs:
-- template: Jobs/PrGate.yml@mu_devops
+extends:
+  template: MuDevOpsWrapper.yml
   parameters:
-    arch_list: $(arch_list)
     do_ci_build: true
     do_ci_setup: false
     do_non_ci_build: false
     do_non_ci_setup: true
     do_pr_eval: true
+    container_build: false
+    extra_install_step:
+    - task: CmdLine@2
+      displayName: Cargo Format
+      inputs:
+        script: cargo fmt --all --check
+        failOnStandardError: true
     extra_steps:
     - template: templates/git-config-auth.yml
     - task: RustInstaller@1
@@ -50,7 +48,8 @@ jobs:
         itemPattern: '**/cargo-make.exe'
         artifactName: 'Binaries'
       displayName: Download Cargo Make
-    packages: QemuQ35Pkg
-    target_list: NO-TARGET
-    tool_chain_tag: $(tool_chain_tag)
-    vm_image: $(vm_image)
+    build_matrix:
+      TARGET_Q35:
+        Pkgs: 'QemuQ35Pkg'
+        Targets: 'NO-TARGET'
+        ArchList: 'IA32,X64'
