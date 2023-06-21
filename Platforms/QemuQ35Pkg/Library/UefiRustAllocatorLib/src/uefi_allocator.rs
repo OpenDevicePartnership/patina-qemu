@@ -1,3 +1,13 @@
+//! UEFI Allocator
+//!
+//! Provides memory-type tracking and UEFI pool allocation semantics on top of [`SpinLockedFixedSizeBlockAllocator`].
+//!
+//! ## License
+//!
+//! Copyright (C) Microsoft Corporation. All rights reserved.
+//!
+//! SPDX-License-Identifier: BSD-2-Clause-Patent
+//!
 use crate::fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator;
 use core::{
   alloc::{Allocator, GlobalAlloc, Layout},
@@ -16,20 +26,50 @@ struct AllocationInfo {
   layout: Layout,
 }
 
-/// # UEFI Allocator
-/// Wraps a [`SpinLockedFixedSizeBlockAllocator`] to provide additional
-/// UEFI-specific functionality:
-/// - Association of a particular [`r_efi::system::MemoryType`] with the
-/// allocator
-/// - A pool implementation that allows tracking the layout and memory_type of
-/// UEFI pool allocations.
+/// UEFI Allocator
+///
+/// Wraps a [`SpinLockedFixedSizeBlockAllocator`] to provide additional UEFI-specific functionality:
+/// - Association of a particular [`r_efi::system::MemoryType`] with the allocator
+/// - A pool implementation that allows tracking the layout and memory_type of UEFI pool allocations.
+///
+/// ## Example:
+/// ```
+/// # use core::alloc::Layout;
+/// # use core::ffi::c_void;
+/// # use std::alloc::System;
+/// # use std::alloc::GlobalAlloc;
+/// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+/// use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
+/// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+/// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
+/// #   let base = unsafe { System.alloc(layout) as u64 };
+/// #   unsafe {
+/// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+/// #   }
+/// #   base
+/// # }
+///
+/// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+/// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+///
+/// let ua = UefiAllocator::new(&FRAME_ALLOCATOR, r_efi::efi::BOOT_SERVICES_DATA);
+///
+/// let mut buffer: *mut c_void = core::ptr::null_mut();
+/// assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);
+/// assert!(buffer as u64 > base);
+/// assert!((buffer as u64) < base + 0x400000);
+/// assert!(unsafe { ua.free_pool(buffer) } == r_efi::efi::Status::SUCCESS);
+/// ```
+///
 pub struct UefiAllocator {
   allocator: SpinLockedFixedSizeBlockAllocator,
   memory_type: r_efi::system::MemoryType,
 }
 
 impl UefiAllocator {
-  /// Creates a new UEFI allocator
+  /// Creates a new UEFI allocator using the provided `frame_allocator`.
+  ///
+  /// See [`SpinLockedFixedSizeBlockAllocator::new`]
   pub const fn new(
     frame_allocator: &'static SpinLockedDynamicFrameAllocator,
     memory_type: r_efi::system::MemoryType,
@@ -37,22 +77,47 @@ impl UefiAllocator {
     UefiAllocator { allocator: SpinLockedFixedSizeBlockAllocator::new(frame_allocator), memory_type: memory_type }
   }
 
-  /// Indicates whether the given pointer falls within a memory region managed
-  /// by this allocator. IMPORTANT: `true` does not indicate that the pointer
-  /// corresponds to an active allocation - it may be in either allocated or
-  /// freed memory. `true` just means that the pointer falls within a memory
-  /// region that this allocator manages.
+  /// Indicates whether the given pointer falls within a memory region managed by this allocator.
+  ///
+  /// See [`SpinLockedFixedSizeBlockAllocator::contains`]
   pub fn contains(&self, ptr: NonNull<u8>) -> bool {
     self.allocator.contains(ptr)
   }
 
-  /// returns the UEFI memory type associated with this allocator.
+  /// Returns the UEFI memory type associated with this allocator.
   pub fn memory_type(&self) -> r_efi::system::MemoryType {
     self.memory_type
   }
 
-  /// Allocates a buffer to satisfy `size` and returns in `buffer`. Memory
-  /// allocated by this routine should be freed by [`Self::free_pool`]
+  /// Allocates a buffer to satisfy `size` and returns in `buffer`.
+  ///
+  /// Memory allocated by this routine should be freed by [`Self::free_pool`]
+  ///
+  /// ## Example
+  /// ```
+  /// # use core::alloc::Layout;
+  /// # use core::ffi::c_void;
+  /// # use std::alloc::System;
+  /// # use std::alloc::GlobalAlloc;
+  /// # use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// # use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
+  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
+  /// #   let base = unsafe { System.alloc(layout) as u64 };
+  /// #   unsafe {
+  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #   }
+  /// #   base
+  /// # }
+  ///
+  /// # static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  /// # let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  ///
+  /// let ua = UefiAllocator::new(&FRAME_ALLOCATOR, r_efi::efi::BOOT_SERVICES_DATA);
+  ///
+  /// let mut buffer: *mut c_void = core::ptr::null_mut();
+  /// ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer));
+  /// ```
   pub fn allocate_pool(&self, size: usize, buffer: *mut *mut c_void) -> r_efi::efi::Status {
     let mut allocation_info =
       AllocationInfo { signature: POOL_SIG, memory_type: self.memory_type, layout: Layout::new::<AllocationInfo>() };
@@ -79,6 +144,40 @@ impl UefiAllocator {
   }
 
   /// Frees a buffer allocated by [`Self::allocate_pool`]
+  ///
+  /// ## Safety
+  ///
+  /// Caller must guarantee that `buffer` was originally allocated by [`Self::allocate_pool`]
+  ///
+  /// ## Example
+  /// ```
+  /// # use core::alloc::Layout;
+  /// # use core::ffi::c_void;
+  /// # use std::alloc::System;
+  /// # use std::alloc::GlobalAlloc;
+  /// # use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// # use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
+  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
+  /// #   let base = unsafe { System.alloc(layout) as u64 };
+  /// #   unsafe {
+  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #   }
+  /// #   base
+  /// # }
+  ///
+  /// # static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  /// # let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  ///
+  /// let ua = UefiAllocator::new(&FRAME_ALLOCATOR, r_efi::efi::BOOT_SERVICES_DATA);
+  ///
+  /// let mut buffer: *mut c_void = core::ptr::null_mut();
+  /// ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer));
+  /// //do stuff with the allocation...
+  /// unsafe {
+  ///   ua.free_pool(buffer);
+  /// }
+  /// ```
   pub unsafe fn free_pool(&self, buffer: *mut c_void) -> r_efi::efi::Status {
     let (_, offset) = Layout::new::<AllocationInfo>()
       .extend(

@@ -1,13 +1,52 @@
-//! # Dynamic Frame Allocator
-//! Implements a generic (non-architecture-specific) bump allocator that
-//! supports a fixed set of frame ranges (for initial configuration pre-heap)
-//! as well as arbitrary additional frame ranges that can be added once the
-//! heap is available.
+//! Dynamic Frame Allocator
+//!
+//! Implements a generic (non-architecture-specific) bump allocator that supports a fixed set of frame ranges (for
+//! initial configuration pre-heap) as well as arbitrary additional frame ranges that can be added once the heap is
+//! available.
+//!
+//! Also implements a spin-locked wrapper version to allow a frame allocator to be managed as a global static.
+//!
+//!
+//! ## Examples and Usage
+//!
+//! Create a dynamic frame allocator, add some ranges, and allocate some frames:
+//! ```
+//! use dynamic_frame_allocator_lib::DynamicFrameAllocator;
+//!
+//! let mut fa = DynamicFrameAllocator::empty();
+//! unsafe {
+//!   fa.add_physical_region(0x100000, 0x80000);
+//!   fa.add_physical_region(0x200000, 0x100000);
+//! }
+//!
+//! let frames = fa.allocate_frames_from_size(0x10000);
+//! ```
+//!
+//! Create a static spin-locked dynamic frame allocator, add some ranges, and allocate some frames:
+//! ```
+//! use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+//!
+//! static FRAME_ALLOCATOR :SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+//! let mut fa = FRAME_ALLOCATOR.lock();
+//! unsafe {
+//!   fa.add_physical_region(0x100000, 0x80000);
+//!   fa.add_physical_region(0x200000, 0x100000);
+//! }
+//! let frames = fa.allocate_frames_from_size(0x10000);
+//! ```
+//!
+//! ## License
+//!
+//! Copyright (C) Microsoft Corporation. All rights reserved.
+//!
+//! SPDX-License-Identifier: BSD-2-Clause-Patent
+//!
 #![no_std]
 
 extern crate alloc;
 use alloc::vec::Vec;
 
+/// Type for describing errors that the DynamicFrameAllocator may generate.
 #[derive(Debug, Eq, PartialEq)]
 pub enum DynamicFrameAllocatorError {
   /// No further frames available to allocate.
@@ -18,10 +57,12 @@ pub enum DynamicFrameAllocatorError {
   InvalidAlignment,
 }
 
+/// FRAME_SIZE is fixed at 4KB.
 pub const FRAME_SIZE: u64 = 0x1000;
 const FRAME_SHIFT: u32 = 12;
 const FRAME_MASK: u64 = 0xFFF;
 
+/// Number of fixed regions that can be added to the FrameAllocator before heap is used.
 const MAX_FIXED_REGIONS: usize = 4;
 
 fn align_check(val: u64) -> Result<(), DynamicFrameAllocatorError> {
@@ -80,7 +121,7 @@ impl FrameRegion {
     return self.count - self.next;
   }
 }
-/// DynamicFrameAllocator tracks allocations in regions of physical memory
+/// DynamicFrameAllocator tracks allocations in regions of physical memory.
 #[derive(Debug)]
 pub struct DynamicFrameAllocator {
   fixed_regions: [FrameRegion; MAX_FIXED_REGIONS],
@@ -99,8 +140,12 @@ impl DynamicFrameAllocator {
   }
 
   /// Add a memory region to be managed by this allocator.
-  /// SAFETY: This function is unsafe because caller must guarantee that the provided
-  /// base and size represent usable physical memory frames.
+  ///
+  /// ## Safety
+  ///
+  /// This function is unsafe because caller must guarantee that the provided base and size represent usable physical
+  /// memory frames, and does not create any aliases with memory already in use by the program.
+  ///
   pub unsafe fn add_physical_region(&mut self, base: u64, size: u64) -> Result<(), DynamicFrameAllocatorError> {
     let fr = FrameRegion::new_from_base_and_size(base, size)?;
     if self.region_count < MAX_FIXED_REGIONS {
@@ -112,9 +157,10 @@ impl DynamicFrameAllocator {
     Ok(())
   }
 
-  /// Returns the base address for a range containing the requested count of frames
-  /// from the first physical region which has space, and marks that range as
-  /// used. Returns the address of the allocated frames.
+  /// Allocate `count` frames.
+  ///
+  /// Returns the base address for a range containing the requested count of frames from the first physical region which
+  /// has space, and marks that range as used. Returns the address of the allocated frames.
   pub fn allocate_frames_from_count(&mut self, count: u64) -> Result<u64, DynamicFrameAllocatorError> {
     let dyn_regions_iter = match &mut self.dyn_regions {
       Some(regions) => regions.iter_mut(),
@@ -131,9 +177,10 @@ impl DynamicFrameAllocator {
     Err(DynamicFrameAllocatorError::OutOfFrames)
   }
 
-  /// Returns the base address for a range containing the requested memory size
-  /// from the first physical region which has space, and marks that range as
-  /// used. Size will be aligned up to the next page boundary if not already aligned.
+  /// Allocate frames to cover `size` bytes of memory, rounded up to the next page alignment.
+  ///
+  /// Returns the base address for a range containing the requested memory size from the first physical region which has
+  /// space, and marks that range as used. Size will be aligned up to the next page boundary if not already aligned.
   /// Returns the address and (possibly) adjusted size.
   pub fn allocate_frames_from_size(&mut self, size: u64) -> Result<(u64, u64), DynamicFrameAllocatorError> {
     let size = align_up(size)?;
@@ -154,7 +201,7 @@ impl SpinLockedDynamicFrameAllocator {
     SpinLockedDynamicFrameAllocator { inner: spin::Mutex::new(DynamicFrameAllocator::empty()) }
   }
 
-  /// Locks the allocator and returns a MutexGuard<DynamicFrameAllocator> instance the caller can interact with.
+  /// Locks the allocator and returns a `MutexGuard<DynamicFrameAllocator>` instance the caller can interact with.
   /// The allocator is unlocked when this instance is dropped.
   pub fn lock(&self) -> spin::MutexGuard<DynamicFrameAllocator> {
     self.inner.lock()

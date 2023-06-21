@@ -1,3 +1,15 @@
+//! Fixed-sized block allocator.
+//!
+//! Implements a fixed-sized block allocator backed by a linked list allocator. Based on the example fixed-sized block
+//! allocator presented here: <https://os.phil-opp.com/allocator-designs/#fixed-size-block-allocator>.
+//!
+//! ## License
+//!
+//! Copyright (C) Microsoft Corporation. All rights reserved.
+//!
+//! SPDX-License-Identifier: BSD-2-Clause-Patent
+//!
+
 extern crate alloc;
 use core::{
   alloc::{AllocError, Allocator, GlobalAlloc, Layout},
@@ -9,6 +21,7 @@ use core::{
 use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
 use linked_list_allocator::{align_down, align_up};
 
+/// Type for describing errors that this implementation can produce.
 #[derive(Debug)]
 pub enum FixedSizeBlockAllocatorError {
   /// Could not satisfy allocation request, and expansion failed.
@@ -21,7 +34,7 @@ pub const MIN_EXPANSION: usize = 0x100000;
 
 const BLOCK_SIZES: &[usize] = &[8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096];
 
-// returns the index in the block list for the minimum size block that will
+// Returns the index in the block list for the minimum size block that will
 // satisfy allocation for the given layout
 fn list_index(layout: &Layout) -> Option<usize> {
   let required_block_size = layout.size().max(layout.align());
@@ -58,11 +71,43 @@ impl Iterator for AllocatorIterator {
   }
 }
 
-/// # Fixed Size Block Allocator
-/// Implements an expandable memory allocator using fixed-sized blocks for speed
-/// backed by a linked-list allocator implementation when appropriate sized free
-/// block is not available. Requests more frames on demand from a frame
-/// allocator instance specified at instantiation.
+/// Fixed Size Block Allocator
+///
+/// Implements an expandable memory allocator using fixed-sized blocks for speed backed by a linked-list allocator
+/// implementation when an appropriate sized free block is not available. If more memory is required than can be
+/// satisfied by either the block list or the linked-list, more memory is requested from a dynamic frame allocator
+/// supplied at instantiation and a new backing linked-list is created.
+///
+/// ## Example
+/// ```
+/// # use core::alloc::Layout;
+/// # use std::alloc::System;
+/// # use std::alloc::GlobalAlloc;
+///
+/// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+/// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
+/// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+/// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
+/// #   let base = unsafe { System.alloc(layout) as u64 };
+/// #   unsafe {
+/// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+/// #   }
+/// #   base
+/// # }
+///
+/// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+///
+/// //initialize the frame allocator for this example with some memory from the System allocator.
+/// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+///
+/// let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+///
+/// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
+/// let allocation = fsb.allocate(layout).unwrap().as_ptr() as *mut u8;
+///
+/// assert_ne!(allocation, core::ptr::null_mut());
+/// ```
+///
 pub struct FixedSizeBlockAllocator {
   frame_allocator: &'static SpinLockedDynamicFrameAllocator,
   list_heads: [Option<&'static mut BlockListNode>; BLOCK_SIZES.len()],
@@ -70,8 +115,8 @@ pub struct FixedSizeBlockAllocator {
 }
 
 impl FixedSizeBlockAllocator {
-  /// creates a new empty FixedSizeBlockAllocator that will request frames
-  /// from `frame_allocator` as needed to satisfy requests.
+  /// Creates a new empty FixedSizeBlockAllocator that will request frames from `frame_allocator` as needed to satisfy
+  /// requests.
   pub const fn new(frame_allocator: &'static SpinLockedDynamicFrameAllocator) -> Self {
     const EMPTY: Option<&'static mut BlockListNode> = None;
     FixedSizeBlockAllocator {
@@ -138,13 +183,47 @@ impl FixedSizeBlockAllocator {
   }
 
   /// Allocates and returns a pointer to a memory buffer for the given layout.
-  /// returns core::ptr::null_mut() on failure to allocate.
-  /// This routine is designed to satisfy the [`GlobalAlloc`] trait, except
-  /// that it requires a mutable self. [`SpinLockedFixedSizeBlockAllocator`]
-  /// provides a [`GlobalAlloc`] trait impl by wrapping this routine.
+  ///
+  /// This routine is designed to satisfy the [`GlobalAlloc`] trait, except that it requires a mutable self.
+  /// [`SpinLockedFixedSizeBlockAllocator`] provides a [`GlobalAlloc`] trait impl by wrapping this routine.
   ///
   /// Memory allocated by this routine should be deallocated with
-  /// [`Self::dealloc()`]
+  /// [`Self::dealloc`]
+  ///
+  /// ## Errors
+  ///
+  /// Returns [`core::ptr::null_mut()`] on failure to allocate.
+  ///
+  /// ## Example
+  /// ```
+  /// # use core::alloc::Layout;
+  /// # use std::alloc::System;
+  /// # use std::alloc::GlobalAlloc;
+  ///
+  /// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
+  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
+  /// #   let base = unsafe { System.alloc(layout) as u64 };
+  /// #   unsafe {
+  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #   }
+  /// #   base
+  /// # }
+  ///
+  /// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  ///
+  /// //initialize the frame allocator for this example with some memory from the System allocator.
+  /// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  ///
+  /// let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+  ///
+  /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
+  /// let allocation = fsb.alloc(layout);
+  ///
+  /// assert_ne!(allocation, core::ptr::null_mut());
+  /// ```
+  ///
   pub fn alloc(&mut self, layout: Layout) -> *mut u8 {
     match list_index(&layout) {
       Some(index) => {
@@ -168,13 +247,46 @@ impl FixedSizeBlockAllocator {
   }
 
   /// Allocates and returns a NonNull byte slice for the given layout.
-  /// returns AllocError on failure to allocate.
-  /// This routine is designed to satisfy the [`Allocator`] trait, except that it
-  /// requires a mutable self. [`SpinLockedFixedSizeBlockAllocator`] provides
-  /// an [`Allocator`] trait impl by wrapping this routine.
+  ///
+  /// This routine is designed to satisfy the [`Allocator`] trait, except that it  requires a mutable self.
+  /// [`SpinLockedFixedSizeBlockAllocator`] provides an [`Allocator`] trait impl by wrapping this routine.
   ///
   /// Memory allocated by this routine should be deallocated with
-  /// [`Self::deallocate()`]
+  /// [`Self::deallocate`]
+  ///
+  /// ## Errors
+  ///
+  /// returns AllocError on failure to allocate.
+  ///
+  /// ## Example
+  /// ```
+  /// # use core::alloc::Layout;
+  /// # use std::alloc::System;
+  /// # use std::alloc::GlobalAlloc;
+  ///
+  /// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
+  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
+  /// #   let base = unsafe { System.alloc(layout) as u64 };
+  /// #   unsafe {
+  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #   }
+  /// #   base
+  /// # }
+  ///
+  /// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  ///
+  /// //initialize the frame allocator for this example with some memory from the System allocator.
+  /// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  ///
+  /// let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+  ///
+  /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
+  /// let allocation = fsb.allocate(layout).unwrap().as_ptr() as *mut u8;
+  ///
+  /// assert_ne!(allocation, core::ptr::null_mut());
+  /// ```
   pub fn allocate(&mut self, layout: Layout) -> Result<NonNull<[u8]>, AllocError> {
     let allocation = self.alloc(layout);
     let allocation = slice_from_raw_parts_mut(allocation, layout.size());
@@ -195,11 +307,47 @@ impl FixedSizeBlockAllocator {
     }
   }
 
-  /// Deallocates a buffer allocated by [`Self::alloc()`].
-  /// This routine is designed to satisfy the [`GlobalAlloc`] trait, except
-  /// that it requires a mutable self. [`SpinLockedFixedSizeBlockAllocator`]
-  /// provides a [`GlobalAlloc`] trait impl by wrapping this routine.
-  pub fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
+  /// Deallocates a buffer allocated by [`Self::alloc`].
+  ///
+  /// This routine is designed to satisfy the [`GlobalAlloc`] trait, except  that it requires a mutable self.
+  /// [`SpinLockedFixedSizeBlockAllocator`] provides a [`GlobalAlloc`] trait impl by wrapping this routine.
+  ///
+  /// ## Safety
+  ///
+  /// Caller must ensure that `ptr` was created by a call to [`Self::alloc`] with the same `layout`.
+  ///
+  /// ## Example
+  /// ```
+  /// # use core::alloc::Layout;
+  /// # use std::alloc::System;
+  /// # use std::alloc::GlobalAlloc;
+  ///
+  /// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
+  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
+  /// #   let base = unsafe { System.alloc(layout) as u64 };
+  /// #   unsafe {
+  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #   }
+  /// #   base
+  /// # }
+  ///
+  /// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  ///
+  /// //initialize the frame allocator for this example with some memory from the System allocator.
+  /// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  ///
+  /// let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+  ///
+  /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
+  /// let allocation = fsb.alloc(layout);
+  ///
+  /// unsafe {
+  ///   fsb.dealloc(allocation, layout);
+  /// }
+  /// ```
+  pub unsafe fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
     match list_index(&layout) {
       Some(index) => {
         let new_node = BlockListNode { next: self.list_heads[index].take() };
@@ -218,19 +366,96 @@ impl FixedSizeBlockAllocator {
     }
   }
 
-  /// Deallocates a buffer allocated by [`Self::allocate()`] .
-  /// This routine is designed to satisfy the [`Allocator`] trait, except
-  /// that it requires a mutable self. [`SpinLockedFixedSizeBlockAllocator`]
-  /// provides an [`Allocator`] trait impl by wrapping this routine.
+  /// Deallocates a buffer allocated by [`Self::allocate`] .
+  ///
+  /// This routine is designed to satisfy the [`Allocator`] trait, except that it requires a mutable self.
+  /// [`SpinLockedFixedSizeBlockAllocator`] provides an [`Allocator`] trait impl by wrapping this routine.
+  ///
+  /// ## Safety
+  ///
+  /// Caller must ensure that `ptr` was created by a call to [`Self::allocate`] with the same `layout`.
+  ///
+  /// ## Example
+  /// ```
+  /// #![feature(slice_ptr_get)]
+  /// # use core::alloc::Layout;
+  /// # use std::alloc::System;
+  /// # use std::alloc::GlobalAlloc;
+  ///
+  /// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
+  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
+  /// #   let base = unsafe { System.alloc(layout) as u64 };
+  /// #   unsafe {
+  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #   }
+  /// #   base
+  /// # }
+  ///
+  /// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  ///
+  /// //initialize the frame allocator for this example with some memory from the System allocator.
+  /// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  ///
+  /// let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+  ///
+  /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
+  /// let allocation = fsb.allocate(layout).unwrap().as_non_null_ptr();
+  ///
+  /// unsafe {
+  ///   fsb.deallocate(allocation, layout);
+  /// }
+  /// ```
+  ///
   pub unsafe fn deallocate(&mut self, ptr: NonNull<u8>, layout: Layout) {
     self.dealloc(ptr.as_ptr(), layout)
   }
 
-  /// Indicates whether the given pointer falls within a memory region managed
-  /// by this allocator. IMPORTANT: `true` does not indicate that the pointer
-  /// corresponds to an active allocation - it may be in either allocated or
-  /// freed memory. `true` just means that the pointer falls within a memory
-  /// region that this allocator manages.
+  /// Indicates whether the given pointer falls within a memory region managed by this allocator.
+  ///
+  /// Note: `true` does not indicate that the pointer corresponds to an active allocation - it may be in either
+  /// allocated or freed memory. `true` just means that the pointer falls within a memory region that this allocator
+  /// manages.
+  ///
+  /// ## Example
+  /// ```
+  /// #![feature(slice_ptr_get)]
+  /// # use core::alloc::Layout;
+  /// # use std::alloc::System;
+  /// # use std::alloc::GlobalAlloc;
+  ///
+  /// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
+  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
+  /// #   let base = unsafe { System.alloc(layout) as u64 };
+  /// #   unsafe {
+  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #   }
+  /// #   base
+  /// # }
+  ///
+  /// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  ///
+  /// //initialize the frame allocator for this example with some memory from the System allocator.
+  /// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  ///
+  /// let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+  ///
+  /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
+  /// let allocation = fsb.allocate(layout).unwrap().as_non_null_ptr();
+  ///
+  /// assert!(fsb.contains(allocation.as_ptr() as *mut u8));
+  ///
+  /// unsafe {
+  ///   fsb.deallocate(allocation, layout);
+  /// }
+  ///
+  /// // even though it is not allocated, this address now belongs to this allocator's managed pool of memory.
+  /// assert!(fsb.contains(allocation.as_ptr() as *mut u8));
+  /// ```
+  ///
   pub fn contains(&self, ptr: *mut u8) -> bool {
     let address = ptr as usize;
     AllocatorIterator::new(self.allocators)
@@ -262,26 +487,105 @@ impl Display for FixedSizeBlockAllocator {
   }
 }
 
-/// # Spin Locked Fixed Size Block Allocator
-/// A wrapper for [`FixedSizeBlockAllocator`] that provides Sync/Send via means
-/// of a spin mutex.
+/// Spin Locked Fixed Size Block Allocator
+///
+/// A wrapper for [`FixedSizeBlockAllocator`] that provides Sync/Send via means of a spin mutex.
+///
+/// ## Example
+/// ```
+/// #![feature(allocator_api)]
+/// # use core::alloc::Layout;
+/// # use core::alloc::Allocator;
+/// # use core::alloc::GlobalAlloc;
+/// # use std::alloc::System;
+///
+/// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+/// use uefi_rust_allocator_lib::fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator;
+/// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+/// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
+/// #   let base = unsafe { System.alloc(layout) as u64 };
+/// #   unsafe {
+/// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+/// #   }
+/// #   base
+/// # }
+///
+/// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+/// static ALLOCATOR: SpinLockedFixedSizeBlockAllocator  = SpinLockedFixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+///
+/// //initialize the frame allocator for this example with some memory from the System allocator.
+/// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+///
+/// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
+/// let allocation = ALLOCATOR.allocate(layout).unwrap().as_ptr() as *mut u8;
+///
+/// assert_ne!(allocation, core::ptr::null_mut());
+/// ```
+///
 pub struct SpinLockedFixedSizeBlockAllocator {
   inner: spin::Mutex<FixedSizeBlockAllocator>,
 }
 
 impl SpinLockedFixedSizeBlockAllocator {
-  /// Creates a new SpinLockedFixedSizeBlockAllocator.
+  /// Creates a new empty FixedSizeBlockAllocator that will request frames from `frame_allocator` as needed to satisfy
+  /// requests.
   pub const fn new(frame_allocator: &'static SpinLockedDynamicFrameAllocator) -> Self {
     SpinLockedFixedSizeBlockAllocator { inner: spin::Mutex::new(FixedSizeBlockAllocator::new(frame_allocator)) }
   }
 
-  /// Locks the allocator and returns a MutexGuard instance that can be used
-  /// to interact with the underlying FixedSizedBlockAllocator instance.
+  /// Locks the allocator
+  ///
+  /// This can be used to do several actions on the allocator atomically.
+  ///
+  /// ## Example
+  /// ```
+  /// #![feature(allocator_api)]
+  /// #![feature(slice_ptr_get)]
+  /// # use core::alloc::Layout;
+  /// # use core::alloc::Allocator;
+  /// # use core::alloc::GlobalAlloc;
+  /// # use std::alloc::System;
+  ///
+  /// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// use uefi_rust_allocator_lib::fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator;
+  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
+  /// #   let base = unsafe { System.alloc(layout) as u64 };
+  /// #   unsafe {
+  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #   }
+  /// #   base
+  /// # }
+  ///
+  /// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  /// static ALLOCATOR: SpinLockedFixedSizeBlockAllocator  = SpinLockedFixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+  ///
+  /// //initialize the frame allocator for this example with some memory from the System allocator.
+  /// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  ///
+  /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
+  ///
+  /// {
+  ///   //acquire the lock
+  ///   let mut locked_alloc = ALLOCATOR.lock();
+  ///   //atomic operations
+  ///   let allocation = locked_alloc.allocate(layout).unwrap().as_non_null_ptr();
+  ///   let allocation2 = locked_alloc.allocate(layout).unwrap().as_non_null_ptr();
+  ///   unsafe {
+  ///     locked_alloc.deallocate(allocation, layout);
+  ///     locked_alloc.deallocate(allocation2, layout);
+  ///   }
+  /// }
+  ///
+  /// ```
+  ///
   pub fn lock(&self) -> spin::MutexGuard<FixedSizeBlockAllocator> {
     self.inner.lock()
   }
 
-  /// Locked wrapper for [`FixedSizeBlockAllocator::contains()`]
+  /// Indicates whether the given pointer falls within a memory region managed by this allocator.
+  ///
+  /// See [`FixedSizeBlockAllocator::contains()`]
   pub fn contains(&self, ptr: NonNull<u8>) -> bool {
     self.lock().contains(ptr.as_ptr())
   }
