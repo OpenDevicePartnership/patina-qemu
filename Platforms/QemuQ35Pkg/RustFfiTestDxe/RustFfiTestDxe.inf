@@ -26,6 +26,7 @@
   BaseLib
   DebugLib
   DevicePathLib
+  DxeServicesTableLib
   BaseMemoryLib
   MemoryAllocationLib
   UefiBootServicesTableLib

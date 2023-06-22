@@ -13,6 +13,7 @@ use r_pi::{
 use core::{ffi::c_void, panic::PanicInfo, str::FromStr};
 use dxe_rust::{
   allocator::{init_memory_support, ALL_ALLOCATORS},
+  dxe_services::init_dxe_services,
   events::init_events_support,
   fv::init_fv_support,
   image::{core_load_image, get_dxe_core_handle, init_image_support, start_image},
@@ -110,10 +111,11 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     init_misc_boot_services_support(st.boot_services());
     init_image_support(&hob_list, &st);
     init_fv_support(&hob_list);
-
+    init_dxe_services(st);
     // re-checksum the system tables after above initialization.
     st.checksum_all();
   }
+
   //
   // attempt to load and execute an external module's entry point.
   //

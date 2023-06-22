@@ -10,6 +10,7 @@ use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
 
 extern crate alloc;
 pub mod allocator;
+pub mod dxe_services;
 pub mod events;
 pub mod fv;
 pub mod gdt;

@@ -14,10 +14,12 @@
 #include <Library/BaseLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
+#include <Library/DxeServicesTableLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/UefiBootServicesTableLib.h>
 #include <Library/UefiRuntimeServicesTableLib.h>
+#include <Pi/PiDxeCis.h>
 
 EFI_MEMORY_TYPE  ValidMemoryTypes[] = {
   EfiLoaderCode,
@@ -1345,6 +1347,9 @@ TestInstallConfigTableSupport (
   )
 {
   EFI_STATUS  Status;
+  EFI_GUID    DxeServiceTableGuid = {
+    0x05ad34ba, 0x6f02, 0x4214, { 0x95, 0x2e, 0x4d, 0xa0, 0x39, 0x8e, 0x2b, 0xb9 }
+  };
   EFI_GUID    VendorGuid = {
     0xb5e96d83, 0x07fc, 0x478d, { 0xa4, 0x8d, 0x60, 0xfc, 0x4c, 0x06, 0x19, 0x57 }
   };
@@ -1353,56 +1358,55 @@ TestInstallConfigTableSupport (
     0xcc6116f7, 0xb90e, 0x4ea7, { 0xa0, 0xb2, 0x7c, 0x00, 0x47, 0x75, 0xc0, 0x04 }
   };
   VOID        *TablePtr2;
+  UINT32      InitialNumberOfEntry = 1;
+  UINT32      LastIdx              = InitialNumberOfEntry - 1;
 
   DEBUG ((DEBUG_INFO, "[%a] Testing ConfigTableSupport\n", __FUNCTION__));
 
-  DEBUG ((DEBUG_INFO, "[%a] Verify that table is initially empty.\n", __FUNCTION__));
-  ASSERT (gST->ConfigurationTable == NULL);
-  ASSERT (gST->NumberOfTableEntries == 0);
+  DEBUG ((DEBUG_INFO, "[%a] Verify that table is correctly initialized.\n", __FUNCTION__));
+  ASSERT (gST->ConfigurationTable != NULL);
+  ASSERT (gST->NumberOfTableEntries == InitialNumberOfEntry);
+
+  DEBUG ((DEBUG_INFO, "[%a] Verify that dxe services table is initialized.\n", __FUNCTION__));
+
+  if (!CompareGuid (&gST->ConfigurationTable[0].VendorGuid, &DxeServiceTableGuid)) {
+    ASSERT (FALSE);
+  }
 
   DEBUG ((DEBUG_INFO, "[%a] Verify that adding an entry populates the table.\n", __FUNCTION__));
   TablePtr = (VOID *)0x12345678;
   Status   = gBS->InstallConfigurationTable (&VendorGuid, TablePtr);
+  LastIdx++;
   ASSERT_EFI_ERROR (Status);
-  ASSERT (gST->NumberOfTableEntries == 1);
-  ASSERT (CompareGuid (&gST->ConfigurationTable[0].VendorGuid, &VendorGuid));
-  ASSERT (gST->ConfigurationTable[0].VendorTable == TablePtr);
+  ASSERT (gST->NumberOfTableEntries == InitialNumberOfEntry + 1);
+  ASSERT (CompareGuid (&gST->ConfigurationTable[LastIdx].VendorGuid, &VendorGuid));
+  ASSERT (gST->ConfigurationTable[LastIdx].VendorTable == TablePtr);
 
   DEBUG ((DEBUG_INFO, "[%a] Verify that adding a second entry populates the table.\n", __FUNCTION__));
   TablePtr2 = (VOID *)0x43218765;
   Status    = gBS->InstallConfigurationTable (&VendorGuid2, TablePtr2);
+  LastIdx++;
   ASSERT_EFI_ERROR (Status);
-  ASSERT (gST->NumberOfTableEntries == 2);
-  ASSERT (CompareGuid (&gST->ConfigurationTable[0].VendorGuid, &VendorGuid));
-  ASSERT (gST->ConfigurationTable[0].VendorTable == TablePtr);
-  ASSERT (CompareGuid (&gST->ConfigurationTable[1].VendorGuid, &VendorGuid2));
-  ASSERT (gST->ConfigurationTable[1].VendorTable == TablePtr2);
+  ASSERT (gST->NumberOfTableEntries == InitialNumberOfEntry + 2);
+  ASSERT (CompareGuid (&gST->ConfigurationTable[LastIdx - 1].VendorGuid, &VendorGuid));
+  ASSERT (gST->ConfigurationTable[LastIdx - 1].VendorTable == TablePtr);
+  ASSERT (CompareGuid (&gST->ConfigurationTable[LastIdx].VendorGuid, &VendorGuid2));
+  ASSERT (gST->ConfigurationTable[LastIdx].VendorTable == TablePtr2);
 
   DEBUG ((DEBUG_INFO, "[%a] Verify that deleting the first entry shifts the second entry down to first position.\n", __FUNCTION__));
   Status = gBS->InstallConfigurationTable (&VendorGuid, NULL);
+  LastIdx--;
   ASSERT_EFI_ERROR (Status);
-  ASSERT (gST->NumberOfTableEntries == 1);
-  ASSERT (CompareGuid (&gST->ConfigurationTable[0].VendorGuid, &VendorGuid2));
-  ASSERT (gST->ConfigurationTable[0].VendorTable == TablePtr2);
+  ASSERT (gST->NumberOfTableEntries == InitialNumberOfEntry + 1);
+  ASSERT (CompareGuid (&gST->ConfigurationTable[LastIdx].VendorGuid, &VendorGuid2));
+  ASSERT (gST->ConfigurationTable[LastIdx].VendorTable == TablePtr2);
 
   DEBUG ((DEBUG_INFO, "[%a] Verify that attempting to delete a non-existent GUID fails with not found and does not modify the table list.\n", __FUNCTION__));
   Status = gBS->InstallConfigurationTable (&VendorGuid, NULL);
   ASSERT (Status == EFI_NOT_FOUND);
-  ASSERT (gST->NumberOfTableEntries == 1);
-  ASSERT (CompareGuid (&gST->ConfigurationTable[0].VendorGuid, &VendorGuid2));
-  ASSERT (gST->ConfigurationTable[0].VendorTable == TablePtr2);
-
-  DEBUG ((DEBUG_INFO, "[%a] Verify that deleting the last entry results in an empty table.\n", __FUNCTION__));
-  Status = gBS->InstallConfigurationTable (&VendorGuid2, NULL);
-  ASSERT_EFI_ERROR (Status);
-  ASSERT (gST->NumberOfTableEntries == 0);
-  ASSERT (gST->ConfigurationTable == NULL);
-
-  DEBUG ((DEBUG_INFO, "[%a] Verify that attempting to delete a from an empty table fails with not found and does not modify the table list.\n", __FUNCTION__));
-  Status = gBS->InstallConfigurationTable (&VendorGuid2, NULL);
-  ASSERT (Status == EFI_NOT_FOUND);
-  ASSERT (gST->NumberOfTableEntries == 0);
-  ASSERT (gST->ConfigurationTable == NULL);
+  ASSERT (gST->NumberOfTableEntries == InitialNumberOfEntry + 1);
+  ASSERT (CompareGuid (&gST->ConfigurationTable[LastIdx].VendorGuid, &VendorGuid2));
+  ASSERT (gST->ConfigurationTable[LastIdx].VendorTable == TablePtr2);
 
   DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
 }
@@ -1516,6 +1520,178 @@ TestImaging (
   ASSERT (FALSE);
 }
 
+VOID
+TestDxeServices (
+  VOID
+  )
+{
+  EFI_STATUS                       Status;
+  EFI_GCD_MEMORY_SPACE_DESCRIPTOR  MemorySpaceDescriptor;
+  EFI_GCD_IO_SPACE_DESCRIPTOR      IoSpaceDescriptor;
+
+  EFI_GCD_MEMORY_SPACE_DESCRIPTOR  **MemorySpaceDescriptorArray     = NULL;
+  UINTN                            MemorySpaceDescriptorArrayLength = 0;
+
+  EFI_GCD_IO_SPACE_DESCRIPTOR  **IoSpaceDescriptorArray     = NULL;
+  UINTN                        IoSpaceDescriptorArrayLength = 0;
+
+  EFI_GUID               FileName = {
+    0, 0, 0, { 0, 0, 0, 0, 0, 0, 0, 0 }
+  };
+  EFI_GCD_MEMORY_TYPE    MemoryType               = EfiGcdMemoryTypeNonExistent;
+  EFI_GCD_ALLOCATE_TYPE  AllocateType             = EfiGcdAllocateAnySearchBottomUp;
+  EFI_GCD_IO_TYPE        IoType                   = EfiGcdIoTypeNonExistent;
+  EFI_HANDLE             ImageHandle              = (VOID *)0;
+  EFI_HANDLE             DeviceHandle             = (VOID *)0;
+  EFI_HANDLE             FirmwareVolumeHandle     = (VOID *)0;
+  VOID                   *FirmwareVolumeHeader    = (VOID *)0;
+  UINT32                 FirmwareVolumeHeaderSize = 0;
+  EFI_PHYSICAL_ADDRESS   BaseAddress              = 0x12345678;
+  UINT64                 Length                   = 0;
+  UINT64                 Capabilities             = 0;
+  UINT64                 Alignment                = 0;
+  UINT64                 Attributes               = 0;
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing AddMemorySpace.\n", __FUNCTION__));
+  Status = gDS->AddMemorySpace (
+                  MemoryType,
+                  BaseAddress,
+                  Length,
+                  Capabilities
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing AllocateMemorySpace.\n", __FUNCTION__));
+  Status = gDS->AllocateMemorySpace (
+                  AllocateType,
+                  MemoryType,
+                  Alignment,
+                  Length,
+                  &BaseAddress,
+                  ImageHandle,
+                  DeviceHandle
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing FreeMemorySpace.\n", __FUNCTION__));
+  Status = gDS->FreeMemorySpace (
+                  BaseAddress,
+                  Length
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing RemoveMemorySpace.\n", __FUNCTION__));
+  Status = gDS->RemoveMemorySpace (
+                  BaseAddress,
+                  Length
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing GetMemorySpaceDescriptor.\n", __FUNCTION__));
+  Status = gDS->GetMemorySpaceDescriptor (
+                  BaseAddress,
+                  &MemorySpaceDescriptor
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing SetMemorySpaceAttributes.\n", __FUNCTION__));
+  Status = gDS->SetMemorySpaceAttributes (
+                  BaseAddress,
+                  Length,
+                  Attributes
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing SetMemorySpaceCapabilities.\n", __FUNCTION__));
+  Status = gDS->SetMemorySpaceCapabilities (
+                  BaseAddress,
+                  Length,
+                  Capabilities
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing GetMemorySpaceMap.\n", __FUNCTION__));
+  Status = gDS->GetMemorySpaceMap (
+                  &MemorySpaceDescriptorArrayLength,
+                  MemorySpaceDescriptorArray
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing AddIoSpace.\n", __FUNCTION__));
+  Status = gDS->AddIoSpace (
+                  IoType,
+                  BaseAddress,
+                  Length
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing AllocateIoSpace.\n", __FUNCTION__));
+  Status = gDS->AllocateIoSpace (
+                  AllocateType,
+                  IoType,
+                  Alignment,
+                  Length,
+                  &BaseAddress,
+                  ImageHandle,
+                  DeviceHandle
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing FreeIoSpace.\n", __FUNCTION__));
+  Status = gDS->FreeIoSpace (
+                  BaseAddress,
+                  Length
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing RemoveIoSpace.\n", __FUNCTION__));
+  Status = gDS->RemoveIoSpace (
+                  BaseAddress,
+                  Length
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing GetIoSpaceDescriptor.\n", __FUNCTION__));
+  Status = gDS->GetIoSpaceDescriptor (
+                  BaseAddress,
+                  &IoSpaceDescriptor
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing GetIoSpaceMap.\n", __FUNCTION__));
+  Status = gDS->GetIoSpaceMap (
+                  &IoSpaceDescriptorArrayLength,
+                  IoSpaceDescriptorArray
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Dispatch.\n", __FUNCTION__));
+  Status = gDS->Dispatch ();
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Schedule.\n", __FUNCTION__));
+  Status = gDS->Schedule (
+                  FirmwareVolumeHandle,
+                  &FileName
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Trust.\n", __FUNCTION__));
+  Status = gDS->Trust (
+                  FirmwareVolumeHandle,
+                  &FileName
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing ProcessFirmwareVolume.\n", __FUNCTION__));
+  Status = gDS->ProcessFirmwareVolume (
+                  FirmwareVolumeHeader,
+                  FirmwareVolumeHeaderSize,
+                  FirmwareVolumeHandle
+                  );
+  ASSERT (Status == EFI_UNSUPPORTED);
+}
+
 EFI_STATUS
 EFIAPI
 RustFfiTestEntry (
@@ -1534,6 +1710,7 @@ RustFfiTestEntry (
   TestFvbSupport ();
   TestFvSupport ();
   TestInstallConfigTableSupport ();
+  TestDxeServices ();
 
   // Note: this calls gBS->Exit(), so it should be last as it will not return.
   TestImaging (ImageHandle, SystemTable);
