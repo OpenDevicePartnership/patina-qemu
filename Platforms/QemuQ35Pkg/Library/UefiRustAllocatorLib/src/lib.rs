@@ -102,7 +102,6 @@
 //! SPDX-License-Identifier: BSD-2-Clause-Patent
 //!
 
-
 #![no_std]
 #![feature(const_mut_refs)]
 #![feature(allocator_api)]
