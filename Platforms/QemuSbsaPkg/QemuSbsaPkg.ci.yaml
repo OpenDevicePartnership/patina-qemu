@@ -55,7 +55,7 @@
             "SourceLevelDebugPkg/SourceLevelDebugPkg.dec",
             "MsCorePkg/MsCorePkg.dec",
             "PcBdsPkg/PcBdsPkg.dec",
-            "QemuQ35Pkg/QemuQ35Pkg.dec",
+            "QemuPkg/QemuPkg.dec",
             "QemuSbsaPkg/QemuSbsaPkg.dec",
             "MsGraphicsPkg/MsGraphicsPkg.dec",
             "PolicyServicePkg/PolicyServicePkg.dec",
@@ -141,7 +141,9 @@
             "BOCHS",
             "dispi",
             "noclearmem",
-            "unblank"
+            "unblank",
+            "dmaivrs",
+            "nxcompat"
         ],           # words to extend to the dictionary for this package
         "IgnoreStandardPaths": [],   # Standard Plugin defined paths that should be ignore
         "AdditionalIncludePaths": [] # Additional paths to spell check (wildcards supported)

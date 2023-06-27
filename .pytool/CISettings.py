@@ -41,7 +41,7 @@ class Settings(CiSetupSettingsManager, CiBuildSettingsManager, UpdateSettingsMan
         ''' return iterable of edk2 packages supported by this build.
         These should be edk2 workspace relative paths '''
 
-        return ("QemuQ35Pkg",)
+        return ("QemuPkg", "QemuQ35Pkg")
 
     def GetArchitecturesSupported(self):
         ''' return iterable of edk2 architectures supported by this build '''
@@ -50,7 +50,7 @@ class Settings(CiSetupSettingsManager, CiBuildSettingsManager, UpdateSettingsMan
 
     def GetTargetsSupported(self):
         ''' return iterable of edk2 target tags supported by this build '''
-        return ("NO-TARGET", "NOOPT")
+        return ("DEBUG", "RELEASE", "NO-TARGET", "NOOPT")
 
     # ####################################################################################### #
     #                     Verify and Save requested Ci Build Config                           #

@@ -13,6 +13,7 @@ import datetime
 import xml.etree.ElementTree
 import tempfile
 import uuid
+import string
 
 from edk2toolext.environment import shell_environment
 from edk2toolext.environment.uefi_build import UefiBuilder
@@ -22,23 +23,19 @@ from edk2toolext.invocables.edk2_update import UpdateSettingsManager
 from edk2toolext.invocables.edk2_pr_eval import PrEvalSettingsManager
 from edk2toollib.utility_functions import RunCmd, GetHostInfo
 from typing import Tuple
+from pathlib import Path
+from io import StringIO
 
 # Declare test whose failure will not return a non-zero exit code
-failure_exempt_tests = {}
-failure_exempt_tests["BaseCryptLibUnitTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
-failure_exempt_tests["BootAuditTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
-failure_exempt_tests["LineParserTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
-failure_exempt_tests["MorLockFunctionalTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
-failure_exempt_tests["MsWheaEarlyUnitTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
-failure_exempt_tests["VariablePolicyFuncTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
-failure_exempt_tests["DeviceIdTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
-failure_exempt_tests["DxePagingAuditTestApp.efi"] = datetime.datetime(2023, 3, 7, 0, 0, 0)
+FAILURE_EXEMPT_TESTS = {
+    "VariablePolicyFuncTestApp.efi": datetime.datetime(2023, 4, 5, 0, 0, 0),
+    "DxePagingAuditTestApp.efi": datetime.datetime(2023, 4, 5, 0, 0, 0),
+    "MemoryProtectionTestApp.efi": datetime.datetime(2023, 4, 5, 0, 0, 0),
+    "MemoryAttributeProtocolFuncTestApp.efi": datetime.datetime(2023, 4, 5, 0, 0, 0),
+}
 
 # Allow failure exempt tests to be ignored for 90 days
 FAILURE_EXEMPT_OMISSION_LENGTH = 90*24*60*60
-
-# Declare tests which require platform reset(s)
-reset_tests = ["MorLockFunctionalTestApp.efi", "VariablePolicyFuncTestApp.efi"]
 
     # ####################################################################################### #
     #                                Common Configuration                                     #
@@ -50,7 +47,7 @@ class CommonPlatform():
     PackagesSupported = ("QemuQ35Pkg",)
     ArchSupported = ("IA32", "X64")
     TargetsSupported = ("DEBUG", "RELEASE", "NOOPT")
-    Scopes = ('qemuq35', 'edk2-build', 'cibuild', 'configdata')
+    Scopes = ('qemu', 'qemuq35', 'edk2-build', 'cibuild', 'configdata')
     WorkspaceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     PackagesPath = (
         "Platforms",
@@ -284,7 +281,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         # Default turn on build reporting.
         self.env.SetValue("BUILDREPORTING", "TRUE", "Enabling build report")
         self.env.SetValue("BUILDREPORT_TYPES", "PCD DEPEX FLASH BUILD_FLAGS LIBRARY FIXED_ADDRESS HASH", "Setting build report types")
-        self.env.SetValue("BLD_*_QEMU_CORE_NUM", "2", "Default")
+        self.env.SetValue("BLD_*_QEMU_CORE_NUM", "4", "Default")
         self.env.SetValue("BLD_*_MEMORY_PROTECTION", "TRUE", "Default")
         # Include the MFCI test cert by default, override on the commandline with "BLD_*_SHIP_MODE=TRUE" if you want the retail MFCI cert
         self.env.SetValue("BLD_*_SHIP_MODE", "FALSE", "Default")
@@ -295,10 +292,28 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         self.env.SetValue('POLICY_REPORT_FOLDER', self.mws.join(self.ws, "QemuQ35Pkg", "PolicyData"), "Platform Defined")
         self.env.SetValue('MU_SCHEMA_DIR', self.mws.join(self.ws, "Platforms", "QemuQ35Pkg", "CfgData"), "Platform Defined")
         self.env.SetValue('MU_SCHEMA_FILE_NAME', "QemuQ35PkgCfgData.xml", "Platform Hardcoded")
+        self.env.SetValue('CONF_PROFILE_PATHS',
+                          self.mws.join(self.ws, 'Platforms', 'QemuQ35Pkg', 'CfgData', 'Profile0QemuQ35PkgCfgData.csv') + " " +
+                          self.mws.join(self.ws, 'Platforms', 'QemuQ35Pkg', 'CfgData', 'Profile1QemuQ35PkgCfgData.csv'),
+                          "Platform Hardcoded"
+        )
+        self.env.SetValue('CONF_PROFILE_NAMES', "P0,P1", "Platform Hardcoded")
 
         # Globally set CodeQL failures to be ignored in this repo.
         # Note: This has no impact if CodeQL is not active/enabled.
         self.env.SetValue("STUART_CODEQL_AUDIT_ONLY", "true", "Platform Defined")
+
+        # Enabled all of the SMM modules
+        self.env.SetValue("BLD_*_SMM_ENABLED", "TRUE", "Default")
+
+        return 0
+    
+    def SetPlatformEnvAfterTarget(self):
+        logging.debug("PlatformBuilder SetPlatformEnvAfterTarget")
+        if os.name == 'nt':
+            self.env.SetValue("VIRTUAL_DRIVE_PATH", Path(self.env.GetValue("BUILD_OUTPUT_BASE"), "VirtualDrive.vhd"), "Platform Hardcoded.")
+        else:
+            self.env.SetValue("VIRTUAL_DRIVE_PATH", Path(self.env.GetValue("BUILD_OUTPUT_BASE"), "VirtualDrive.img"), "Platform Hardcoded.")
 
         return 0
 
@@ -331,231 +346,88 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         return
 
     def FlashRomImage(self):
-        #Make virtual drive - Allow caller to override path otherwise use default
-        startup_nsh = StartUpScriptManager()
         run_tests = (self.env.GetValue("RUN_TESTS", "FALSE").upper() == "TRUE")
         output_base = self.env.GetValue("BUILD_OUTPUT_BASE")
         shutdown_after_run = (self.env.GetValue("SHUTDOWN_AFTER_RUN", "FALSE").upper() == "TRUE")
         empty_drive = (self.env.GetValue("EMPTY_DRIVE", "FALSE").upper() == "TRUE")
+        test_regex = self.env.GetValue("TEST_REGEX", "")
+        drive_path = self.env.GetValue("VIRTUAL_DRIVE_PATH")
+        run_paging_audit = False
+ 
+        # General debugging information for users
+        if run_tests:
+            if test_regex == "":
+                logging.warning("Running tests, but no Tests specified. use TEST_REGEX to specify tests to run.")
+        
+            if not empty_drive:
+                logging.info("EMPTY_DRIVE=FALSE. Old files can persist, could effect test results.")
 
-        if os.name == 'nt':
-            VirtualDrivePath = self.env.GetValue("VIRTUAL_DRIVE_PATH", os.path.join(output_base, "VirtualDrive.vhd"))
-            VirtualDrive = VirtualDriveManager(VirtualDrivePath, self.env)
-            self.env.SetValue("VIRTUAL_DRIVE_PATH", VirtualDrivePath, "Set Virtual Drive path in case not set")
-            ut = UnitTestSupport(os.path.join(output_base, "X64"))
+            if not shutdown_after_run:
+                logging.info("SHUTDOWN_AFTER_RUN=FALSE. You will need to close qemu manually to gather test results.")
 
-            if empty_drive and os.path.isfile(VirtualDrivePath):
-                    os.remove(VirtualDrivePath)
+        # Get a reference to the virtual drive, creating / wiping as necessary
+        # Helper located at QemuPkg/Plugins/VirtualDriveManager
+        virtual_drive = self.Helper.get_virtual_drive(drive_path)
+        if empty_drive:
+            virtual_drive.wipe()
 
-            if not os.path.isfile(VirtualDrivePath):
-                VirtualDrive.MakeDrive()
+        if not virtual_drive.exists():
+            virtual_drive.make_drive()
 
-            test_regex = self.env.GetValue("TEST_REGEX", "")
+        # Add tests if requested, auto run if requested
+        # Creates a startup script with the requested tests
+        if test_regex != "":
+            test_list = []
+            for pattern in test_regex.split(","):
+                test_list.extend(Path(output_base, "X64").glob(pattern))
 
-            if test_regex != "":
-                ut.set_test_regex(test_regex)
-                ut.find_tests()
-                ut.copy_tests_to_virtual_drive(VirtualDrive)
-
-            if run_tests:
-                if test_regex == "":
-                    logging.warning("No tests specified using TEST_REGEX flag but RUN_TESTS is TRUE")
-                elif not empty_drive:
-                    logging.info("EMPTY_DRIVE=FALSE. This could impact your test results")
-
-                if not shutdown_after_run:
-                    logging.info("SHUTDOWN_AFTER_RUN=FALSE (default). XML test results will not be \
-                        displayed until after the QEMU instance ends")
-                ut.write_tests_to_startup_nsh(startup_nsh)
-
-            nshpath = os.path.join(output_base, "startup.nsh")
-            startup_nsh.WriteOut(nshpath, shutdown_after_run)
-
-            VirtualDrive.AddFile(nshpath)
-
+            if any("DxePagingAuditTestApp.efi" in os.path.basename(test) for test in test_list):
+                run_paging_audit = True
+                
+            self.Helper.add_tests(virtual_drive, test_list, auto_run = run_tests, auto_shutdown = shutdown_after_run, paging_audit = run_paging_audit)
+        # Otherwise add an empty startup script
         else:
-            VirtualDrivePath = self.env.GetValue("VIRTUAL_DRIVE_PATH", os.path.join(output_base, "VirtualDrive"))
-            logging.warning("Linux currently isn't supported for the virtual drive. Falling back to an older method")
+            virtual_drive.add_startup_script([], auto_shutdown=shutdown_after_run)
 
-            test_regex = self.env.GetValue("TEST_REGEX", "")
+        # Get the version number (repo release)
+        outstream = StringIO()
+        version = "Unknown"
+        ret = RunCmd('git', "rev-parse HEAD", outstream=outstream)
+        if ret == 0:
+            commithash = outstream.getvalue().strip()
+            outstream = StringIO()
+            # See git-describe docs for a breakdown of this command output
+            ret = RunCmd("git", f'describe {commithash} --tags', outstream=outstream)
+            if ret == 0:
+                version = outstream.getvalue().strip()
 
-            if run_tests:
-                logging.critical("Linux doesn't support running unit tests due to lack of VHD support")
+        self.env.SetValue("VERSION", version, "Set Version value")
 
-            if os.path.exists(VirtualDrivePath) and empty_drive:
-                shutil.rmtree(VirtualDrivePath)
-
-            if not os.path.exists(VirtualDrivePath):
-                os.makedirs(VirtualDrivePath)
-
-            nshpath = os.path.join(VirtualDrivePath, "startup.nsh")
-            self.env.SetValue("VIRTUAL_DRIVE_PATH", VirtualDrivePath, "Set Virtual Drive path in case not set")
-            startup_nsh.WriteOut(nshpath, shutdown_after_run)
-
+        # Run Qemu
+        # Helper located at Platforms/QemuQ35Pkg/Plugins/QemuRunner
         ret = self.Helper.QemuRun(self.env)
         if ret != 0:
             logging.critical("Failed running Qemu")
             return ret
 
-        failures = 0
-        if run_tests and os.name == 'nt':
-            failures = ut.report_results(VirtualDrive)
+        if not run_tests:
+            return 0
+        
+        # Gather test results if they were run.
+        now = datetime.datetime.now()
+        FET = FAILURE_EXEMPT_TESTS
+        FEOL = FAILURE_EXEMPT_OMISSION_LENGTH
 
-        # do stuff with unit test results here
-        return failures
+        if run_paging_audit:
+            self.Helper.generate_paging_audit (virtual_drive, Path(drive_path).parent / "unit_test_results", self.env.GetValue("VERSION"), "Q35", "X64")
 
-class UnitTestSupport(object):
-
-    def __init__(self, host_efi_build_output_path: os.PathLike):
-        self.test_list = []
-        self._globlist = []
-        self.host_efi_path = host_efi_build_output_path
-
-    def set_test_regex(self, csv_string):
-        self._globlist = csv_string.split(",")
-
-    def find_tests(self):
-        test_list = []
-        for globpattern in self._globlist:
-            test_list.extend(glob.glob(os.path.join(self.host_efi_path, globpattern)))
-        self.test_list = list(dict.fromkeys(test_list))
-
-    def copy_tests_to_virtual_drive(self, virtualdrive):
-        for test in self.test_list:
-            virtualdrive.AddFile(test)
-
-    def write_tests_to_startup_nsh(self,nshfile):
-        for test in self.test_list:
-            if (os.path.basename(test) in reset_tests):
-                nshfile.AddLine(os.path.basename(test))
-        for test in self.test_list:
-            if not (os.path.basename(test) in reset_tests):
-                nshfile.AddLine(os.path.basename(test))
-
-    def report_results(self, virtualdrive) -> int:
-        from html import unescape
-
-        report_folder_path = os.path.join(os.path.dirname(virtualdrive.path_to_vhd), "unit_test_results")
-        os.makedirs(report_folder_path, exist_ok=True)
-        #now parse the xml for errors
-        failure_count = 0
-        logging.info("UnitTest(s) Completed")
-        for unit_test in self.test_list:
-            ignore_failure = False
-            if (os.path.basename(unit_test) in failure_exempt_tests.keys()):
-                now = datetime.datetime.now()
-                last_ignore_time = failure_exempt_tests[os.path.basename(unit_test)]
-                if (now - last_ignore_time).total_seconds() < FAILURE_EXEMPT_OMISSION_LENGTH:
-                    logging.info("Ignoring output of " + os.path.basename(unit_test))
-                    ignore_failure = True
-            xml_result_file = os.path.basename(unit_test)[:-4] + "_JUNIT.XML"
-            output_xml_file = os.path.join(report_folder_path, xml_result_file)
-            try:
-                data = virtualdrive.GetFileContent(xml_result_file, output_xml_file)
-            except:
-                logging.error(f"unit test ({unit_test}) produced no result file")
-                failure_count += 1
-                continue
-
-            logging.info('\n' + os.path.basename(unit_test) + "\n  Full Log: " + output_xml_file)
-
-            try:
-                root = xml.etree.ElementTree.fromstring(data)
-                for suite in root:
-                    logging.info(" ")
-                    for case in suite:
-                        logging.info('\t\t' + case.attrib['classname'] + " - ")
-                        caseresult = "\t\t\tPASS"
-                        level = logging.INFO
-                        for result in case:
-                            if result.tag == 'failure':
-                                level = logging.ERROR
-                                caseresult = "\t\tFAIL" + " - " + unescape(result.attrib['message'])
-                                if not ignore_failure:
-                                    failure_count += 1
-                        logging.log( level, caseresult)
-            except Exception as ex:
-                logging.error("Exception trying to read xml." + str(ex))
-                failure_count += 1
-        return failure_count
-
-
-
-class VirtualDriveManager(object):
-
-    def __init__(self, vhd_path:os.PathLike, env:object):
-        self.path_to_vhd = os.path.abspath(vhd_path)
-        self._env = env
-
-    def MakeDrive(self, size: int=60):
-        ret = RunCmd("VHDCreate", f'-sz {size}MB {self.path_to_vhd}')
-        if ret != 0:
-            logging.error("Failed to create VHD")
-            return ret
-
-        ret = RunCmd("DiskFormat", f"-ft fat -ptt bios {self.path_to_vhd}")
-        if ret != 0:
-            logging.error("Failed to format VHD")
-            return ret
-        return ret
-
-    def AddFile(self, HostFilePath:os.PathLike):
-        file_name = os.path.basename(HostFilePath)
-        ret = RunCmd("FileInsert", f"{HostFilePath} {file_name} {self.path_to_vhd}")
-        return ret
-
-    def GetFileContent(self, VirtualFilePath, HostFilePath: os.PathLike=None):
-        temp_extract_path = HostFilePath
-        if temp_extract_path == None:
-            temp_extract_path = tempfile.mktemp()
-        logging.info(f"Extracting {VirtualFilePath} to {temp_extract_path}")
-        ret = self.ExtractFile(VirtualFilePath, temp_extract_path)
-        if ret != 0:
-            raise FileNotFoundError(VirtualFilePath)
-        with open(temp_extract_path, "rb") as f:
-            return f.read()
-
-    def ExtractFile(self, VirtualFilePath, HostFilePath:os.PathLike):
-        ret = RunCmd("FileExtract", f"{VirtualFilePath} {HostFilePath} {self.path_to_vhd}")
-        return ret
-
-
-class StartUpScriptManager(object):
-
-    FS_FINDER_SCRIPT = r'''
-#!/bin/nsh
-echo -off
-for %a run (0 10)
-    if exist fs%a:\{first_file} then
-        fs%a:
-        goto FOUND_IT
-    endif
-endfor
-
-:FOUND_IT
-'''
-
-    def __init__(self):
-        self._use_fs_finder = False
-        self._lines = []
-
-    def WriteOut(self, host_file_path, shutdown:bool):
-        with open(host_file_path, "w") as nsh:
-            if self._use_fs_finder:
-                this_file = os.path.basename(host_file_path)
-                nsh.write(StartUpScriptManager.FS_FINDER_SCRIPT.format(first_file=this_file))
-
-            for l in self._lines:
-                nsh.write(l + "\n")
-
-            if shutdown:
-                nsh.write("reset -s\n")
-
-    def AddLine(self, line):
-        self._lines.append(line.strip())
-        self._use_fs_finder = True
-
-
+        # Filter out tests that are exempt
+        tests = list(filter(lambda file: file.name not in FET or not (now - FET.get(file.name)).total_seconds() < FEOL, test_list))
+        tests_exempt = list(filter(lambda file: file.name in FET and (now - FET.get(file.name)).total_seconds() < FEOL, test_list))       
+        if len(tests_exempt) > 0:
+            self.Helper.report_results(virtual_drive, tests_exempt, Path(drive_path).parent / "unit_test_results")
+        # Helper located at QemuPkg/Plugins/VirtualDriveManager
+        return self.Helper.report_results(virtual_drive, tests, Path(drive_path).parent / "unit_test_results")
 
 if __name__ == "__main__":
     import argparse
