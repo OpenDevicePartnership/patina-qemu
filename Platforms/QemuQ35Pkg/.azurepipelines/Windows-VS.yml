@@ -1,0 +1,52 @@
+## @file
+# Azure Pipeline build file for building a platform.
+#
+# Platform: QemuQ35
+# OS: Windows
+# Toolchain: Visual Studio
+#
+# Copyright (c) Microsoft Corporation.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+variables:
+- group: architectures-x86-64
+- group: tool-chain-windows-visual-studio-latest
+- group: 'UEFI Rust Tokens'
+
+extends:
+  template: ../../../.azurepipelines/MuDevOpsWrapper.yml
+  parameters:
+    build_file: Platforms/QemuQ35Pkg/PlatformBuild.py
+    do_ci_build: false
+    do_ci_setup: false
+    do_non_ci_build: true
+    do_non_ci_setup: true
+    do_pr_eval: true
+    container_build: false
+    extra_steps:
+    - template: ../../../.azurepipelines/templates/git-config-auth.yml
+    - task: RustInstaller@1
+      inputs:
+        cratesIoFeedOverride: $(CratesIoFeedOverride)
+        rustVersion: ms-$(RustVersion)
+        toolchainFeed: $(RustToolChainFeed)
+      displayName: Install Microsoft Rust toolchain
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'specific'
+        project: 'MsUEFI'
+        definition: 101356 # The pipeline definition
+        targetPath: '$(CARGO_HOME)\bin\'
+        itemPattern: '**/cargo-make.exe'
+        artifactName: 'Binaries'
+      displayName: Download Cargo Make
+    build_matrix:
+      TARGET_Q35_RELEASE:
+        Pkgs: 'QemuQ35Pkg'
+        Targets: 'RELEASE'
+        ArchList: 'IA32,X64'
+      TARGET_Q35_DEBUG:
+        Pkgs: 'QemuQ35Pkg'
+        Targets: 'DEBUG'
+        ArchList: 'IA32,X64'
