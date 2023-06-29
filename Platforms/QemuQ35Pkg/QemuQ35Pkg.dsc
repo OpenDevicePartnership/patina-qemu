@@ -1547,6 +1547,11 @@
   MSFT:*_*_*_CC_FLAGS = /D DISABLE_NEW_DEPRECATED_INTERFACES
   GCC:*_*_*_CC_FLAGS = -D DISABLE_NEW_DEPRECATED_INTERFACES
 
+  #
+  # Disable stack cookies in this repo (not supported in Rust modules).
+  #
+  MSFT:*_*_*_CC_FLAGS = /GS-
+
 [BuildOptions.IA32]
   MSFT:*_*_*_DLINK_FLAGS = /ALIGN:64
 
