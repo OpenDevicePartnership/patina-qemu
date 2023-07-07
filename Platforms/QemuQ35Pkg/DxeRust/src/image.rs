@@ -7,7 +7,6 @@ use core::{
 };
 
 use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, string::String, vec::Vec};
-use r_efi::{self, eficall, eficall_abi};
 use r_pi::hob::{Hob, HobList};
 use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 
@@ -33,18 +32,16 @@ pub const EFI_IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER: u16 = 12;
 const ENTRY_POINT_STACK_SIZE: usize = 0x100000;
 
 // dummy function used to initialize PrivateImageData.entry_point.
-eficall! {fn unimplemented_entry_point (
-    _handle: r_efi::efi::Handle,
-    _system_table: *mut r_efi::efi::SystemTable) -> r_efi::efi::Status {
-        unimplemented!()
-    }
+extern "efiapi" fn unimplemented_entry_point(
+  _handle: r_efi::efi::Handle,
+  _system_table: *mut r_efi::efi::SystemTable,
+) -> r_efi::efi::Status {
+  unimplemented!()
 }
 
 // dummy function used to initialize image_info.Unload.
-eficall! {fn unimplemented_unload (
-    _handle: r_efi::efi::Handle) -> r_efi::efi::Status {
-        unimplemented!()
-    }
+extern "efiapi" fn unimplemented_unload(_handle: r_efi::efi::Handle) -> r_efi::efi::Status {
+  unimplemented!()
 }
 
 // define a wrapper for allocators that supports specified alignments.
@@ -379,32 +376,31 @@ pub fn core_load_image(
 //                  null.
 //  * image_handle - pointer to the returned image handle that is created on
 //                   successful image load.
-eficall! {fn load_image (
-    _boot_policy: r_efi::efi::Boolean,
-    parent_image_handle: r_efi::efi::Handle,
-    device_path: *mut r_efi::efi::protocols::device_path::Protocol,
-    source_buffer: *mut c_void,
-    source_size: usize,
-    image_handle: *mut r_efi::efi::Handle) -> r_efi::efi::Status {
+extern "efiapi" fn load_image(
+  _boot_policy: r_efi::efi::Boolean,
+  parent_image_handle: r_efi::efi::Handle,
+  device_path: *mut r_efi::efi::protocols::device_path::Protocol,
+  source_buffer: *mut c_void,
+  source_size: usize,
+  image_handle: *mut r_efi::efi::Handle,
+) -> r_efi::efi::Status {
+  if image_handle.is_null() {
+    return r_efi::efi::Status::INVALID_PARAMETER;
+  }
 
-    if image_handle.is_null() {
-        return r_efi::efi::Status::INVALID_PARAMETER;
-    }
+  let image = if source_buffer.is_null() {
+    None
+  } else {
+    Some(unsafe { from_raw_parts(source_buffer as *const u8, source_size) })
+  };
 
-    let image = if source_buffer.is_null() {
-         None
-    } else {
-        Some(unsafe { from_raw_parts(source_buffer as *const u8, source_size) })
-    };
+  match core_load_image(parent_image_handle, device_path, image) {
+    Err(err) => return err,
+    Ok(handle) => unsafe { image_handle.write(handle) },
+  }
 
-    match core_load_image(parent_image_handle, device_path, image) {
-        Err(err) => return err,
-        Ok(handle) => unsafe {image_handle.write(handle)}
-    }
-
-    r_efi::efi::Status::SUCCESS
-
-}}
+  r_efi::efi::Status::SUCCESS
+}
 
 // Transfers control to the entry point of an image that was loaded by
 // load_image. See EFI_BOOT_SERVICES::StartImage() API definition in UEFI spec
@@ -413,93 +409,93 @@ eficall! {fn load_image (
 // * exit_data_size - pointer to receive the size, in bytes, of exit_data.
 //                    if exit_data is null, this is parameter is ignored.
 // * exit_data - pointer to receive a data buffer with exit data, if any.
-eficall! {pub fn start_image (
-    image_handle: r_efi::efi::Handle,
-    exit_data_size: *mut usize,
-    exit_data: *mut *mut r_efi::efi::Char16) -> r_efi::efi::Status {
+pub extern "efiapi" fn start_image(
+  image_handle: r_efi::efi::Handle,
+  exit_data_size: *mut usize,
+  exit_data: *mut *mut r_efi::efi::Char16,
+) -> r_efi::efi::Status {
+  // allocate a buffer for the entry point stack.
+  let stack = ImageStack::new(ENTRY_POINT_STACK_SIZE);
 
-    // allocate a buffer for the entry point stack.
-    let stack = ImageStack::new(ENTRY_POINT_STACK_SIZE);
-
-    // define a co-routine that wraps the entry point execution. this doesn't
-    // run until the coroutine.resume() call below.
-    let mut coroutine = Coroutine::with_stack(stack, move |yielder, image_handle| {
-        let mut private_data = PRIVATE_IMAGE_DATA.lock();
-
-        // mark the image as started and grab a copy of the private info.
-        let mut private_info = private_data.private_image_data.get_mut(&image_handle).unwrap();
-        private_info.started = true;
-        let entry_point = private_info.entry_point;
-        drop (private_info);
-
-        // save a pointer to the yeilder so that exit() can use it.
-        private_data.image_start_contexts.push(yielder as *const Yielder<_,_>);
-
-        // get a copy of the system table pointer to pass to the entry point.
-        let system_table = private_data.system_table;
-        // drop our reference to the private data (i.e. release the lock).
-        drop(private_data);
-
-        // invoke the entry point. Code on the other side of this pointer is
-        // FFI, which is inherently unsafe, but it's not  "technically" unsafe
-        // from a rust standpoint since r_efi doesn't define the ImageEntryPoint
-        // pointer type as "pointer to unsafe function"
-        let status = entry_point(image_handle, system_table);
-
-        //safety note: any variables with "Drop" routines that need to run
-        //need to be explicitly dropped before calling exit(). Since exit()
-        //effectively "longjmps" back to StartImage(), rust automatic
-        //drops will not be triggered.
-        exit(image_handle, status, 0, core::ptr::null_mut());
-        status
-    });
-
-    // Save the handle of the previously running image and update the currently
-    // running image to the one we are about to invoke. In the event of nested
-    // calls to StartImage(), the chain of previously running images will
-    // be preserved on the stack of the various StartImage() instances.
+  // define a co-routine that wraps the entry point execution. this doesn't
+  // run until the coroutine.resume() call below.
+  let mut coroutine = Coroutine::with_stack(stack, move |yielder, image_handle| {
     let mut private_data = PRIVATE_IMAGE_DATA.lock();
-    let previous_image = private_data.current_running_image;
-    let image_type = private_data.private_image_data.get_mut(&image_handle).unwrap().image_type;
-    private_data.current_running_image = Some(image_handle);
+
+    // mark the image as started and grab a copy of the private info.
+    let mut private_info = private_data.private_image_data.get_mut(&image_handle).unwrap();
+    private_info.started = true;
+    let entry_point = private_info.entry_point;
+    drop(private_info);
+
+    // save a pointer to the yeilder so that exit() can use it.
+    private_data.image_start_contexts.push(yielder as *const Yielder<_, _>);
+
+    // get a copy of the system table pointer to pass to the entry point.
+    let system_table = private_data.system_table;
+    // drop our reference to the private data (i.e. release the lock).
     drop(private_data);
 
-    // switch stacks and execute the above defined coroutine to start the image.
-    let status = match coroutine.resume(image_handle) {
-        CoroutineResult::Yield(status) => status,
-        // Note: `CoroutineResult::Return` is unexpected, since it would imply
-        // that exit() failed. TODO: should panic here?
-        CoroutineResult::Return(status) => status,
-    };
+    // invoke the entry point. Code on the other side of this pointer is
+    // FFI, which is inherently unsafe, but it's not  "technically" unsafe
+    // from a rust standpoint since r_efi doesn't define the ImageEntryPoint
+    // pointer type as "pointer to unsafe function"
+    let status = entry_point(image_handle, system_table);
 
-    // because we used exit() to return from the coroutine (as opposed to
-    // returning naturally from it), the coroutine is marked as suspended rather
-    // than complete. We need to forcibly mark the coroutine done; otherwise it
-    // will try to use unwind to clean up the co-routine stack (i.e. "drop" any
-    // live objects). This unwind support requires std and will panic if
-    // executed.
-    unsafe {coroutine.force_reset()};
-
-    PRIVATE_IMAGE_DATA.lock().current_running_image = previous_image;
-
-    // retrieve any exit data that was provided by the entry point.
-    if !exit_data_size.is_null() && !exit_data.is_null() {
-        let private_data = PRIVATE_IMAGE_DATA.lock();
-        let image_data = private_data.private_image_data.get(&image_handle).unwrap();
-        if let Some(image_exit_data) = image_data.exit_data {
-            unsafe {
-                exit_data_size.write(image_exit_data.0);
-                exit_data.write(image_exit_data.1);
-            }
-        }
-    }
-
-    if status != r_efi::efi::Status::SUCCESS || image_type == EFI_IMAGE_SUBSYSTEM_EFI_APPLICATION {
-        let _result = core_unload_image(image_handle, true);
-    }
-
+    //safety note: any variables with "Drop" routines that need to run
+    //need to be explicitly dropped before calling exit(). Since exit()
+    //effectively "longjmps" back to StartImage(), rust automatic
+    //drops will not be triggered.
+    exit(image_handle, status, 0, core::ptr::null_mut());
     status
-}}
+  });
+
+  // Save the handle of the previously running image and update the currently
+  // running image to the one we are about to invoke. In the event of nested
+  // calls to StartImage(), the chain of previously running images will
+  // be preserved on the stack of the various StartImage() instances.
+  let mut private_data = PRIVATE_IMAGE_DATA.lock();
+  let previous_image = private_data.current_running_image;
+  let image_type = private_data.private_image_data.get_mut(&image_handle).unwrap().image_type;
+  private_data.current_running_image = Some(image_handle);
+  drop(private_data);
+
+  // switch stacks and execute the above defined coroutine to start the image.
+  let status = match coroutine.resume(image_handle) {
+    CoroutineResult::Yield(status) => status,
+    // Note: `CoroutineResult::Return` is unexpected, since it would imply
+    // that exit() failed. TODO: should panic here?
+    CoroutineResult::Return(status) => status,
+  };
+
+  // because we used exit() to return from the coroutine (as opposed to
+  // returning naturally from it), the coroutine is marked as suspended rather
+  // than complete. We need to forcibly mark the coroutine done; otherwise it
+  // will try to use unwind to clean up the co-routine stack (i.e. "drop" any
+  // live objects). This unwind support requires std and will panic if
+  // executed.
+  unsafe { coroutine.force_reset() };
+
+  PRIVATE_IMAGE_DATA.lock().current_running_image = previous_image;
+
+  // retrieve any exit data that was provided by the entry point.
+  if !exit_data_size.is_null() && !exit_data.is_null() {
+    let private_data = PRIVATE_IMAGE_DATA.lock();
+    let image_data = private_data.private_image_data.get(&image_handle).unwrap();
+    if let Some(image_exit_data) = image_data.exit_data {
+      unsafe {
+        exit_data_size.write(image_exit_data.0);
+        exit_data.write(image_exit_data.1);
+      }
+    }
+  }
+
+  if status != r_efi::efi::Status::SUCCESS || image_type == EFI_IMAGE_SUBSYSTEM_EFI_APPLICATION {
+    let _result = core_unload_image(image_handle, true);
+  }
+
+  status
+}
 
 pub fn core_unload_image(image_handle: r_efi::efi::Handle, force_unload: bool) -> r_efi::efi::Status {
   let mut private_data = PRIVATE_IMAGE_DATA.lock();
@@ -581,9 +577,9 @@ pub fn core_unload_image(image_handle: r_efi::efi::Handle, force_unload: bool) -
   r_efi::efi::Status::SUCCESS
 }
 
-eficall! {fn unload_image (image_handle: r_efi::efi::Handle) -> r_efi::efi::Status {
-    core_unload_image(image_handle, false)
-}}
+extern "efiapi" fn unload_image(image_handle: r_efi::efi::Handle) -> r_efi::efi::Status {
+  core_unload_image(image_handle, false)
+}
 
 // Terminates a loaded EFI image and returns control to boot services.
 // See EFI_BOOT_SERVICES::Exit() API definition in UEFI spec for usage details.
@@ -592,46 +588,46 @@ eficall! {fn unload_image (image_handle: r_efi::efi::Handle) -> r_efi::efi::Stat
 // * exit_data_size - the size of the exit_data buffer, if exit_data is not
 //                    null.
 // * exit_data - optional buffer of data provided by the caller.
-eficall! {fn exit (
-    image_handle: r_efi::efi::Handle,
-    status: r_efi::efi::Status,
-    exit_data_size: usize,
-    exit_data: *mut r_efi::efi::Char16) -> r_efi::efi::Status {
+extern "efiapi" fn exit(
+  image_handle: r_efi::efi::Handle,
+  status: r_efi::efi::Status,
+  exit_data_size: usize,
+  exit_data: *mut r_efi::efi::Char16,
+) -> r_efi::efi::Status {
+  // check the currently running image.
+  let mut private_data = PRIVATE_IMAGE_DATA.lock();
+  if Some(image_handle) != private_data.current_running_image {
+    return r_efi::efi::Status::INVALID_PARAMETER;
+  }
 
-    // check the currently running image.
-    let mut private_data = PRIVATE_IMAGE_DATA.lock();
-    if Some(image_handle) != private_data.current_running_image {
-        return r_efi::efi::Status::INVALID_PARAMETER;
-    }
+  // save the exit data, if present, into the private_image_data for this
+  // image for start_image to retrieve and return.
+  if (exit_data_size != 0) && !exit_data.is_null() {
+    let mut image_data = private_data.private_image_data.get_mut(&image_handle).unwrap();
+    image_data.exit_data = Some((exit_data_size, exit_data));
+  }
 
-    // save the exit data, if present, into the private_image_data for this
-    // image for start_image to retrieve and return.
-    if (exit_data_size != 0 ) && !exit_data.is_null() {
-        let mut image_data = private_data.private_image_data.get_mut(&image_handle).unwrap();
-        image_data.exit_data = Some((exit_data_size, exit_data));
-    }
+  // retrieve the yielder that was saved in the start_image entry point
+  // coroutine wrapper.
+  // safety note: this assumes that the top of the image_start_contexts stack
+  // is the currently running image.
+  let yielder = private_data.image_start_contexts.pop().unwrap();
+  let yielder = unsafe { &*yielder };
+  drop(private_data);
 
-    // retrieve the yielder that was saved in the start_image entry point
-    // coroutine wrapper.
-    // safety note: this assumes that the top of the image_start_contexts stack
-    // is the currently running image.
-    let yielder = private_data.image_start_contexts.pop().unwrap();
-    let yielder = unsafe {&*yielder};
-    drop(private_data);
+  // safety note: any variables with "Drop" routines that need to run
+  // need to be explicitly dropped before calling suspend(). Since suspend()
+  // effectively "longjmps" back to StartImage(), rust automatic
+  // drops will not be triggered.
 
-    // safety note: any variables with "Drop" routines that need to run
-    // need to be explicitly dropped before calling suspend(). Since suspend()
-    // effectively "longjmps" back to StartImage(), rust automatic
-    // drops will not be triggered.
+  // transfer control back to start_image by calling the suspend function on
+  // yielder. This will switch stacks back to the start_image that invoked
+  // the entry point coroutine.
+  yielder.suspend(status);
 
-    // transfer control back to start_image by calling the suspend function on
-    // yielder. This will switch stacks back to the start_image that invoked
-    // the entry point coroutine.
-    yielder.suspend(status);
-
-    //should never reach here, but rust doesn't know that.
-    r_efi::efi::Status::ACCESS_DENIED
-}}
+  //should never reach here, but rust doesn't know that.
+  r_efi::efi::Status::ACCESS_DENIED
+}
 
 /// Initializes image services for the DXE core.
 pub fn init_image_support(hob_list: &HobList, system_table: &EfiSystemTable) {

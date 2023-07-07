@@ -5,7 +5,6 @@ use core::{ffi::c_void, mem::size_of, slice::from_raw_parts};
 use alloc::{alloc::Allocator, boxed::Box};
 use r_efi::{
   efi::{Boolean, Char16, Event, Guid, Handle, PhysicalAddress, Status, Tpl},
-  eficall, eficall_abi,
   protocols::{device_path, simple_text_input, simple_text_output},
   system::{BootServices, RuntimeServices, SystemTable, TableHeader},
 };
@@ -20,61 +19,94 @@ pub struct EfiRuntimeServicesTable {
 
 impl EfiRuntimeServicesTable {
   //private unimplemented stub functions used to initialize the table.
-  eficall! {fn get_time_unimplemented (_: *mut r_efi::system::Time, _: *mut r_efi::system::TimeCapabilities) -> Status {
+  extern "efiapi" fn get_time_unimplemented(
+    _: *mut r_efi::system::Time,
+    _: *mut r_efi::system::TimeCapabilities,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn set_time_unimplemented (_: *mut r_efi::system::Time) -> Status {
+  extern "efiapi" fn set_time_unimplemented(_: *mut r_efi::system::Time) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn get_wakeup_time_unimplemented (_: *mut Boolean, _: *mut Boolean, _: *mut r_efi::system::Time)-> Status {
+  extern "efiapi" fn get_wakeup_time_unimplemented(
+    _: *mut Boolean,
+    _: *mut Boolean,
+    _: *mut r_efi::system::Time,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn set_wakeup_time_unimplemented (_: Boolean, _: *mut r_efi::system::Time) -> Status {
+  extern "efiapi" fn set_wakeup_time_unimplemented(_: Boolean, _: *mut r_efi::system::Time) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn set_virtual_address_map_unimplemented (_: usize, _: usize, _: u32, _: *mut r_efi::system::MemoryDescriptor) -> Status {
+  extern "efiapi" fn set_virtual_address_map_unimplemented(
+    _: usize,
+    _: usize,
+    _: u32,
+    _: *mut r_efi::system::MemoryDescriptor,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn convert_pointer_unimplemented (_: usize, _: *mut *mut c_void) -> Status {
+  extern "efiapi" fn convert_pointer_unimplemented(_: usize, _: *mut *mut c_void) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn get_variable_unimplemented (_: *mut Char16, _: *mut Guid, _: *mut u32, _: *mut usize, _: *mut c_void) -> Status {
+  extern "efiapi" fn get_variable_unimplemented(
+    _: *mut Char16,
+    _: *mut Guid,
+    _: *mut u32,
+    _: *mut usize,
+    _: *mut c_void,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn get_next_variable_name_unimplemented (_: *mut usize, _: *mut Char16, _: *mut Guid) -> Status {
+  extern "efiapi" fn get_next_variable_name_unimplemented(_: *mut usize, _: *mut Char16, _: *mut Guid) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn set_variable_unimplemented (_: *mut Char16, _: *mut Guid, _: u32, _: usize, _: *mut c_void) -> Status {
+  extern "efiapi" fn set_variable_unimplemented(
+    _: *mut Char16,
+    _: *mut Guid,
+    _: u32,
+    _: usize,
+    _: *mut c_void,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn get_next_high_mono_count_unimplemented (_: *mut u32) -> Status {
+  extern "efiapi" fn get_next_high_mono_count_unimplemented(_: *mut u32) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn reset_system_unimplemented (_: r_efi::system::ResetType, _: Status, _: usize, _: *mut c_void) {
+  extern "efiapi" fn reset_system_unimplemented(_: r_efi::system::ResetType, _: Status, _: usize, _: *mut c_void) {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn update_capsule_unimplemented (_: *mut *mut r_efi::system::CapsuleHeader, _: usize, _: PhysicalAddress) -> Status {
+  extern "efiapi" fn update_capsule_unimplemented(
+    _: *mut *mut r_efi::system::CapsuleHeader,
+    _: usize,
+    _: PhysicalAddress,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn query_capsule_capabilities_unimplemented (_: *mut *mut r_efi::system::CapsuleHeader, _: usize, _: *mut u64, _: *mut r_efi::system::ResetType) -> Status {
+  extern "efiapi" fn query_capsule_capabilities_unimplemented(
+    _: *mut *mut r_efi::system::CapsuleHeader,
+    _: usize,
+    _: *mut u64,
+    _: *mut r_efi::system::ResetType,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn query_variable_info_unimplemented (_: u32, _: *mut u64, _: *mut u64, _: *mut u64) -> Status {
+  extern "efiapi" fn query_variable_info_unimplemented(_: u32, _: *mut u64, _: *mut u64, _: *mut u64) -> Status {
     unimplemented!()
-  }}
+  }
 
   pub fn init_runtime_services_table() -> EfiRuntimeServicesTable {
     let mut rt = RuntimeServices {
@@ -122,177 +154,263 @@ pub struct EfiBootServicesTable {
 
 impl EfiBootServicesTable {
   //private unimplemented stub functions used to initialize the table.
-  eficall! { fn raise_tpl_unimplemented (_: Tpl)->Tpl {
+  extern "efiapi" fn raise_tpl_unimplemented(_: Tpl) -> Tpl {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn restore_tpl_unimplemented (_: Tpl) {
+  extern "efiapi" fn restore_tpl_unimplemented(_: Tpl) {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn allocate_pages_unimplemented (_: r_efi::system::AllocateType, _: r_efi::system::MemoryType, _: usize, _: *mut PhysicalAddress) -> Status {
+  extern "efiapi" fn allocate_pages_unimplemented(
+    _: r_efi::system::AllocateType,
+    _: r_efi::system::MemoryType,
+    _: usize,
+    _: *mut PhysicalAddress,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn free_pages_unimplemented (_:PhysicalAddress, _:usize) -> Status {
+  extern "efiapi" fn free_pages_unimplemented(_: PhysicalAddress, _: usize) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn get_memory_map_unimplemented (_: *mut usize, _: *mut r_efi::system::MemoryDescriptor, _: *mut usize, _:*mut usize, _:*mut u32) -> Status {
+  extern "efiapi" fn get_memory_map_unimplemented(
+    _: *mut usize,
+    _: *mut r_efi::system::MemoryDescriptor,
+    _: *mut usize,
+    _: *mut usize,
+    _: *mut u32,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn allocate_pool_unimplemented (_: r_efi::system::MemoryType, _: usize, _: *mut *mut c_void) -> Status {
+  extern "efiapi" fn allocate_pool_unimplemented(
+    _: r_efi::system::MemoryType,
+    _: usize,
+    _: *mut *mut c_void,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn free_pool_unimplemented (_: *mut c_void) -> Status {
+  extern "efiapi" fn free_pool_unimplemented(_: *mut c_void) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn create_event_unimplemented (_: u32, _: Tpl, _: Option<r_efi::system::EventNotify>, _: *mut c_void, _: *mut Event) -> Status {
+  extern "efiapi" fn create_event_unimplemented(
+    _: u32,
+    _: Tpl,
+    _: Option<r_efi::system::EventNotify>,
+    _: *mut c_void,
+    _: *mut Event,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn set_timer_unimplemented (_: Event, _: r_efi::system::TimerDelay, _: u64) -> Status {
+  extern "efiapi" fn set_timer_unimplemented(_: Event, _: r_efi::system::TimerDelay, _: u64) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn wait_for_event_unimplemented (_: usize, _: *mut Event, _: *mut usize) -> Status {
+  extern "efiapi" fn wait_for_event_unimplemented(_: usize, _: *mut Event, _: *mut usize) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn signal_event_unimplemented (_: Event) -> Status {
+  extern "efiapi" fn signal_event_unimplemented(_: Event) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn close_event_unimplemented (_:Event) -> Status {
+  extern "efiapi" fn close_event_unimplemented(_: Event) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn check_event_unimplemented (_:Event) -> Status {
+  extern "efiapi" fn check_event_unimplemented(_: Event) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn install_protocol_interface_unimplemented (_: *mut Handle, _: *mut Guid, _: r_efi::system::InterfaceType, _: *mut c_void) -> Status {
+  extern "efiapi" fn install_protocol_interface_unimplemented(
+    _: *mut Handle,
+    _: *mut Guid,
+    _: r_efi::system::InterfaceType,
+    _: *mut c_void,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn reinstall_protocol_interface_unimplemented (_: Handle, _: *mut Guid, _: *mut c_void, _: *mut c_void)->Status {
+  extern "efiapi" fn reinstall_protocol_interface_unimplemented(
+    _: Handle,
+    _: *mut Guid,
+    _: *mut c_void,
+    _: *mut c_void,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn uninstall_protocol_interface_unimplemented (_: Handle, _: *mut Guid, _: *mut c_void) -> Status {
+  extern "efiapi" fn uninstall_protocol_interface_unimplemented(_: Handle, _: *mut Guid, _: *mut c_void) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn handle_protocol_unimplemented (_: Handle, _: *mut Guid, _: *mut *mut c_void) -> Status {
+  extern "efiapi" fn handle_protocol_unimplemented(_: Handle, _: *mut Guid, _: *mut *mut c_void) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn register_protocol_notify_unimplemented (_: *mut Guid, _: Event, _: *mut *mut c_void) -> Status {
+  extern "efiapi" fn register_protocol_notify_unimplemented(_: *mut Guid, _: Event, _: *mut *mut c_void) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn locate_handle_unimplemented (_: r_efi::system::LocateSearchType, _: *mut Guid, _: *mut c_void, _: *mut usize, _: *mut Handle) -> Status {
+  extern "efiapi" fn locate_handle_unimplemented(
+    _: r_efi::system::LocateSearchType,
+    _: *mut Guid,
+    _: *mut c_void,
+    _: *mut usize,
+    _: *mut Handle,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn locate_device_path_unimplemented (_: *mut Guid, _: *mut *mut device_path::Protocol, _: *mut Handle) -> Status {
+  extern "efiapi" fn locate_device_path_unimplemented(
+    _: *mut Guid,
+    _: *mut *mut device_path::Protocol,
+    _: *mut Handle,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn install_configuration_table_unimplemented (_: *mut Guid, _: *mut c_void) -> Status {
+  extern "efiapi" fn install_configuration_table_unimplemented(_: *mut Guid, _: *mut c_void) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn load_image_unimplemented (_: Boolean, _: Handle, _: *mut device_path::Protocol, _: *mut c_void, _: usize, _: *mut Handle) -> Status {
+  extern "efiapi" fn load_image_unimplemented(
+    _: Boolean,
+    _: Handle,
+    _: *mut device_path::Protocol,
+    _: *mut c_void,
+    _: usize,
+    _: *mut Handle,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn start_image_unimplemented (_: Handle, _: *mut usize, _: *mut *mut Char16) -> Status {
+  extern "efiapi" fn start_image_unimplemented(_: Handle, _: *mut usize, _: *mut *mut Char16) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn exit_unimplemented (_: Handle, _: Status, _: usize, _: *mut Char16) -> Status {
+  extern "efiapi" fn exit_unimplemented(_: Handle, _: Status, _: usize, _: *mut Char16) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn unload_image_unimplemented (_: Handle) -> Status {
+  extern "efiapi" fn unload_image_unimplemented(_: Handle) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn exit_boot_services_unimplemented (_: Handle, _: usize) -> Status {
+  extern "efiapi" fn exit_boot_services_unimplemented(_: Handle, _: usize) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn get_next_monotonic_count_unimplemented (_: *mut u64) -> Status {
+  extern "efiapi" fn get_next_monotonic_count_unimplemented(_: *mut u64) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn stall_unimplemented (_: usize) -> Status {
+  extern "efiapi" fn stall_unimplemented(_: usize) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn set_watchdog_timer_unimplemented (_: usize, _: u64, _: usize, _: *mut Char16) -> Status {
+  extern "efiapi" fn set_watchdog_timer_unimplemented(_: usize, _: u64, _: usize, _: *mut Char16) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn connect_controller_unimplemented (_: Handle, _: *mut Handle,  _: *mut device_path::Protocol, _: Boolean) -> Status {
+  extern "efiapi" fn connect_controller_unimplemented(
+    _: Handle,
+    _: *mut Handle,
+    _: *mut device_path::Protocol,
+    _: Boolean,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn disconnect_controller_unimplemented (_: Handle, _: Handle, _: Handle) -> Status {
+  extern "efiapi" fn disconnect_controller_unimplemented(_: Handle, _: Handle, _: Handle) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn open_protocol_unimplemented (_: Handle, _: *mut Guid, _: *mut *mut c_void, _: Handle, _: Handle, _: u32) -> Status {
+  extern "efiapi" fn open_protocol_unimplemented(
+    _: Handle,
+    _: *mut Guid,
+    _: *mut *mut c_void,
+    _: Handle,
+    _: Handle,
+    _: u32,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn close_protocol_unimplemented (_: Handle, _: *mut Guid, _: Handle, _: Handle) -> Status {
+  extern "efiapi" fn close_protocol_unimplemented(_: Handle, _: *mut Guid, _: Handle, _: Handle) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn open_protocol_information_unimplemented (_: Handle, _: *mut Guid, _: *mut *mut r_efi::system::OpenProtocolInformationEntry, _: *mut usize) -> Status {
+  extern "efiapi" fn open_protocol_information_unimplemented(
+    _: Handle,
+    _: *mut Guid,
+    _: *mut *mut r_efi::system::OpenProtocolInformationEntry,
+    _: *mut usize,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn protocols_per_handle_unimplemented (_: Handle, _: *mut *mut *mut Guid, _: *mut usize) -> Status {
+  extern "efiapi" fn protocols_per_handle_unimplemented(_: Handle, _: *mut *mut *mut Guid, _: *mut usize) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn locate_handle_buffer_unimplemented (_: r_efi::system::LocateSearchType, _: *mut Guid, _: *mut c_void, _: *mut usize, _: *mut *mut Handle) -> Status{
+  extern "efiapi" fn locate_handle_buffer_unimplemented(
+    _: r_efi::system::LocateSearchType,
+    _: *mut Guid,
+    _: *mut c_void,
+    _: *mut usize,
+    _: *mut *mut Handle,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn locate_protocol_unimplemented (_: *mut Guid, _: *mut c_void, _: *mut *mut c_void) -> Status {
+  extern "efiapi" fn locate_protocol_unimplemented(_: *mut Guid, _: *mut c_void, _: *mut *mut c_void) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn install_multiple_protocol_interfaces_unimplemented (_: *mut Handle, _: *mut c_void, _: *mut c_void) -> Status {
+  extern "efiapi" fn install_multiple_protocol_interfaces_unimplemented(
+    _: *mut Handle,
+    _: *mut c_void,
+    _: *mut c_void,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn uninstall_multiple_protocol_interfaces_unimplemented (_: *mut Handle, _: *mut c_void, _: *mut c_void) -> Status {
+  extern "efiapi" fn uninstall_multiple_protocol_interfaces_unimplemented(
+    _: *mut Handle,
+    _: *mut c_void,
+    _: *mut c_void,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn calculate_crc32_unimplemented (_: *mut c_void, _: usize, _: *mut u32) -> Status {
+  extern "efiapi" fn calculate_crc32_unimplemented(_: *mut c_void, _: usize, _: *mut u32) -> Status {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn copy_mem_unimplemented (_: *mut c_void, _: *mut c_void, _: usize){
+  extern "efiapi" fn copy_mem_unimplemented(_: *mut c_void, _: *mut c_void, _: usize) {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn set_mem_unimplemented (_: *mut c_void, _: usize, _: u8) {
+  extern "efiapi" fn set_mem_unimplemented(_: *mut c_void, _: usize, _: u8) {
     unimplemented!()
-  }}
+  }
 
-  eficall! {fn create_event_ex_unimplemented (_: u32, _: Tpl, _: Option<r_efi::system::EventNotify>, _: *const c_void, _: *const Guid, _: *mut Event) -> Status {
+  extern "efiapi" fn create_event_ex_unimplemented(
+    _: u32,
+    _: Tpl,
+    _: Option<r_efi::system::EventNotify>,
+    _: *const c_void,
+    _: *const Guid,
+    _: *mut Event,
+  ) -> Status {
     unimplemented!()
-  }}
+  }
 
   pub fn init_boot_services_table() -> EfiBootServicesTable {
     let mut bs = BootServices {

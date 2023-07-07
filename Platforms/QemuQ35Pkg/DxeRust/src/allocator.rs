@@ -8,7 +8,6 @@ use core::{
 use crate::FRAME_ALLOCATOR;
 use r_efi::{
   efi::Status,
-  eficall, eficall_abi,
   system::{
     BootServices, MemoryType, ACPI_MEMORY_NVS, ACPI_RECLAIM_MEMORY, BOOT_SERVICES_CODE, BOOT_SERVICES_DATA,
     LOADER_CODE, LOADER_DATA, RUNTIME_SERVICES_CODE, RUNTIME_SERVICES_DATA,
@@ -66,111 +65,117 @@ fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
 
 const UEFI_PAGE_SIZE: usize = 0x1000; //per UEFI spec.
 
-eficall! {pub fn allocate_pool (pool_type: r_efi::system::MemoryType, size: usize, buffer: *mut *mut c_void) -> Status {
-    if buffer == core::ptr::null_mut() {
-        return Status::INVALID_PARAMETER;
+pub extern "efiapi" fn allocate_pool(
+  pool_type: r_efi::system::MemoryType,
+  size: usize,
+  buffer: *mut *mut c_void,
+) -> Status {
+  if buffer == core::ptr::null_mut() {
+    return Status::INVALID_PARAMETER;
+  }
+
+  let allocator = get_allocator_for_type(pool_type);
+  if allocator.is_none() {
+    return Status::INVALID_PARAMETER;
+  }
+  let allocator = allocator.unwrap();
+
+  allocator.allocate_pool(size, buffer)
+}
+
+extern "efiapi" fn free_pool(buffer: *mut c_void) -> Status {
+  if buffer == core::ptr::null_mut() {
+    return Status::INVALID_PARAMETER;
+  }
+  unsafe {
+    if ALL_ALLOCATORS.iter().find(|allocator| allocator.free_pool(buffer) != Status::NOT_FOUND).is_some() {
+      Status::SUCCESS
+    } else {
+      Status::INVALID_PARAMETER
     }
+  }
+}
 
-    let allocator = get_allocator_for_type(pool_type);
-    if allocator.is_none() {
-        return Status::INVALID_PARAMETER;
+extern "efiapi" fn allocate_pages(
+  allocation_type: r_efi::system::AllocateType,
+  memory_type: r_efi::system::MemoryType,
+  pages: usize,
+  memory: *mut r_efi::efi::PhysicalAddress,
+) -> Status {
+  if memory == core::ptr::null_mut() {
+    return Status::INVALID_PARAMETER;
+  }
+
+  //TODO: For now we only support "AnyPages" allocation type.
+  if allocation_type != r_efi::system::ALLOCATE_ANY_PAGES {
+    return Status::UNSUPPORTED;
+  }
+
+  let allocator = match get_allocator_for_type(memory_type) {
+    Some(allocator) => allocator,
+    None => return Status::INVALID_PARAMETER,
+  };
+
+  let layout = match Layout::from_size_align(pages * UEFI_PAGE_SIZE, UEFI_PAGE_SIZE) {
+    Ok(layout) => layout,
+    Err(_) => return Status::INVALID_PARAMETER,
+  };
+
+  match allocator.allocate(layout) {
+    Ok(ptr) => {
+      unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
+      Status::SUCCESS
     }
-    let allocator = allocator.unwrap();
+    Err(_) => Status::OUT_OF_RESOURCES,
+  }
+}
 
-    allocator.allocate_pool(size, buffer)
+extern "efiapi" fn free_pages(memory: r_efi::efi::PhysicalAddress, pages: usize) -> Status {
+  let size = match pages.checked_mul(UEFI_PAGE_SIZE) {
+    Some(size) => size,
+    None => return Status::INVALID_PARAMETER,
+  };
 
-}}
+  if (memory as u64).checked_add(size as u64).is_none() {
+    return Status::INVALID_PARAMETER;
+  }
 
-eficall! {fn free_pool (buffer: *mut c_void) -> Status {
-    if buffer == core::ptr::null_mut() {
-        return Status::INVALID_PARAMETER;
+  let layout = match Layout::from_size_align(size, UEFI_PAGE_SIZE) {
+    Ok(layout) => layout,
+    Err(_) => return Status::INVALID_PARAMETER,
+  };
+
+  let address = match NonNull::new(memory as usize as *mut u8) {
+    Some(address) => address,
+    None => return Status::INVALID_PARAMETER,
+  };
+
+  match ALL_ALLOCATORS.iter().find(|x| x.contains(address)) {
+    Some(allocator) => {
+      unsafe { allocator.deallocate(address, layout) };
+      Status::SUCCESS
     }
-    unsafe {
-        if ALL_ALLOCATORS.iter().find(|allocator| allocator.free_pool(buffer) != Status::NOT_FOUND).is_some() {
-            Status::SUCCESS
-        } else {
-            Status::INVALID_PARAMETER
-        }
-    }
-}}
+    None => Status::NOT_FOUND,
+  }
+}
 
-eficall! {fn allocate_pages (allocation_type: r_efi::system::AllocateType, memory_type: r_efi::system::MemoryType, pages: usize, memory: *mut r_efi::efi::PhysicalAddress) -> Status {
+extern "efiapi" fn copy_mem(destination: *mut c_void, source: *mut c_void, length: usize) {
+  //nothing about this is safe.
+  unsafe {
+    let dst_buffer = from_raw_parts_mut(destination as *mut u8, length);
+    let src_buffer = from_raw_parts(source as *mut u8, length);
 
-    if memory == core::ptr::null_mut() {
-        return Status::INVALID_PARAMETER;
-    }
+    dst_buffer.copy_from_slice(src_buffer);
+  }
+}
 
-    //TODO: For now we only support "AnyPages" allocation type.
-    if allocation_type != r_efi::system::ALLOCATE_ANY_PAGES {
-        return Status::UNSUPPORTED;
-    }
-
-    let allocator = match get_allocator_for_type(memory_type) {
-        Some(allocator) => allocator,
-        None => return Status::INVALID_PARAMETER
-    };
-
-    let layout = match Layout::from_size_align(pages * UEFI_PAGE_SIZE, UEFI_PAGE_SIZE) {
-        Ok(layout) => layout,
-        Err(_) => return Status::INVALID_PARAMETER
-    };
-
-    match allocator.allocate(layout) {
-        Ok(ptr) => {
-            unsafe {memory.write (ptr.as_ptr() as *mut u8 as u64)}
-            Status::SUCCESS
-        }
-        Err(_) => Status::OUT_OF_RESOURCES
-    }
-}}
-
-eficall! {fn free_pages (memory:r_efi::efi::PhysicalAddress, pages:usize) -> Status {
-
-    let size = match pages.checked_mul(UEFI_PAGE_SIZE) {
-        Some(size) => size,
-        None => return Status::INVALID_PARAMETER
-    };
-
-    if (memory as u64).checked_add(size as u64).is_none() {
-        return Status::INVALID_PARAMETER;
-    }
-
-    let layout = match Layout::from_size_align(size, UEFI_PAGE_SIZE) {
-        Ok(layout) => layout,
-        Err(_) => return Status::INVALID_PARAMETER
-    };
-
-    let address = match NonNull::new(memory as usize as *mut u8) {
-        Some(address) => address,
-        None => return Status::INVALID_PARAMETER
-    };
-
-    match ALL_ALLOCATORS.iter().find(|x|x.contains(address)) {
-        Some(allocator) => {
-            unsafe {allocator.deallocate(address, layout)};
-            Status::SUCCESS
-        },
-        None => Status::NOT_FOUND
-    }
-}}
-
-eficall! {fn copy_mem (destination: *mut c_void, source: *mut c_void, length: usize){
-    //nothing about this is safe.
-    unsafe {
-        let dst_buffer = from_raw_parts_mut(destination as *mut u8, length);
-        let src_buffer = from_raw_parts(source as *mut u8, length);
-
-        dst_buffer.copy_from_slice(src_buffer);
-    }
-}}
-
-eficall! {fn set_mem (buffer: *mut c_void, size: usize, value: u8) {
-    //nothing about this is safe.
-    unsafe {
-        let dst_buffer = from_raw_parts_mut(buffer as *mut u8, size);
-        dst_buffer.fill(value);
-    }
-}}
+extern "efiapi" fn set_mem(buffer: *mut c_void, size: usize, value: u8) {
+  //nothing about this is safe.
+  unsafe {
+    let dst_buffer = from_raw_parts_mut(buffer as *mut u8, size);
+    dst_buffer.fill(value);
+  }
+}
 
 pub fn init_memory_support(bs: &mut BootServices) {
   bs.allocate_pages = allocate_pages;

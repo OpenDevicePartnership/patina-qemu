@@ -5,7 +5,6 @@ use core::{
 };
 use r_efi::{
   efi::{Guid, Status},
-  eficall, eficall_abi,
   system::{BootServices, ConfigurationTable},
 };
 
@@ -15,7 +14,7 @@ use crate::{
   systemtables::{EfiSystemTable, SYSTEM_TABLE},
 };
 
-eficall! {fn calculate_crc32 (data: *mut c_void, data_size: usize, crc_32: *mut u32) -> Status {
+extern "efiapi" fn calculate_crc32(data: *mut c_void, data_size: usize, crc_32: *mut u32) -> Status {
   if data.is_null() || data_size == 0 || crc_32.is_null() {
     return r_efi::efi::Status::INVALID_PARAMETER;
   }
@@ -26,7 +25,7 @@ eficall! {fn calculate_crc32 (data: *mut c_void, data_size: usize, crc_32: *mut 
   }
 
   r_efi::efi::Status::SUCCESS
-}}
+}
 
 pub fn core_install_configuration_table(
   vendor_guid: Guid,
@@ -111,13 +110,13 @@ pub fn core_install_configuration_table(
   Ok(())
 }
 
-eficall! {fn install_configuration_table (table_guid: *mut Guid, table: *mut c_void) -> Status {
+extern "efiapi" fn install_configuration_table(table_guid: *mut Guid, table: *mut c_void) -> Status {
   if table_guid.is_null() {
-    return r_efi::efi::Status::INVALID_PARAMETER
+    return r_efi::efi::Status::INVALID_PARAMETER;
   }
 
-  let table_guid = unsafe {*table_guid};
-  let table = unsafe {table.as_mut()};
+  let table_guid = unsafe { *table_guid };
+  let table = unsafe { table.as_mut() };
 
   let mut st_guard = SYSTEM_TABLE.lock();
   let st = st_guard.as_mut().expect("System table support not initialized");
@@ -126,7 +125,7 @@ eficall! {fn install_configuration_table (table_guid: *mut Guid, table: *mut c_v
     Err(err) => err,
     Ok(()) => r_efi::efi::Status::SUCCESS,
   }
-}}
+}
 
 pub fn init_misc_boot_services_support(bs: &mut BootServices) {
   bs.calculate_crc32 = calculate_crc32;

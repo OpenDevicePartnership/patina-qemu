@@ -825,9 +825,9 @@ impl SpinLockedEventDb {
   ///
   /// ```
   /// use uefi_event_lib::*;
-  /// use r_efi::{eficall, eficall_abi, efi::*};
+  /// use r_efi::efi::*;
   ///
-  /// eficall! {fn notify_function(_:r_efi::efi::Event, _:*mut core::ffi::c_void){}}
+  /// extern "efiapi" fn notify_function(_:r_efi::efi::Event, _:*mut core::ffi::c_void) {}
   ///
   /// static SPIN_LOCKED_EVENT_DB: SpinLockedEventDb = SpinLockedEventDb::new();
   /// let result = SPIN_LOCKED_EVENT_DB.create_event(
@@ -862,9 +862,9 @@ impl SpinLockedEventDb {
   /// ```
   /// use uefi_event_lib::*;
   /// use core::ffi::c_void;
-  /// use r_efi::{eficall, eficall_abi, efi::*};
+  /// use r_efi::efi::*;
   ///
-  /// eficall! {fn notify_function(_:r_efi::efi::Event, _:*mut core::ffi::c_void){}}
+  /// extern "efiapi" fn notify_function(_:r_efi::efi::Event, _:*mut core::ffi::c_void) {}
   ///
   /// let notify_context = 0x1234 as *mut c_void;
   /// static SPIN_LOCKED_EVENT_DB: SpinLockedEventDb = SpinLockedEventDb::new();
@@ -902,9 +902,9 @@ impl SpinLockedEventDb {
   /// ```
   /// use uefi_event_lib::{SpinLockedEventDb, TimerDelay, EventNotification};
   /// use core::ffi::c_void;
-  /// use r_efi::{eficall, eficall_abi, efi::*};
+  /// use r_efi::efi::*;
   ///
-  /// eficall! {fn notify_function(_:r_efi::efi::Event, _:*mut core::ffi::c_void){}}
+  /// extern "efiapi" fn notify_function(_:r_efi::efi::Event, _:*mut core::ffi::c_void) {};
   ///
   /// let notify_context = 0x1234 as *mut c_void;
   /// static SPIN_LOCKED_EVENT_DB: SpinLockedEventDb = SpinLockedEventDb::new();
@@ -945,9 +945,9 @@ impl SpinLockedEventDb {
   /// ```
   /// use uefi_event_lib::{SpinLockedEventDb, TimerDelay, EventNotification};
   /// use core::ffi::c_void;
-  /// use r_efi::{eficall, eficall_abi, efi::*};
+  /// use r_efi::efi::*;
   ///
-  /// eficall! {fn notify_function(_:r_efi::efi::Event, _:*mut core::ffi::c_void){}}
+  /// extern "efiapi" fn notify_function(_:r_efi::efi::Event, _:*mut core::ffi::c_void) {}
   ///
   /// let notify_context = 0x1234 as *mut c_void;
   /// static SPIN_LOCKED_EVENT_DB: SpinLockedEventDb = SpinLockedEventDb::new();
@@ -988,9 +988,9 @@ impl SpinLockedEventDb {
   /// ```
   /// use uefi_event_lib::{SpinLockedEventDb, TimerDelay, EventNotification};
   /// use core::ffi::c_void;
-  /// use r_efi::{eficall, eficall_abi, efi::*};
+  /// use r_efi::efi::*;
   ///
-  /// eficall! {fn notify_function(_:r_efi::efi::Event, _:*mut core::ffi::c_void){}}
+  /// extern "efiapi" fn notify_function(_:r_efi::efi::Event, _:*mut core::ffi::c_void) {}
   ///
   /// let notify_context = 0x1234 as *mut c_void;
   /// static SPIN_LOCKED_EVENT_DB: SpinLockedEventDb = SpinLockedEventDb::new();
@@ -1048,10 +1048,7 @@ mod tests {
   use core::str::FromStr;
 
   use alloc::{vec, vec::Vec};
-  use r_efi::{
-    eficall, eficall_abi,
-    system::{EVT_NOTIFY_SIGNAL, EVT_TIMER, TPL_CALLBACK, TPL_HIGH_LEVEL, TPL_NOTIFY},
-  };
+  use r_efi::system::{EVT_NOTIFY_SIGNAL, EVT_TIMER, TPL_CALLBACK, TPL_HIGH_LEVEL, TPL_NOTIFY};
   use uuid::Uuid;
 
   use super::*;
@@ -1071,7 +1068,7 @@ mod tests {
     assert_eq!(SPIN_LOCKED_EVENT_DB.lock().events.len(), 0)
   }
 
-  eficall! {fn test_notify_function(_:r_efi::efi::Event, _:*mut core::ffi::c_void){}}
+  extern "efiapi" fn test_notify_function(_: r_efi::efi::Event, _: *mut core::ffi::c_void) {}
 
   #[test]
   fn create_event_should_create_event() {
