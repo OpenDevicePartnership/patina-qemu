@@ -141,9 +141,9 @@
         ]    # Standard Plugin defined paths that should be ignored.
     },
 
-    "RustCoverageCheck": {
-        "Default": .75,
-        "PackageOverrides": {
+    "RustHostUnitTestPlugin": {
+        "Coverage": .75,
+        "CoverageOverrides": {
             "DxeRust": 0.0,
             "UefiRustAllocatorLib": 0.65
         }
