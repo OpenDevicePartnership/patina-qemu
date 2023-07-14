@@ -2,26 +2,23 @@ use core::{ffi::c_void, mem::size_of, slice};
 
 use alloc::{boxed::Box, collections::BTreeMap};
 use r_pi::{
-  firmware_volume::{
-    EfiFvAttributes, EfiFvFileType, EfiSectionType, FfsFileType, FirmwareVolume, EFI_FVB2_MEMORY_MAPPED,
-    EFI_FVB2_READ_STATUS, EFI_FV_FILETYPE_ALL, EFI_SECTION_ALL,
+  fw_fs::{
+    EfiFvAttributes, EfiFvFileAttributes, EfiFvFileType, EfiFvbAttributes2, EfiSectionType, FfsFileRawType,
+    FfsFileType, FfsSectionRawType, FirmwareVolume, FirmwareVolumeBlockProtocol, FirmwareVolumeProtocol,
+    FvFileRawAttribute, Fvb2RawAttributes,
   },
   hob::{Hob, HobList},
-  protocols::{
-    firmware_volume::{self, EFI_FV_FILE_ATTRIB_MEMORY_MAPPED},
-    firmware_volume_block,
-  },
 };
 
 use crate::{allocator::allocate_pool, protocols::core_install_protocol_interface};
 
 struct PrivateFvbData {
-  _interface: Box<firmware_volume_block::Protocol>,
+  _interface: Box<FirmwareVolumeBlockProtocol::Protocol>,
   physical_address: u64,
 }
 
 struct PrivateFvData {
-  _interface: Box<firmware_volume::Protocol>,
+  _interface: Box<FirmwareVolumeProtocol::Protocol>,
   physical_address: u64,
 }
 
@@ -42,8 +39,8 @@ static PRIVATE_FV_DATA: spin::Mutex<PrivateGlobalData> =
   spin::Mutex::new(PrivateGlobalData { fv_information: BTreeMap::new() });
 
 extern "efiapi" fn fvb_get_attributes(
-  this: *mut firmware_volume_block::Protocol,
-  attributes: *mut r_pi::firmware_volume::EfiFvbAttributes2,
+  this: *mut FirmwareVolumeBlockProtocol::Protocol,
+  attributes: *mut EfiFvbAttributes2,
 ) -> r_efi::efi::Status {
   if attributes.is_null() {
     return r_efi::efi::Status::INVALID_PARAMETER;
@@ -64,14 +61,14 @@ extern "efiapi" fn fvb_get_attributes(
 }
 
 extern "efiapi" fn fvb_set_attributes(
-  _this: *mut firmware_volume_block::Protocol,
-  _attributes: *mut r_pi::firmware_volume::EfiFvbAttributes2,
+  _this: *mut FirmwareVolumeBlockProtocol::Protocol,
+  _attributes: *mut EfiFvbAttributes2,
 ) -> r_efi::efi::Status {
   r_efi::efi::Status::UNSUPPORTED
 }
 
 extern "efiapi" fn fvb_get_physical_address(
-  this: *mut firmware_volume_block::Protocol,
+  this: *mut FirmwareVolumeBlockProtocol::Protocol,
   address: *mut r_efi::efi::PhysicalAddress,
 ) -> r_efi::efi::Status {
   if address.is_null() {
@@ -91,7 +88,7 @@ extern "efiapi" fn fvb_get_physical_address(
 }
 
 extern "efiapi" fn fvb_get_block_size(
-  this: *mut firmware_volume_block::Protocol,
+  this: *mut FirmwareVolumeBlockProtocol::Protocol,
   lba: r_efi::efi::Lba,
   block_size: *mut usize,
   number_of_blocks: *mut usize,
@@ -128,7 +125,7 @@ extern "efiapi" fn fvb_get_block_size(
 }
 
 extern "efiapi" fn fvb_read(
-  this: *mut firmware_volume_block::Protocol,
+  this: *mut FirmwareVolumeBlockProtocol::Protocol,
   lba: r_efi::efi::Lba,
   offset: usize,
   num_bytes: *mut usize,
@@ -180,7 +177,7 @@ extern "efiapi" fn fvb_read(
 }
 
 extern "efiapi" fn fvb_write(
-  _this: *mut firmware_volume_block::Protocol,
+  _this: *mut FirmwareVolumeBlockProtocol::Protocol,
   _lba: r_efi::efi::Lba,
   _offset: usize,
   _num_bytes: *mut usize,
@@ -190,7 +187,7 @@ extern "efiapi" fn fvb_write(
 }
 
 extern "efiapi" fn fvb_erase_blocks(
-  _this: *mut firmware_volume_block::Protocol,
+  _this: *mut FirmwareVolumeBlockProtocol::Protocol,
   //... TODO: this should be variadic; however, variadics and eficall don't mix well presently.
 ) -> r_efi::efi::Status {
   r_efi::efi::Status::UNSUPPORTED
@@ -201,7 +198,7 @@ fn install_fvb_protocol(
   parent_handle: Option<r_efi::efi::Handle>,
   base_address: u64,
 ) -> Result<r_efi::efi::Handle, r_efi::efi::Status> {
-  let mut fvb_interface = Box::from(firmware_volume_block::Protocol {
+  let mut fvb_interface = Box::from(FirmwareVolumeBlockProtocol::Protocol {
     get_attributes: fvb_get_attributes,
     set_attributes: fvb_set_attributes,
     get_physical_address: fvb_get_physical_address,
@@ -215,7 +212,7 @@ fn install_fvb_protocol(
     },
   });
 
-  let fvb_ptr = fvb_interface.as_mut() as *mut firmware_volume_block::Protocol as *mut c_void;
+  let fvb_ptr = fvb_interface.as_mut() as *mut FirmwareVolumeBlockProtocol::Protocol as *mut c_void;
 
   let private_data = PrivateFvbData { _interface: fvb_interface, physical_address: base_address };
 
@@ -223,11 +220,11 @@ fn install_fvb_protocol(
   PRIVATE_FV_DATA.lock().fv_information.insert(fvb_ptr, PrivateDataItem::FvbData(private_data));
 
   // install the protocol and return status
-  core_install_protocol_interface(handle, firmware_volume_block::PROTOCOL_GUID, fvb_ptr)
+  core_install_protocol_interface(handle, FirmwareVolumeBlockProtocol::GUID, fvb_ptr)
 }
 
 extern "efiapi" fn fv_get_volume_attributes(
-  this: *const firmware_volume::Protocol,
+  this: *const FirmwareVolumeProtocol::Protocol,
   fv_attributes: *mut EfiFvAttributes,
 ) -> r_efi::efi::Status {
   if fv_attributes.is_null() {
@@ -249,19 +246,19 @@ extern "efiapi" fn fv_get_volume_attributes(
 }
 
 extern "efiapi" fn fv_set_volume_attributes(
-  _this: *const firmware_volume::Protocol,
+  _this: *const FirmwareVolumeProtocol::Protocol,
   _fv_attributes: *mut EfiFvAttributes,
 ) -> r_efi::efi::Status {
   r_efi::efi::Status::UNSUPPORTED
 }
 
 extern "efiapi" fn fv_read_file(
-  this: *const firmware_volume::Protocol,
+  this: *const FirmwareVolumeProtocol::Protocol,
   name_guid: *const r_efi::efi::Guid,
   buffer: *mut *mut c_void,
   buffer_size: *mut usize,
   found_type: *mut EfiFvFileType,
-  file_attributes: *mut firmware_volume::EfiFvFileAttributes,
+  file_attributes: *mut EfiFvFileAttributes,
   authentication_status: *mut u32,
 ) -> r_efi::efi::Status {
   if name_guid.is_null()
@@ -285,7 +282,7 @@ extern "efiapi" fn fv_read_file(
 
   let fv = FirmwareVolume::new(fv_data.physical_address);
 
-  if (fv.attributes() & EFI_FVB2_READ_STATUS) == 0 {
+  if (fv.attributes() & Fvb2RawAttributes::READ_STATUS) == 0 {
     return r_efi::efi::Status::ACCESS_DENIED;
   }
 
@@ -338,7 +335,7 @@ extern "efiapi" fn fv_read_file(
 }
 
 extern "efiapi" fn fv_read_section(
-  this: *const firmware_volume::Protocol,
+  this: *const FirmwareVolumeProtocol::Protocol,
   name_guid: *const r_efi::efi::Guid,
   section_type: EfiSectionType,
   section_instance: usize,
@@ -361,7 +358,7 @@ extern "efiapi" fn fv_read_section(
 
   let fv = FirmwareVolume::new(fv_data.physical_address);
 
-  if (fv.attributes() & EFI_FVB2_READ_STATUS) == 0 {
+  if (fv.attributes() & Fvb2RawAttributes::READ_STATUS) == 0 {
     return r_efi::efi::Status::ACCESS_DENIED;
   }
 
@@ -372,7 +369,7 @@ extern "efiapi" fn fv_read_section(
 
   let section; //section needs to live past the match scope below for section_data to live until end of function.
   let section_data = match section_type {
-    EFI_SECTION_ALL => file.file_data(),
+    FfsSectionRawType::ALL => file.file_data(),
     x => {
       let section_candidate = file
         .ffs_sections()
@@ -420,20 +417,20 @@ extern "efiapi" fn fv_read_section(
 }
 
 extern "efiapi" fn fv_write_file(
-  _this: *const firmware_volume::Protocol,
+  _this: *const FirmwareVolumeProtocol::Protocol,
   _number_of_files: u32,
-  _write_policy: firmware_volume::EfiFvWritePolicy,
-  _file_data: *mut firmware_volume::EfiFvWriteFileData,
+  _write_policy: FirmwareVolumeProtocol::EfiFvWritePolicy,
+  _file_data: *mut FirmwareVolumeProtocol::EfiFvWriteFileData,
 ) -> r_efi::efi::Status {
   r_efi::efi::Status::UNSUPPORTED
 }
 
 extern "efiapi" fn fv_get_next_file(
-  this: *const firmware_volume::Protocol,
+  this: *const FirmwareVolumeProtocol::Protocol,
   key: *mut c_void,
   file_type: *mut EfiFvFileType,
   name_guid: *mut r_efi::efi::Guid,
-  attributes: *mut firmware_volume::EfiFvFileAttributes,
+  attributes: *mut EfiFvFileAttributes,
   size: *mut usize,
 ) -> r_efi::efi::Status {
   if key.is_null() || file_type.is_null() || name_guid.is_null() || attributes.is_null() || size.is_null() {
@@ -449,7 +446,7 @@ extern "efiapi" fn fv_get_next_file(
 
   let fv = FirmwareVolume::new(fv_data.physical_address);
 
-  if (fv.attributes() & EFI_FVB2_READ_STATUS) == 0 {
+  if (fv.attributes() & Fvb2RawAttributes::READ_STATUS) == 0 {
     return r_efi::efi::Status::ACCESS_DENIED;
   }
 
@@ -460,21 +457,21 @@ extern "efiapi" fn fv_get_next_file(
     let file = fv
       .ffs_files()
       .filter(|file| {
-        local_file_type == EFI_FV_FILETYPE_ALL
+        local_file_type == FfsFileRawType::ALL
           || file.file_type().and_then(|file_type| Some(file_type as u8 == local_file_type)) == Some(true)
       })
       .nth(local_key);
 
     if let Some(ffs_file) = file {
       match ffs_file.file_type() {
-        Some(FfsFileType::EfiFvFileTypeFfsPad) | Some(FfsFileType::EfiFvFileTypeFfsUnknown) => {
+        Some(FfsFileType::FfsPad) | Some(FfsFileType::FfsUnknown) => {
           local_key += 1;
           continue;
         }
         Some(_) => {
           let mut file_attributes = ffs_file.file_attributes();
-          if (fv.attributes() & EFI_FVB2_MEMORY_MAPPED) == EFI_FVB2_MEMORY_MAPPED {
-            file_attributes |= EFI_FV_FILE_ATTRIB_MEMORY_MAPPED;
+          if (fv.attributes() & Fvb2RawAttributes::MEMORY_MAPPED) == Fvb2RawAttributes::MEMORY_MAPPED {
+            file_attributes |= FvFileRawAttribute::MEMORY_MAPPED;
           }
 
           //found a matching file. Update the key and outputs.
@@ -496,7 +493,7 @@ extern "efiapi" fn fv_get_next_file(
 }
 
 extern "efiapi" fn fv_get_info(
-  _this: *const firmware_volume::Protocol,
+  _this: *const FirmwareVolumeProtocol::Protocol,
   _information_type: *const r_efi::efi::Guid,
   _buffer_size: *mut usize,
   _buffer: *mut c_void,
@@ -505,7 +502,7 @@ extern "efiapi" fn fv_get_info(
 }
 
 extern "efiapi" fn fv_set_info(
-  _this: *const firmware_volume::Protocol,
+  _this: *const FirmwareVolumeProtocol::Protocol,
   _information_type: *const r_efi::efi::Guid,
   _buffer_size: usize,
   _buffer: *const c_void,
@@ -518,7 +515,7 @@ fn install_fv_protocol(
   parent_handle: Option<r_efi::efi::Handle>,
   base_address: u64,
 ) -> Result<r_efi::efi::Handle, r_efi::efi::Status> {
-  let mut fv_interface = Box::from(firmware_volume::Protocol {
+  let mut fv_interface = Box::from(FirmwareVolumeProtocol::Protocol {
     get_volume_attributes: fv_get_volume_attributes,
     set_volume_attributes: fv_set_volume_attributes,
     read_file: fv_read_file,
@@ -534,7 +531,7 @@ fn install_fv_protocol(
     set_info: fv_set_info,
   });
 
-  let fv_ptr = fv_interface.as_mut() as *mut firmware_volume::Protocol as *mut c_void;
+  let fv_ptr = fv_interface.as_mut() as *mut FirmwareVolumeProtocol::Protocol as *mut c_void;
 
   let private_data = PrivateFvData { _interface: fv_interface, physical_address: base_address };
 
@@ -542,7 +539,7 @@ fn install_fv_protocol(
   PRIVATE_FV_DATA.lock().fv_information.insert(fv_ptr, PrivateDataItem::FvData(private_data));
 
   // install the protocol and return status
-  core_install_protocol_interface(handle, firmware_volume::PROTOCOL_GUID, fv_ptr)
+  core_install_protocol_interface(handle, FirmwareVolumeProtocol::GUID, fv_ptr)
 }
 
 fn initialize_hob_fvs(hob_list: &HobList) -> Result<(), r_efi::efi::Status> {

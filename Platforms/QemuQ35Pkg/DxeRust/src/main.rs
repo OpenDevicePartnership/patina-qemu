@@ -6,7 +6,7 @@
 extern crate alloc;
 
 use r_pi::{
-  firmware_volume::{FfsSection, FfsSectionType, FirmwareVolume},
+  fw_fs::{FfsSection, FfsSectionType, FirmwareVolume},
   hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
 };
 
@@ -140,7 +140,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
         return None;
       }
       file.ffs_sections().find_map(|section| {
-        if section.section_type() == Some(FfsSectionType::EfiSectionPe32) {
+        if section.section_type() == Some(FfsSectionType::Pe32) {
           println!("Located target module {:?}", file);
           return Some(section);
         }
