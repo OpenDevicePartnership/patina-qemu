@@ -150,14 +150,15 @@ pub struct ProtocolNotify {
 // This is the main implementation of the protocol database, but public
 // interaction with the database should be via [`SpinLockedProtocolDb`] below.
 struct ProtocolDb {
-  handles: Vec<BTreeMap<OrdGuid, ProtocolInstance>>,
+  handles: BTreeMap<usize, BTreeMap<OrdGuid, ProtocolInstance>>,
   notifications: BTreeMap<OrdGuid, Vec<ProtocolNotify>>,
+  next_handle: usize,
   next_registration: usize,
 }
 
 impl ProtocolDb {
   const fn new() -> Self {
-    ProtocolDb { handles: Vec::new(), notifications: BTreeMap::new(), next_registration: 1 }
+    ProtocolDb { handles: BTreeMap::new(), notifications: BTreeMap::new(), next_handle: 1, next_registration: 1 }
   }
 
   fn install_protocol_interface(
@@ -167,27 +168,30 @@ impl ProtocolDb {
     interface: *mut c_void,
   ) -> Result<(r_efi::efi::Handle, Vec<ProtocolNotify>), r_efi::efi::Status> {
     //generate an output handle.
-    let (output_handle, index) = match handle {
+    let (output_handle, key) = match handle {
       Some(handle) => {
         //installing on existing handle.
         if !self.validate_handle(handle) {
           //handle is invalid.
           return Err(r_efi::efi::Status::INVALID_PARAMETER);
         }
-        let index = (handle as usize) - 1;
-        (handle, index)
+        let key = handle as usize;
+        (handle, key)
       }
       None => {
-        //installing on a new handle. Add a BTreeSet to track protocol instances on the new handle.
-        let index = self.handles.len();
-        self.handles.push(BTreeMap::new());
-        let handle = (index + 1) as r_efi::efi::Handle;
-        (handle, index)
+        //installing on a new handle. Add a BTreeMap to track protocol instances on the new handle.
+        let key = self.next_handle;
+        self.next_handle += 1;
+        self.handles.insert(key, BTreeMap::new());
+        let handle = key as r_efi::efi::Handle;
+        (handle, key)
       }
     };
-    assert!(index < self.handles.len()); //above logic should guarantee a valid index.
+    debug_assert!(self.handles.contains_key(&key)); //above logic should guarantee a valid key. Is debug assert to avoid perf cost of contains() in release.
 
-    if self.handles[index].contains_key(&OrdGuid(protocol)) {
+    let handle_instance = self.handles.get_mut(&key).unwrap();
+
+    if handle_instance.contains_key(&OrdGuid(protocol)) {
       return Err(r_efi::efi::Status::INVALID_PARAMETER);
     }
 
@@ -196,7 +200,8 @@ impl ProtocolDb {
       ProtocolInstance { interface, opened_by_driver: false, opened_by_exclusive: false, usage: Vec::new() };
 
     //attempt to add the protocol to the set of protocols on this handle.
-    assert!(self.handles[index].insert(OrdGuid(protocol), protocol_instance).is_none());
+    let exists = handle_instance.insert(OrdGuid(protocol), protocol_instance);
+    assert!(exists.is_none()); //should be guaranteed by the `contains_key` check above.
 
     //determine if there are any events to be notified.
     if let Some(events) = self.notifications.get_mut(&OrdGuid(protocol)) {
@@ -222,9 +227,10 @@ impl ProtocolDb {
       return Err(r_efi::efi::Status::INVALID_PARAMETER);
     }
 
-    let index = handle as usize - 1;
-
-    let instance = self.handles[index].get(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::NOT_FOUND)?;
+    let key = handle as usize;
+    let handle_instance =
+      self.handles.get_mut(&key).expect("Invalid handle should not occur due to prior handle validation.");
+    let instance = handle_instance.get(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::NOT_FOUND)?;
 
     if instance.interface != interface {
       return Err(r_efi::efi::Status::NOT_FOUND);
@@ -242,7 +248,13 @@ impl ProtocolDb {
         return Err(r_efi::efi::Status::ACCESS_DENIED);
       }
     }
-    self.handles[index].remove(&OrdGuid(protocol)).unwrap();
+    handle_instance.remove(&OrdGuid(protocol));
+
+    //if the last protocol instance on a handle is removed, delete the structures associated with the handles.
+    if handle_instance.len() == 0 {
+      self.handles.remove(&key);
+    }
+
     Ok(())
   }
 
@@ -261,9 +273,11 @@ impl ProtocolDb {
       return Err(r_efi::efi::Status::INVALID_PARAMETER);
     }
 
-    let index = handle as usize - 1;
+    let key = handle as usize;
 
-    let instance = self.handles[index].get(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::NOT_FOUND)?;
+    let handle_instance = self.handles.get_mut(&key).ok_or(r_efi::efi::Status::NOT_FOUND)?;
+
+    let instance = handle_instance.get(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::NOT_FOUND)?;
 
     if instance.interface != old_interface {
       return Err(r_efi::efi::Status::NOT_FOUND);
@@ -281,7 +295,7 @@ impl ProtocolDb {
         return Err(r_efi::efi::Status::ACCESS_DENIED);
       }
     }
-    self.handles[index].remove(&OrdGuid(protocol)).unwrap();
+    handle_instance.remove(&OrdGuid(protocol));
 
     //create a new protocol instance to match the input.
     let protocol_instance = ProtocolInstance {
@@ -292,7 +306,8 @@ impl ProtocolDb {
     };
 
     //attempt to add the protocol to the set of protocols on this handle.
-    assert!(self.handles[index].insert(OrdGuid(protocol), protocol_instance).is_none());
+    let exists = handle_instance.insert(OrdGuid(protocol), protocol_instance);
+    assert!(exists.is_none(), "protocol has been removed, so it should not already exist here");
 
     //determine if there are any events to be notified.
     if let Some(events) = self.notifications.get_mut(&OrdGuid(protocol)) {
@@ -315,12 +330,11 @@ impl ProtocolDb {
     let handles: Vec<r_efi::efi::Handle> = self
       .handles
       .iter()
-      .zip(0..self.handles.len())
-      .filter_map(|(instance, index)| {
-        if protocol.is_none() || instance.contains_key(&OrdGuid(protocol.unwrap())) {
-          Some((index + 1) as r_efi::efi::Handle)
-        } else {
-          None
+      .filter_map(|(key, handle_data)| {
+        match protocol {
+          None => Some(*key as r_efi::efi::Handle), //"None" means return all handles.
+          Some(protocol) if handle_data.contains_key(&OrdGuid(protocol)) => Some(*key as r_efi::efi::Handle),
+          _ => None,
         }
       })
       .collect();
@@ -331,7 +345,7 @@ impl ProtocolDb {
   }
 
   fn locate_protocol(&mut self, protocol: r_efi::efi::Guid) -> Result<*mut c_void, r_efi::efi::Status> {
-    let interface = self.handles.iter().find_map(|x| x.get(&OrdGuid(protocol)));
+    let interface = self.handles.values().find_map(|x| x.get(&OrdGuid(protocol)));
 
     match interface {
       Some(interface) => Ok(interface.interface),
@@ -347,20 +361,20 @@ impl ProtocolDb {
     if !self.validate_handle(handle) {
       return Err(r_efi::efi::Status::INVALID_PARAMETER);
     }
-    let index = handle as usize - 1;
-    let instance = self.handles[index].get_mut(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::UNSUPPORTED)?;
+    let key = handle as usize;
+    let handle_instance = self.handles.get_mut(&key).ok_or(r_efi::efi::Status::NOT_FOUND)?;
+    let instance = handle_instance.get_mut(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::UNSUPPORTED)?;
     Ok(instance.interface)
   }
 
   fn validate_handle(&self, handle: r_efi::efi::Handle) -> bool {
     let handle = handle as usize;
     //to be valid, handle must be in the range of handles created,
-    if !(handle > 0 && handle <= self.handles.len()) {
+    if !(handle > 0 && handle <= self.next_handle) {
       return false;
     }
-    //and has to have at least one protocol installed on it.
-    let index = handle as usize - 1;
-    self.handles[index].len() != 0
+    //and exist in the handle database (i.e. not have been deleted).
+    self.handles.contains_key(&handle)
   }
 
   fn add_protocol_usage(
@@ -383,8 +397,9 @@ impl ProtocolDb {
       return Err(r_efi::efi::Status::INVALID_PARAMETER);
     }
 
-    let index = handle as usize - 1;
-    let instance = self.handles[index].get_mut(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::UNSUPPORTED)?;
+    let key = handle as usize;
+    let handle_instance = self.handles.get_mut(&key).ok_or(r_efi::efi::Status::UNSUPPORTED)?;
+    let instance = handle_instance.get_mut(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::UNSUPPORTED)?;
 
     let new_using_agent = OpenProtocolInformation::new(handle, agent_handle, controller_handle, attributes)?;
     let exact_match = instance.usage.iter_mut().find(|user| user == &&new_using_agent);
@@ -450,8 +465,9 @@ impl ProtocolDb {
     if controller_handle.is_some() && !self.validate_handle(controller_handle.unwrap()) {
       return Err(r_efi::efi::Status::INVALID_PARAMETER);
     }
-    let index = handle as usize - 1;
-    let instance = self.handles[index].get_mut(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::UNSUPPORTED)?;
+    let key = handle as usize;
+    let handle_instance = self.handles.get_mut(&key).ok_or(r_efi::efi::Status::UNSUPPORTED)?;
+    let instance = handle_instance.get_mut(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::UNSUPPORTED)?;
     let mut removed = false;
     instance.usage.retain(|x| {
       if (x.agent_handle == agent_handle) && (x.controller_handle == controller_handle) {
@@ -488,8 +504,9 @@ impl ProtocolDb {
       return Err(r_efi::efi::Status::INVALID_PARAMETER);
     }
 
-    let index = handle as usize - 1;
-    let instance = self.handles[index].get_mut(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::NOT_FOUND)?;
+    let key = handle as usize;
+    let handle_instance = self.handles.get_mut(&key).ok_or(r_efi::efi::Status::NOT_FOUND)?;
+    let instance = handle_instance.get_mut(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::NOT_FOUND)?;
 
     Ok(instance.usage.clone())
   }
@@ -501,9 +518,8 @@ impl ProtocolDb {
     if !self.validate_handle(handle) {
       return Err(r_efi::efi::Status::INVALID_PARAMETER);
     }
-
-    let index = handle as usize - 1;
-    Ok(self.handles[index].keys().clone().map(|x| x.0).collect())
+    let key = handle as usize;
+    Ok(self.handles[&key].keys().clone().map(|x| x.0).collect())
   }
 
   fn register_protocol_notify(
@@ -1165,8 +1181,9 @@ mod tests {
       opened_by_exclusive: false,
       usage: Vec::new(),
     };
-    let index = handle as usize - 1;
-    let protocol_instance = &SPIN_LOCKED_PROTOCOL_DB.lock().handles[index];
+    let key = handle as usize;
+    let mut db = SPIN_LOCKED_PROTOCOL_DB.lock();
+    let protocol_instance = db.handles.get_mut(&key).unwrap();
     let created_instance = protocol_instance.get(&OrdGuid(guid1)).unwrap();
     assert_eq!(test_instance.interface, created_instance.interface);
   }
@@ -1180,12 +1197,12 @@ mod tests {
     let interface1: *mut c_void = 0x1234 as *mut c_void;
 
     let (handle, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
-    let index = handle as usize - 1;
+    let key = handle as usize;
 
     SPIN_LOCKED_PROTOCOL_DB.uninstall_protocol_interface(handle, guid1, interface1).unwrap();
 
-    let protocol_instance = &SPIN_LOCKED_PROTOCOL_DB.lock().handles[index];
-    assert_eq!(protocol_instance.contains_key(&OrdGuid(guid1)), false);
+    let mut db = SPIN_LOCKED_PROTOCOL_DB.lock();
+    assert!(db.handles.get_mut(&key).is_none());
   }
 
   #[test]
@@ -1197,11 +1214,11 @@ mod tests {
     let interface1: *mut c_void = 0x1234 as *mut c_void;
 
     let (handle, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
-    let index = handle as usize - 1;
+    let key = handle as usize;
 
     // fish out the created instance, and add a fake ProtocolUsingAgent to simulate the
     // protocol being "OPEN_PROTOCOL_BY_DRIVER"
-    let mut instance = SPIN_LOCKED_PROTOCOL_DB.lock().handles[index].remove(&OrdGuid(guid1)).unwrap();
+    let mut instance = SPIN_LOCKED_PROTOCOL_DB.lock().handles.get_mut(&key).unwrap().remove(&OrdGuid(guid1)).unwrap();
 
     instance.usage.push(OpenProtocolInformation {
       agent_handle: None,
@@ -1210,12 +1227,13 @@ mod tests {
       open_count: 1,
     });
 
-    SPIN_LOCKED_PROTOCOL_DB.lock().handles[index].insert(OrdGuid(guid1), instance);
+    SPIN_LOCKED_PROTOCOL_DB.lock().handles.get_mut(&key).unwrap().insert(OrdGuid(guid1), instance);
 
     let err = SPIN_LOCKED_PROTOCOL_DB.uninstall_protocol_interface(handle, guid1, interface1);
     assert_eq!(err, Err(r_efi::efi::Status::ACCESS_DENIED));
 
-    let protocol_instance = &SPIN_LOCKED_PROTOCOL_DB.lock().handles[index];
+    let mut db = SPIN_LOCKED_PROTOCOL_DB.lock();
+    let protocol_instance = db.handles.get_mut(&key).unwrap();
     assert_eq!(protocol_instance.contains_key(&OrdGuid(guid1)), true);
   }
 
@@ -1250,10 +1268,11 @@ mod tests {
     let interface2: *mut c_void = 0x4321 as *mut c_void;
 
     let (handle, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
-    let index = handle as usize - 1;
+    let key = handle as usize;
 
     SPIN_LOCKED_PROTOCOL_DB.reinstall_protocol_interface(handle, guid1, interface1, interface2).unwrap();
-    let protocol_instance = &SPIN_LOCKED_PROTOCOL_DB.lock().handles[index];
+    let mut db = SPIN_LOCKED_PROTOCOL_DB.lock();
+    let protocol_instance = db.handles.get_mut(&key).unwrap();
     assert_eq!(protocol_instance.get(&OrdGuid(guid1)).unwrap().interface, interface2);
   }
 
@@ -1346,7 +1365,7 @@ mod tests {
       .add_protocol_usage(handle1, guid1, Some(handle2), Some(handle3), OPEN_PROTOCOL_GET_PROTOCOL)
       .unwrap();
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     drop(protocol_db);
@@ -1356,7 +1375,7 @@ mod tests {
       .add_protocol_usage(handle1, guid1, Some(handle2), Some(handle3), OPEN_PROTOCOL_GET_PROTOCOL)
       .unwrap();
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     assert_eq!(2, protocol_user_list[0].open_count);
     drop(protocol_db);
@@ -1379,7 +1398,7 @@ mod tests {
       .add_protocol_usage(handle1, guid1, Some(handle2), Some(handle3), OPEN_PROTOCOL_BY_CHILD_CONTROLLER)
       .unwrap();
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     drop(protocol_db);
@@ -1389,7 +1408,7 @@ mod tests {
       SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle1, guid1, None, None, OPEN_PROTOCOL_BY_CHILD_CONTROLLER);
     assert_eq!(result, Err(r_efi::efi::Status::INVALID_PARAMETER));
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     drop(protocol_db);
@@ -1404,7 +1423,7 @@ mod tests {
     );
     assert_eq!(result, Err(r_efi::efi::Status::INVALID_PARAMETER));
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     drop(protocol_db);
@@ -1414,7 +1433,7 @@ mod tests {
       .add_protocol_usage(handle4, guid1, Some(handle2), Some(handle1), OPEN_PROTOCOL_EXCLUSIVE)
       .unwrap();
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle4 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle4 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     assert_eq!(OPEN_PROTOCOL_EXCLUSIVE, protocol_user_list[0].attributes);
@@ -1424,7 +1443,7 @@ mod tests {
       .add_protocol_usage(handle4, guid1, Some(handle2), Some(handle3), OPEN_PROTOCOL_BY_CHILD_CONTROLLER)
       .unwrap();
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle4 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle4 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(2, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     assert_eq!(1, protocol_user_list[1].open_count);
@@ -1449,7 +1468,7 @@ mod tests {
     //Adding a usage BY_DRIVER should succeed if no other handles are in the database.
     SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle1, guid1, Some(handle2), Some(handle3), test_attributes).unwrap();
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     assert_eq!(test_attributes, protocol_user_list[0].attributes);
@@ -1461,7 +1480,8 @@ mod tests {
         SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle1, guid1, Some(handle2), Some(handle3), test_attributes);
       assert_eq!(result, Err(r_efi::efi::Status::ALREADY_STARTED));
       let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-      let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+      let protocol_user_list =
+        &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
       assert_eq!(1, protocol_user_list.len());
       assert_eq!(1, protocol_user_list[0].open_count);
       assert_eq!(test_attributes, protocol_user_list[0].attributes);
@@ -1473,7 +1493,7 @@ mod tests {
       SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle1, guid1, Some(handle4), Some(handle3), OPEN_PROTOCOL_BY_DRIVER);
     assert_eq!(result, Err(r_efi::efi::Status::ACCESS_DENIED));
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     assert_eq!(test_attributes, protocol_user_list[0].attributes);
@@ -1484,7 +1504,7 @@ mod tests {
       SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle1, guid1, Some(handle4), Some(handle3), OPEN_PROTOCOL_EXCLUSIVE);
     assert_eq!(result, Err(r_efi::efi::Status::ACCESS_DENIED));
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     assert_eq!(test_attributes, protocol_user_list[0].attributes);
@@ -1495,7 +1515,7 @@ mod tests {
       .add_protocol_usage(handle1, guid1, Some(handle4), Some(handle3), OPEN_PROTOCOL_BY_CHILD_CONTROLLER)
       .unwrap();
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(2, protocol_user_list.len());
     assert_eq!(test_attributes, protocol_user_list[0].attributes);
     assert_eq!(1, protocol_user_list[0].open_count);
@@ -1532,7 +1552,7 @@ mod tests {
     //Adding a usage should succeed if no other handles are in the database.
     SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle1, guid1, Some(handle2), Some(handle3), test_attributes).unwrap();
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     assert_eq!(test_attributes, protocol_user_list[0].attributes);
@@ -1541,7 +1561,7 @@ mod tests {
     //Adding a usage should succeed even if agent_handle is None, but new record should not be added.
     SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle1, guid1, None, Some(handle3), test_attributes).unwrap();
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     assert_eq!(test_attributes, protocol_user_list[0].attributes);
@@ -1550,7 +1570,7 @@ mod tests {
     //Adding a usage should succeed even if agent_handle is None and ControllerHandle is node, but new record should not be added.
     SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle1, guid1, None, None, test_attributes).unwrap();
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     assert_eq!(test_attributes, protocol_user_list[0].attributes);
@@ -1559,7 +1579,7 @@ mod tests {
     //Adding a usage should succeed even if controller_handle is none, and a new record should be added.
     SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle1, guid1, Some(handle2), None, test_attributes).unwrap();
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(2, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[0].open_count);
     assert_eq!(test_attributes, protocol_user_list[0].attributes);
@@ -1581,7 +1601,7 @@ mod tests {
     //Adding a usage should succeed even though the handle is already open BY_DRIVER_EXCLUSIVE
     SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle4, guid1, Some(handle2), None, test_attributes).unwrap();
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(2, protocol_user_list.len());
     assert_eq!(1, protocol_user_list[1].open_count);
     assert_eq!(test_attributes, protocol_user_list[1].attributes);
@@ -1619,7 +1639,8 @@ mod tests {
       SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle, guid1, Some(agent), Some(controller), attributes).unwrap();
       SPIN_LOCKED_PROTOCOL_DB.remove_protocol_usage(handle, guid1, Some(agent), Some(controller)).unwrap();
       let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-      let protocol_user_list = &protocol_db.handles[(handle as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+      let protocol_user_list =
+        &protocol_db.handles.get(&(handle as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
       assert_eq!(0, protocol_user_list.len());
       drop(protocol_db);
     }
@@ -1644,28 +1665,28 @@ mod tests {
     let result = SPIN_LOCKED_PROTOCOL_DB.remove_protocol_usage(handle1, guid1, Some(handle3), Some(handle2));
     assert_eq!(result, Err(r_efi::efi::Status::NOT_FOUND));
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     drop(protocol_db);
 
     let result = SPIN_LOCKED_PROTOCOL_DB.remove_protocol_usage(handle1, guid1, None, Some(handle3));
     assert_eq!(result, Err(r_efi::efi::Status::NOT_FOUND));
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     drop(protocol_db);
 
     let result = SPIN_LOCKED_PROTOCOL_DB.remove_protocol_usage(handle1, guid1, Some(handle2), None);
     assert_eq!(result, Err(r_efi::efi::Status::NOT_FOUND));
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     drop(protocol_db);
 
     let result = SPIN_LOCKED_PROTOCOL_DB.remove_protocol_usage(handle1, guid1, None, None);
     assert_eq!(result, Err(r_efi::efi::Status::NOT_FOUND));
     let protocol_db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_user_list = &protocol_db.handles[(handle1 as usize) - 1].get(&OrdGuid(guid1)).unwrap().usage;
+    let protocol_user_list = &protocol_db.handles.get(&(handle1 as usize)).unwrap().get(&OrdGuid(guid1)).unwrap().usage;
     assert_eq!(1, protocol_user_list.len());
     drop(protocol_db);
   }
