@@ -171,10 +171,7 @@ impl ProtocolDb {
     let (output_handle, key) = match handle {
       Some(handle) => {
         //installing on existing handle.
-        if !self.validate_handle(handle) {
-          //handle is invalid.
-          return Err(r_efi::efi::Status::INVALID_PARAMETER);
-        }
+        self.validate_handle(handle)?;
         let key = handle as usize;
         (handle, key)
       }
@@ -223,9 +220,7 @@ impl ProtocolDb {
     protocol: r_efi::efi::Guid,
     interface: *mut c_void,
   ) -> Result<(), r_efi::efi::Status> {
-    if !self.validate_handle(handle) {
-      return Err(r_efi::efi::Status::INVALID_PARAMETER);
-    }
+    self.validate_handle(handle)?;
 
     let key = handle as usize;
     let handle_instance =
@@ -269,9 +264,7 @@ impl ProtocolDb {
     old_interface: *mut c_void,
     new_interface: *mut c_void,
   ) -> Result<Vec<ProtocolNotify>, r_efi::efi::Status> {
-    if !self.validate_handle(handle) {
-      return Err(r_efi::efi::Status::INVALID_PARAMETER);
-    }
+    self.validate_handle(handle)?;
 
     let key = handle as usize;
 
@@ -358,23 +351,25 @@ impl ProtocolDb {
     handle: r_efi::efi::Handle,
     protocol: r_efi::efi::Guid,
   ) -> Result<*mut c_void, r_efi::efi::Status> {
-    if !self.validate_handle(handle) {
-      return Err(r_efi::efi::Status::INVALID_PARAMETER);
-    }
+    self.validate_handle(handle)?;
+
     let key = handle as usize;
     let handle_instance = self.handles.get_mut(&key).ok_or(r_efi::efi::Status::NOT_FOUND)?;
     let instance = handle_instance.get_mut(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::UNSUPPORTED)?;
     Ok(instance.interface)
   }
 
-  fn validate_handle(&self, handle: r_efi::efi::Handle) -> bool {
+  fn validate_handle(&self, handle: r_efi::efi::Handle) -> Result<(), r_efi::efi::Status> {
     let handle = handle as usize;
     //to be valid, handle must be in the range of handles created,
     if !(handle > 0 && handle <= self.next_handle) {
-      return false;
+      return Err(r_efi::efi::Status::INVALID_PARAMETER);
     }
     //and exist in the handle database (i.e. not have been deleted).
-    self.handles.contains_key(&handle)
+    if !self.handles.contains_key(&handle) {
+      return Err(r_efi::efi::Status::INVALID_PARAMETER);
+    }
+    Ok(())
   }
 
   fn add_protocol_usage(
@@ -385,16 +380,14 @@ impl ProtocolDb {
     controller_handle: Option<r_efi::efi::Handle>,
     attributes: u32,
   ) -> Result<(), r_efi::efi::Status> {
-    if !self.validate_handle(handle) {
-      return Err(r_efi::efi::Status::INVALID_PARAMETER);
+    self.validate_handle(handle)?;
+
+    if let Some(agent) = agent_handle {
+      self.validate_handle(agent)?;
     }
 
-    if agent_handle.is_some() && !self.validate_handle(agent_handle.unwrap()) {
-      return Err(r_efi::efi::Status::INVALID_PARAMETER);
-    }
-
-    if controller_handle.is_some() && !self.validate_handle(controller_handle.unwrap()) {
-      return Err(r_efi::efi::Status::INVALID_PARAMETER);
+    if let Some(controller) = controller_handle {
+      self.validate_handle(controller)?;
     }
 
     let key = handle as usize;
@@ -454,17 +447,16 @@ impl ProtocolDb {
     agent_handle: Option<r_efi::efi::Handle>,
     controller_handle: Option<r_efi::efi::Handle>,
   ) -> Result<(), r_efi::efi::Status> {
-    if !self.validate_handle(handle) {
-      return Err(r_efi::efi::Status::INVALID_PARAMETER);
+    self.validate_handle(handle)?;
+
+    if let Some(agent) = agent_handle {
+      self.validate_handle(agent)?;
     }
 
-    if agent_handle.is_some() && !self.validate_handle(agent_handle.unwrap()) {
-      return Err(r_efi::efi::Status::INVALID_PARAMETER);
+    if let Some(controller) = controller_handle {
+      self.validate_handle(controller)?;
     }
 
-    if controller_handle.is_some() && !self.validate_handle(controller_handle.unwrap()) {
-      return Err(r_efi::efi::Status::INVALID_PARAMETER);
-    }
     let key = handle as usize;
     let handle_instance = self.handles.get_mut(&key).ok_or(r_efi::efi::Status::UNSUPPORTED)?;
     let instance = handle_instance.get_mut(&OrdGuid(protocol)).ok_or(r_efi::efi::Status::UNSUPPORTED)?;
@@ -500,9 +492,7 @@ impl ProtocolDb {
     handle: r_efi::efi::Handle,
     protocol: r_efi::efi::Guid,
   ) -> Result<Vec<OpenProtocolInformation>, r_efi::efi::Status> {
-    if !self.validate_handle(handle) {
-      return Err(r_efi::efi::Status::INVALID_PARAMETER);
-    }
+    self.validate_handle(handle)?;
 
     let key = handle as usize;
     let handle_instance = self.handles.get_mut(&key).ok_or(r_efi::efi::Status::NOT_FOUND)?;
@@ -515,9 +505,8 @@ impl ProtocolDb {
     &mut self,
     handle: r_efi::efi::Handle,
   ) -> Result<Vec<r_efi::efi::Guid>, r_efi::efi::Status> {
-    if !self.validate_handle(handle) {
-      return Err(r_efi::efi::Status::INVALID_PARAMETER);
-    }
+    self.validate_handle(handle)?;
+
     let key = handle as usize;
     Ok(self.handles[&key].keys().clone().map(|x| x.0).collect())
   }
@@ -564,8 +553,8 @@ impl ProtocolDb {
   }
 
   fn get_child_handles(&mut self, parent_handle: r_efi::efi::Handle) -> Vec<r_efi::efi::Handle> {
-    if !self.validate_handle(parent_handle) {
-      return vec![];
+    if self.validate_handle(parent_handle).is_err() {
+      return Vec::new();
     }
 
     let handles = &self.handles[&(parent_handle as usize)];
@@ -847,13 +836,14 @@ impl SpinLockedProtocolDb {
     self.lock().get_interface_for_handle(handle, protocol)
   }
 
-  /// Returns true if the handle is a valid handle, false otherwise.
+  /// Returns Ok(()) if the handle is a valid handle, Err(Status::INVALID_PARAMETER) otherwise.
   ///
   /// ## Examples
   ///
   /// ```
   /// # use core::ffi::c_void;
   /// # use r_efi::efi::Guid;
+  /// # use r_efi::efi::Status;
   /// # use std::str::FromStr;
   /// # use uuid::Uuid;
   /// use uefi_protocol_db_lib::SpinLockedProtocolDb;
@@ -866,11 +856,11 @@ impl SpinLockedProtocolDb {
   /// let (handle, notifies) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
   /// let handle2 = (handle as usize + 1) as r_efi::efi::Handle;
   ///
-  /// assert!(SPIN_LOCKED_PROTOCOL_DB.validate_handle(handle));
-  /// assert!(!SPIN_LOCKED_PROTOCOL_DB.validate_handle(handle2));
+  /// assert_eq!(SPIN_LOCKED_PROTOCOL_DB.validate_handle(handle), Ok(()));
+  /// assert_eq!(SPIN_LOCKED_PROTOCOL_DB.validate_handle(handle2), Err(Status::INVALID_PARAMETER));
   /// ```
   ///
-  pub fn validate_handle(&self, handle: r_efi::efi::Handle) -> bool {
+  pub fn validate_handle(&self, handle: r_efi::efi::Handle) -> Result<(), r_efi::efi::Status> {
     self.lock().validate_handle(handle)
   }
 
@@ -1392,9 +1382,9 @@ mod tests {
 
     let (handle1, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
 
-    assert!(SPIN_LOCKED_PROTOCOL_DB.validate_handle(handle1));
+    assert_eq!(SPIN_LOCKED_PROTOCOL_DB.validate_handle(handle1), Ok(()));
     let handle2 = (handle1 as usize + 1) as r_efi::efi::Handle;
-    assert!(!SPIN_LOCKED_PROTOCOL_DB.validate_handle(handle2));
+    assert_eq!(SPIN_LOCKED_PROTOCOL_DB.validate_handle(handle2), Err(r_efi::efi::Status::INVALID_PARAMETER));
   }
 
   #[test]
@@ -1407,7 +1397,7 @@ mod tests {
 
     let (handle1, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
     SPIN_LOCKED_PROTOCOL_DB.uninstall_protocol_interface(handle1, guid1, interface1).unwrap();
-    assert!(!SPIN_LOCKED_PROTOCOL_DB.validate_handle(handle1));
+    assert_eq!(SPIN_LOCKED_PROTOCOL_DB.validate_handle(handle1), Err(r_efi::efi::Status::INVALID_PARAMETER));
   }
 
   #[test]

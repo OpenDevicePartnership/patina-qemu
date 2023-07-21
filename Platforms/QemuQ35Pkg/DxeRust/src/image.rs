@@ -300,9 +300,7 @@ pub fn core_load_image(
   device_path: *mut r_efi::efi::protocols::device_path::Protocol,
   image: Option<&[u8]>,
 ) -> Result<r_efi::efi::Handle, r_efi::efi::Status> {
-  if PROTOCOL_DB.validate_handle(parent_image_handle) == false {
-    return Err(r_efi::efi::Status::INVALID_PARAMETER);
-  }
+  PROTOCOL_DB.validate_handle(parent_image_handle)?;
 
   if image.is_none() && device_path.is_null() {
     return Err(r_efi::efi::Status::INVALID_PARAMETER);

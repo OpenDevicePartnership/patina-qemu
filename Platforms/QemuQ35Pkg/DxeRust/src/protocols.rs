@@ -212,26 +212,15 @@ pub extern "efiapi" fn open_protocol(
   if protocol.is_null() {
     return r_efi::efi::Status::INVALID_PARAMETER;
   }
+
   if interface.is_null() && attributes != r_efi::efi::OPEN_PROTOCOL_TEST_PROTOCOL {
     return r_efi::efi::Status::INVALID_PARAMETER;
   }
 
-  let agent_handle = if PROTOCOL_DB.validate_handle(agent_handle) {
-    Some(agent_handle)
-  } else {
-    if !agent_handle.is_null() {
-      return r_efi::efi::Status::INVALID_PARAMETER;
-    }
-    None
-  };
-  let controller_handle = if PROTOCOL_DB.validate_handle(controller_handle) {
-    Some(controller_handle)
-  } else {
-    if !controller_handle.is_null() {
-      return r_efi::efi::Status::INVALID_PARAMETER;
-    }
-    None
-  };
+  let agent_handle = PROTOCOL_DB.validate_handle(agent_handle).map_or_else(|_err| None, |_ok| Some(agent_handle));
+
+  let controller_handle =
+    PROTOCOL_DB.validate_handle(controller_handle).map_or_else(|_err| None, |_ok| Some(controller_handle));
 
   let status =
     match PROTOCOL_DB.add_protocol_usage(handle, unsafe { *protocol }, agent_handle, controller_handle, attributes) {
@@ -270,22 +259,10 @@ pub extern "efiapi" fn close_protocol(
     return r_efi::efi::Status::INVALID_PARAMETER;
   }
 
-  let agent_handle = if PROTOCOL_DB.validate_handle(agent_handle) {
-    Some(agent_handle)
-  } else {
-    if !agent_handle.is_null() {
-      return r_efi::efi::Status::INVALID_PARAMETER;
-    }
-    None
-  };
-  let controller_handle = if PROTOCOL_DB.validate_handle(controller_handle) {
-    Some(controller_handle)
-  } else {
-    if !controller_handle.is_null() {
-      return r_efi::efi::Status::INVALID_PARAMETER;
-    }
-    None
-  };
+  let agent_handle = PROTOCOL_DB.validate_handle(agent_handle).map_or_else(|_err| None, |_ok| Some(agent_handle));
+
+  let controller_handle =
+    PROTOCOL_DB.validate_handle(controller_handle).map_or_else(|_err| None, |_ok| Some(controller_handle));
 
   match PROTOCOL_DB.remove_protocol_usage(handle, unsafe { *protocol }, agent_handle, controller_handle) {
     Err(err) => err,
