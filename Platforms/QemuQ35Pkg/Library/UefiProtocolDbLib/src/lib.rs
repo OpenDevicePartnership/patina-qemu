@@ -562,6 +562,32 @@ impl ProtocolDb {
     }
     None
   }
+
+  fn get_child_handles(&mut self, parent_handle: r_efi::efi::Handle) -> Vec<r_efi::efi::Handle> {
+    if !self.validate_handle(parent_handle) {
+      return vec![];
+    }
+
+    let handles = &self.handles[&(parent_handle as usize)];
+    let mut child_handles: Vec<r_efi::efi::Handle> = handles
+      .into_iter()
+      .flat_map(|(_, instance)| {
+        //iterate over all the protocol instance usages for the parent handle....
+        instance.usage.iter().filter_map(|open_info| {
+          //and select the ones that opened a protocol instance on the parent_handle BY_CHILD_CONTROLLER
+          //and return the controller_handles that did so (these are the child handles we're looking for).
+          if (open_info.attributes & OPEN_PROTOCOL_BY_CHILD_CONTROLLER) != 0 {
+            Some(open_info.controller_handle.expect("Controller handle must exist if opened by child controller"))
+          } else {
+            None
+          }
+        })
+      })
+      .collect();
+    child_handles.sort(); //dedup needs a sorted vector
+    child_handles.dedup(); //remove any duplicate handles
+    child_handles
+  }
 }
 
 /// Spin-Locked protocol database instance.
@@ -998,7 +1024,6 @@ impl SpinLockedProtocolDb {
   /// ```
   /// # use core::ffi::c_void;
   /// # use r_efi::efi::Guid;
-  /// # use r_efi::efi::OPEN_PROTOCOL_BY_DRIVER;
   /// # use std::str::FromStr;
   /// # use uuid::Uuid;
   /// use uefi_protocol_db_lib::SpinLockedProtocolDb;
@@ -1042,7 +1067,6 @@ impl SpinLockedProtocolDb {
   /// ```
   /// # use core::ffi::c_void;
   /// # use r_efi::efi::Guid;
-  /// # use r_efi::efi::OPEN_PROTOCOL_BY_DRIVER;
   /// # use std::str::FromStr;
   /// # use uuid::Uuid;
   /// use uefi_protocol_db_lib::SpinLockedProtocolDb;
@@ -1079,7 +1103,6 @@ impl SpinLockedProtocolDb {
   /// ```
   /// # use core::ffi::c_void;
   /// # use r_efi::efi::Guid;
-  /// # use r_efi::efi::OPEN_PROTOCOL_BY_DRIVER;
   /// # use std::str::FromStr;
   /// # use uuid::Uuid;
   /// use uefi_protocol_db_lib::SpinLockedProtocolDb;
@@ -1115,7 +1138,6 @@ impl SpinLockedProtocolDb {
   /// ```
   /// # use core::ffi::c_void;
   /// # use r_efi::efi::Guid;
-  /// # use r_efi::efi::OPEN_PROTOCOL_BY_DRIVER;
   /// # use std::str::FromStr;
   /// # use uuid::Uuid;
   /// use uefi_protocol_db_lib::SpinLockedProtocolDb;
@@ -1141,6 +1163,46 @@ impl SpinLockedProtocolDb {
   ///
   pub fn next_handle_for_registration(&self, registration: *mut c_void) -> Option<r_efi::efi::Handle> {
     self.lock().next_handle_for_registration(registration)
+  }
+
+  /// Returns a vector of controller handles that have parent_handle open BY_CHILD_CONTROLLER.
+  ///
+  /// ## Examples
+  /// ```
+  /// # use core::ffi::c_void;
+  /// # use r_efi::efi::Guid;
+  /// # use r_efi::efi::OPEN_PROTOCOL_BY_CHILD_CONTROLLER;
+  /// # use std::str::FromStr;
+  /// # use uuid::Uuid;
+  /// use uefi_protocol_db_lib::SpinLockedProtocolDb;
+  ///
+  /// static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+  /// let uuid1 = Uuid::from_str("0e896c7a-57dc-4987-bc22-abc3a8263210").unwrap();
+  /// let guid1: Guid = unsafe { core::mem::transmute(*uuid1.as_bytes()) };
+  /// let interface1: *mut c_void = 0x1234 as *mut c_void;
+  ///
+  /// let (controller, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+  /// let (driver, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+  /// let (child1, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+  /// let (child2, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+  /// let (child3, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+  /// let (_notchild1, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+  /// let (_notchild2, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+  ///
+  /// for child in [child1, child2, child3] {
+  ///   SPIN_LOCKED_PROTOCOL_DB
+  ///     .add_protocol_usage(controller, guid1, Some(driver), Some(child), OPEN_PROTOCOL_BY_CHILD_CONTROLLER)
+  ///     .unwrap();
+  /// }
+  ///
+  /// let child_list = SPIN_LOCKED_PROTOCOL_DB.get_child_handles(controller);
+  /// assert!(child_list.len() == 3);
+  /// for child in [child1, child2, child3] {
+  ///   assert!(child_list.contains(&child));
+  /// }
+  /// ```
+  pub fn get_child_handles(&self, parent_handle: r_efi::efi::Handle) -> Vec<r_efi::efi::Handle> {
+    self.lock().get_child_handles(parent_handle)
   }
 }
 
@@ -2014,5 +2076,34 @@ mod tests {
     let result = SPIN_LOCKED_PROTOCOL_DB.next_handle_for_registration(reg2);
     assert!(result.is_some());
     assert_eq!(result.unwrap(), hnd3);
+  }
+
+  #[test]
+  fn get_child_handles_should_return_child_handles() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    let uuid1 = Uuid::from_str("0e896c7a-57dc-4987-bc22-abc3a8263210").unwrap();
+    let guid1: Guid = unsafe { core::mem::transmute(*uuid1.as_bytes()) };
+    let interface1: *mut c_void = 0x1234 as *mut c_void;
+
+    let (controller, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+    let (driver, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+    let (child1, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+    let (child2, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+    let (child3, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+    let (_notchild1, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+    let (_notchild2, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
+
+    for child in [child1, child2, child3] {
+      SPIN_LOCKED_PROTOCOL_DB
+        .add_protocol_usage(controller, guid1, Some(driver), Some(child), OPEN_PROTOCOL_BY_CHILD_CONTROLLER)
+        .unwrap();
+    }
+
+    let child_list = SPIN_LOCKED_PROTOCOL_DB.get_child_handles(controller);
+    assert!(child_list.len() == 3);
+    for child in [child1, child2, child3] {
+      assert!(child_list.contains(&child));
+    }
   }
 }
