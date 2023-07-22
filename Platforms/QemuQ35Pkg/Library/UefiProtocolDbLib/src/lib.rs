@@ -487,7 +487,7 @@ impl ProtocolDb {
     Ok(())
   }
 
-  fn get_open_protocol_information(
+  fn get_open_protocol_information_by_protocol(
     &mut self,
     handle: r_efi::efi::Handle,
     protocol: r_efi::efi::Guid,
@@ -991,17 +991,17 @@ impl SpinLockedProtocolDb {
   ///
   /// SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle, guid1, Some(agent_handle), Some(controller_handle), OPEN_PROTOCOL_BY_DRIVER).unwrap();
   ///
-  /// let open_protocol_info = SPIN_LOCKED_PROTOCOL_DB.get_open_protocol_information(handle, guid1).unwrap();
+  /// let open_protocol_info = SPIN_LOCKED_PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, guid1).unwrap();
   /// assert_eq!(open_protocol_info.len(), 1);
   ///
   /// ```
   ///
-  pub fn get_open_protocol_information(
+  pub fn get_open_protocol_information_by_protocol(
     &self,
     handle: r_efi::efi::Handle,
     protocol: r_efi::efi::Guid,
   ) -> Result<Vec<OpenProtocolInformation>, r_efi::efi::Status> {
-    self.lock().get_open_protocol_information(handle, protocol)
+    self.lock().get_open_protocol_information_by_protocol(handle, protocol)
   }
 
   /// Returns a vector of protocol GUIDs that are installed on the given handle.
@@ -1800,7 +1800,8 @@ mod tests {
       SPIN_LOCKED_PROTOCOL_DB.add_protocol_usage(handle, guid1, Some(agent), Some(controller), attributes).unwrap();
     }
 
-    let open_protocol_info_list = SPIN_LOCKED_PROTOCOL_DB.get_open_protocol_information(handle, guid1).unwrap();
+    let open_protocol_info_list =
+      SPIN_LOCKED_PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, guid1).unwrap();
     assert_eq!(attributes_list.len(), test_info.len());
     assert_eq!(attributes_list.len(), open_protocol_info_list.len());
     for idx in 0..attributes_list.len() {
@@ -1832,10 +1833,10 @@ mod tests {
       .add_protocol_usage(handle, guid1, Some(agent), Some(controller), OPEN_PROTOCOL_BY_DRIVER)
       .unwrap();
 
-    let result = SPIN_LOCKED_PROTOCOL_DB.get_open_protocol_information(handle, guid2);
+    let result = SPIN_LOCKED_PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, guid2);
     assert_eq!(result, Err(r_efi::efi::Status::NOT_FOUND));
 
-    let result = SPIN_LOCKED_PROTOCOL_DB.get_open_protocol_information(handle2, guid1);
+    let result = SPIN_LOCKED_PROTOCOL_DB.get_open_protocol_information_by_protocol(handle2, guid1);
     assert_eq!(result, Err(r_efi::efi::Status::NOT_FOUND));
   }
 
@@ -1855,7 +1856,7 @@ mod tests {
       .add_protocol_usage(handle, guid1, Some(agent), Some(controller), OPEN_PROTOCOL_BY_DRIVER)
       .unwrap();
 
-    for info in SPIN_LOCKED_PROTOCOL_DB.get_open_protocol_information(handle, guid1).unwrap() {
+    for info in SPIN_LOCKED_PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, guid1).unwrap() {
       let efi_info = r_efi::efi::OpenProtocolInformationEntry::from(info);
       assert_eq!(efi_info.agent_handle, info.agent_handle.unwrap());
       assert_eq!(efi_info.controller_handle, info.controller_handle.unwrap());

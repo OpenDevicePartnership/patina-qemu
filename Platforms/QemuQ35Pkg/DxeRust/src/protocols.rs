@@ -281,7 +281,7 @@ pub extern "efiapi" fn open_protocol_information(
   }
 
   let mut open_info: Vec<OpenProtocolInformationEntry> =
-    match PROTOCOL_DB.get_open_protocol_information(handle, unsafe { *protocol }) {
+    match PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, unsafe { *protocol }) {
       Err(err) => return err,
       Ok(info) => info.into_iter().map(|x| OpenProtocolInformationEntry::from(x)).collect(),
     };

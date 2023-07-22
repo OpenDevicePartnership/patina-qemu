@@ -537,7 +537,7 @@ pub fn core_unload_image(image_handle: r_efi::efi::Handle, force_unload: bool) -
       Ok(protocols) => protocols,
     };
     for protocol in protocols {
-      let open_infos = match PROTOCOL_DB.get_open_protocol_information(handle, protocol) {
+      let open_infos = match PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, protocol) {
         Err(_) => continue,
         Ok(open_infos) => open_infos,
       };
