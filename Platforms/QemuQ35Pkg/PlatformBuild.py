@@ -219,10 +219,10 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         '''  Retrieve command line options from the argparser '''
         if args.build_arch.upper() != "IA32,X64":
             raise Exception("Invalid Arch Specified.  Please see comments in PlatformBuild.py::PlatformBuilder::AddCommandLineOptions")
-        
+
         if args.package.upper() != "QEMUQ35PKG":
             raise Exception("Invalid Package specified. Must be QemuQ35Pkg")
-        
+
         if args.target is not None:
             shell_environment.GetBuildVars().SetValue("TARGET", args.target, "Set via command line argument")
 
@@ -306,8 +306,11 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         # Enabled all of the SMM modules
         self.env.SetValue("BLD_*_SMM_ENABLED", "TRUE", "Default")
 
+        # Needed until Advanced Logger support is added to DxeRust
+        self.env.SetValue("BLD_*_DEBUG_ON_SERIAL_PORT", "TRUE", "Advanced Logger Workaround")
+
         return 0
-    
+
     def SetPlatformEnvAfterTarget(self):
         logging.debug("PlatformBuilder SetPlatformEnvAfterTarget")
         if os.name == 'nt':
@@ -353,12 +356,12 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         test_regex = self.env.GetValue("TEST_REGEX", "")
         drive_path = self.env.GetValue("VIRTUAL_DRIVE_PATH")
         run_paging_audit = False
- 
+
         # General debugging information for users
         if run_tests:
             if test_regex == "":
                 logging.warning("Running tests, but no Tests specified. use TEST_REGEX to specify tests to run.")
-        
+
             if not empty_drive:
                 logging.info("EMPTY_DRIVE=FALSE. Old files can persist, could effect test results.")
 
@@ -383,7 +386,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
 
             if any("DxePagingAuditTestApp.efi" in os.path.basename(test) for test in test_list):
                 run_paging_audit = True
-                
+
             self.Helper.add_tests(virtual_drive, test_list, auto_run = run_tests, auto_shutdown = shutdown_after_run, paging_audit = run_paging_audit)
         # Otherwise add an empty startup script
         else:
@@ -412,7 +415,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
 
         if not run_tests:
             return 0
-        
+
         # Gather test results if they were run.
         now = datetime.datetime.now()
         FET = FAILURE_EXEMPT_TESTS
@@ -423,7 +426,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
 
         # Filter out tests that are exempt
         tests = list(filter(lambda file: file.name not in FET or not (now - FET.get(file.name)).total_seconds() < FEOL, test_list))
-        tests_exempt = list(filter(lambda file: file.name in FET and (now - FET.get(file.name)).total_seconds() < FEOL, test_list))       
+        tests_exempt = list(filter(lambda file: file.name in FET and (now - FET.get(file.name)).total_seconds() < FEOL, test_list))
         if len(tests_exempt) > 0:
             self.Helper.report_results(virtual_drive, tests_exempt, Path(drive_path).parent / "unit_test_results")
         # Helper located at QemuPkg/Plugins/VirtualDriveManager
