@@ -11,6 +11,7 @@
 #include <Protocol/FirmwareVolume2.h>
 #include <Protocol/FirmwareVolumeBlock.h>
 #include <Protocol/LoadedImage.h>
+#include <Protocol/DriverBinding.h>
 #include <Library/BaseLib.h>
 #include <Library/DebugLib.h>
 #include <Library/DevicePathLib.h>
@@ -1692,6 +1693,295 @@ TestDxeServices (
   ASSERT (Status == EFI_UNSUPPORTED);
 }
 
+// Helper structures and data for Driver services test.
+STATIC UINTN  mCallOrder = 0;
+typedef struct {
+  EFI_DRIVER_BINDING_PROTOCOL    *This;
+  EFI_HANDLE                     Controller;
+  EFI_DEVICE_PATH_PROTOCOL       *RemainingDevicePath;
+} DRIVER_SUPPORTED_START_CONTEXT;
+
+typedef struct {
+  EFI_DRIVER_BINDING_PROTOCOL    *This;
+  EFI_HANDLE                     Controller;
+  UINTN                          NumberOfChildren;
+  EFI_HANDLE                     *ChildHandleBuffer;
+} DRIVER_STOP_CONTEXT;
+
+typedef struct {
+  EFI_STATUS                        SupportedResult;
+  UINTN                             SupportedCallOrder;
+  DRIVER_SUPPORTED_START_CONTEXT    SupportedContext;
+  EFI_STATUS                        StartResult;
+  UINTN                             StartCallOrder;
+  DRIVER_SUPPORTED_START_CONTEXT    StartContext;
+  BOOLEAN                           StartOpenDevPathByDriver;
+  EFI_STATUS                        StopResult;
+  UINTN                             StopCallOrder;
+  DRIVER_STOP_CONTEXT               StopContext;
+  EFI_DRIVER_BINDING_PROTOCOL       Binding;
+} DRIVER_BINDING_TEST_CONTEXT;
+
+EFI_STATUS
+EFIAPI
+TestDriverBindingSupported (
+  IN EFI_DRIVER_BINDING_PROTOCOL  *This,
+  IN EFI_HANDLE                   Controller,
+  IN EFI_DEVICE_PATH_PROTOCOL     *RemainingDevicePath
+  )
+{
+  DRIVER_BINDING_TEST_CONTEXT  *TestContext;
+
+  TestContext = BASE_CR (This, DRIVER_BINDING_TEST_CONTEXT, Binding);
+
+  TestContext->SupportedContext.This                = This;
+  TestContext->SupportedContext.Controller          = Controller;
+  TestContext->SupportedContext.RemainingDevicePath = RemainingDevicePath;
+  TestContext->SupportedCallOrder                   = mCallOrder++;
+
+  DEBUG ((DEBUG_INFO, "[%a], version: %d, call order: %d\n", __FUNCTION__, TestContext->Binding.Version, TestContext->SupportedCallOrder));
+
+  return TestContext->SupportedResult;
+}
+
+EFI_STATUS
+EFIAPI
+TestDriverBindingStart (
+  IN EFI_DRIVER_BINDING_PROTOCOL  *This,
+  IN EFI_HANDLE                   Controller,
+  IN EFI_DEVICE_PATH_PROTOCOL     *RemainingDevicePath
+  )
+{
+  EFI_STATUS                   Status;
+  DRIVER_BINDING_TEST_CONTEXT  *TestContext;
+  EFI_DEVICE_PATH_PROTOCOL     *DevPath;
+
+  TestContext = BASE_CR (This, DRIVER_BINDING_TEST_CONTEXT, Binding);
+
+  TestContext->StartContext.This                = This;
+  TestContext->StartContext.Controller          = Controller;
+  TestContext->StartContext.RemainingDevicePath = RemainingDevicePath;
+  TestContext->StartCallOrder                   = mCallOrder++;
+
+  if (TestContext->StartOpenDevPathByDriver) {
+    Status = gBS->OpenProtocol (Controller, &gEfiDevicePathProtocolGuid, &DevPath, TestContext->Binding.DriverBindingHandle, Controller, EFI_OPEN_PROTOCOL_BY_DRIVER);
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  DEBUG ((DEBUG_INFO, "[%a], version: %d, call order: %d\n", __FUNCTION__, TestContext->Binding.Version, TestContext->StartCallOrder));
+
+  return TestContext->StartResult;
+}
+
+EFI_STATUS
+EFIAPI
+TestDriverBindingStop (
+  IN  EFI_DRIVER_BINDING_PROTOCOL  *This,
+  IN  EFI_HANDLE                   Controller,
+  IN  UINTN                        NumberOfChildren,
+  IN  EFI_HANDLE                   *ChildHandleBuffer
+  )
+{
+  EFI_STATUS                   Status;
+  DRIVER_BINDING_TEST_CONTEXT  *TestContext;
+
+  TestContext = BASE_CR (This, DRIVER_BINDING_TEST_CONTEXT, Binding);
+
+  TestContext->StopContext.This              = This;
+  TestContext->StopContext.Controller        = Controller;
+  TestContext->StopContext.NumberOfChildren  = NumberOfChildren;
+  TestContext->StopContext.ChildHandleBuffer = ChildHandleBuffer;
+  TestContext->StopCallOrder                 = mCallOrder++;
+
+  if (TestContext->StartOpenDevPathByDriver) {
+    Status = gBS->CloseProtocol (Controller, &gEfiDevicePathProtocolGuid, TestContext->Binding.DriverBindingHandle, Controller);
+    ASSERT_EFI_ERROR (Status);
+  }
+
+  DEBUG ((DEBUG_INFO, "[%a], version: %d, call order: %d\n", __FUNCTION__, TestContext->Binding.Version, TestContext->StopCallOrder));
+
+  return TestContext->StopResult;
+}
+
+VOID
+TestDriverServices (
+  IN EFI_HANDLE  ImageHandle
+  )
+{
+  EFI_STATUS                   Status;
+  EFI_HANDLE                   ControllerHandle;
+  EFI_HANDLE                   DriverHandle[10];
+  DRIVER_BINDING_TEST_CONTEXT  *BindingTestContext[10];
+  UINTN                        Idx;
+  CHAR16                       DevPathStr[] = L"PcieRoot(0x3)/Pci(0x0,0x0)/Pci(0x0,0x0)";
+  EFI_DEVICE_PATH_PROTOCOL     *DevPath;
+
+  // NOTE: the following testing is rudimentary, and doesn't test recursive connect/disconnect flows.
+  // This is due to the complexity of modelling such flows - it would require a full mock bus driver that
+  // generates child controllers, etc. For now, just exercise the basic interfaces, and defer full testing
+  // until the full core is running and we can do it with SCT.
+  DEBUG ((DEBUG_INFO, "[%a] Testing EFI driver model support.\n", __FUNCTION__));
+
+  // Set up a test harness for driver bindings.
+  DevPath = ConvertTextToDevicePath (DevPathStr);
+  ASSERT (DevPath != NULL);
+  ControllerHandle = NULL;
+  Status           = gBS->InstallProtocolInterface (&ControllerHandle, &gEfiDevicePathProtocolGuid, EFI_NATIVE_INTERFACE, (VOID **)&DevPath);
+  ASSERT_EFI_ERROR (Status);
+
+  for (Idx = 0; Idx < ARRAY_SIZE (BindingTestContext); Idx++) {
+    BindingTestContext[Idx] = AllocateZeroPool (sizeof (DRIVER_BINDING_TEST_CONTEXT));
+
+    BindingTestContext[Idx]->Binding.Version     = 0;
+    BindingTestContext[Idx]->Binding.Supported   = TestDriverBindingSupported;
+    BindingTestContext[Idx]->Binding.Start       = TestDriverBindingStart;
+    BindingTestContext[Idx]->Binding.Stop        = TestDriverBindingStop;
+    BindingTestContext[Idx]->Binding.ImageHandle = ImageHandle;
+
+    DriverHandle[Idx] = NULL;
+    Status            = gBS->InstallProtocolInterface (&DriverHandle[Idx], &gEfiDriverBindingProtocolGuid, EFI_NATIVE_INTERFACE, &BindingTestContext[Idx]->Binding);
+    ASSERT_EFI_ERROR (Status);
+
+    BindingTestContext[Idx]->Binding.DriverBindingHandle = DriverHandle[Idx];
+  }
+
+  DEBUG ((DEBUG_INFO, "[%a] Check that ConnectController invokes supported on all driver bindings in descending version order.\n", __FUNCTION__));
+  for (Idx = 0; Idx < ARRAY_SIZE (BindingTestContext); Idx++) {
+    ZeroMem (&BindingTestContext[Idx]->SupportedContext, sizeof (DRIVER_SUPPORTED_START_CONTEXT));
+    ZeroMem (&BindingTestContext[Idx]->StartContext, sizeof (DRIVER_SUPPORTED_START_CONTEXT));
+    ZeroMem (&BindingTestContext[Idx]->StopContext, sizeof (DRIVER_STOP_CONTEXT));
+    BindingTestContext[Idx]->SupportedResult          = EFI_UNSUPPORTED;
+    BindingTestContext[Idx]->SupportedCallOrder       = 0;
+    BindingTestContext[Idx]->StartResult              = EFI_UNSUPPORTED;
+    BindingTestContext[Idx]->StartCallOrder           = 0;
+    BindingTestContext[Idx]->StartOpenDevPathByDriver = FALSE;
+    BindingTestContext[Idx]->StopResult               = EFI_UNSUPPORTED;
+    BindingTestContext[Idx]->StopCallOrder            = 0;
+    BindingTestContext[Idx]->Binding.Version          = (UINT32)Idx;
+  }
+
+  Status = gBS->ConnectController (ControllerHandle, NULL, DevPath, FALSE);
+  ASSERT (Status == EFI_NOT_FOUND);
+
+  for (Idx = 0; Idx < ARRAY_SIZE (BindingTestContext); Idx++) {
+    // Check that parameters to DriverBindingSupport() were as expected.
+    ASSERT (BindingTestContext[Idx]->SupportedContext.This == &BindingTestContext[Idx]->Binding);
+    ASSERT (BindingTestContext[Idx]->SupportedContext.Controller == ControllerHandle);
+    ASSERT (BindingTestContext[Idx]->SupportedContext.RemainingDevicePath != NULL);
+    ASSERT (
+      GetDevicePathSize (BindingTestContext[Idx]->SupportedContext.RemainingDevicePath) ==
+      GetDevicePathSize (DevPath)
+      );
+    ASSERT (CompareMem (BindingTestContext[Idx]->SupportedContext.RemainingDevicePath, DevPath, GetDevicePathSize (DevPath)) == 0);
+
+    // Check that call order for DriverBindingSupport was as expected.
+    if (Idx != ARRAY_SIZE (BindingTestContext) - 1) {
+      ASSERT (BindingTestContext[Idx]->SupportedCallOrder > BindingTestContext[Idx+1]->SupportedCallOrder);
+    }
+
+    // Check that no calls were made to Start() or Stop()
+    ASSERT (BindingTestContext[Idx]->StartCallOrder == 0);
+    ASSERT (BindingTestContext[Idx]->StopCallOrder == 0);
+  }
+
+  DEBUG ((DEBUG_INFO, "[%a] Check that ConnectController invokes Start() for any driver bindings that return TRUE from supported().\n", __FUNCTION__));
+  for (Idx = 0; Idx < ARRAY_SIZE (BindingTestContext); Idx++) {
+    ZeroMem (&BindingTestContext[Idx]->SupportedContext, sizeof (DRIVER_SUPPORTED_START_CONTEXT));
+    ZeroMem (&BindingTestContext[Idx]->StartContext, sizeof (DRIVER_SUPPORTED_START_CONTEXT));
+    ZeroMem (&BindingTestContext[Idx]->StopContext, sizeof (DRIVER_STOP_CONTEXT));
+    if ((Idx % 2) == 0) {
+      BindingTestContext[Idx]->SupportedResult = EFI_SUCCESS;
+    } else {
+      BindingTestContext[Idx]->SupportedResult = EFI_UNSUPPORTED;
+    }
+
+    BindingTestContext[Idx]->SupportedCallOrder       = 0;
+    BindingTestContext[Idx]->StartResult              = EFI_UNSUPPORTED;
+    BindingTestContext[Idx]->StartCallOrder           = 0;
+    BindingTestContext[Idx]->StartOpenDevPathByDriver = FALSE;
+    BindingTestContext[Idx]->StopResult               = EFI_UNSUPPORTED;
+    BindingTestContext[Idx]->StopCallOrder            = 0;
+    BindingTestContext[Idx]->Binding.Version          = (UINT32)Idx;
+  }
+
+  Status = gBS->ConnectController (ControllerHandle, NULL, DevPath, FALSE);
+  ASSERT (Status == EFI_NOT_FOUND);
+
+  for (Idx = 0; Idx < ARRAY_SIZE (BindingTestContext); Idx++) {
+    // Check that parameters to DriverBindingSupport() were as expected.
+    ASSERT (BindingTestContext[Idx]->SupportedContext.This == &BindingTestContext[Idx]->Binding);
+    ASSERT (BindingTestContext[Idx]->SupportedContext.Controller == ControllerHandle);
+    ASSERT (BindingTestContext[Idx]->SupportedContext.RemainingDevicePath != NULL);
+    ASSERT (
+      GetDevicePathSize (BindingTestContext[Idx]->SupportedContext.RemainingDevicePath) ==
+      GetDevicePathSize (DevPath)
+      );
+    ASSERT (CompareMem (BindingTestContext[Idx]->SupportedContext.RemainingDevicePath, DevPath, GetDevicePathSize (DevPath)) == 0);
+
+    if (BindingTestContext[Idx]->SupportedResult == EFI_SUCCESS) {
+      ASSERT (BindingTestContext[Idx]->StartContext.This == &BindingTestContext[Idx]->Binding);
+      ASSERT (BindingTestContext[Idx]->StartContext.Controller == ControllerHandle);
+      ASSERT (BindingTestContext[Idx]->StartContext.RemainingDevicePath != NULL);
+      ASSERT (
+        GetDevicePathSize (BindingTestContext[Idx]->StartContext.RemainingDevicePath) ==
+        GetDevicePathSize (DevPath)
+        );
+      ASSERT (CompareMem (BindingTestContext[Idx]->StartContext.RemainingDevicePath, DevPath, GetDevicePathSize (DevPath)) == 0);
+
+      ASSERT (BindingTestContext[Idx]->SupportedCallOrder < BindingTestContext[Idx]->StartCallOrder);
+      if (Idx != ARRAY_SIZE (BindingTestContext) - 1) {
+        ASSERT (BindingTestContext[Idx]->StartCallOrder > BindingTestContext[Idx+1]->StartCallOrder);
+      }
+    } else {
+      ASSERT (BindingTestContext[Idx]->StartCallOrder == 0);
+    }
+
+    // Check that no calls were made to Stop()
+    ASSERT (BindingTestContext[Idx]->StopCallOrder == 0);
+  }
+
+  DEBUG ((DEBUG_INFO, "[%a] Check that DisconnectController invokes Stop() for any driver bindings that opened protocols BY_DRIVER).\n", __FUNCTION__));
+  for (Idx = 0; Idx < ARRAY_SIZE (BindingTestContext); Idx++) {
+    ZeroMem (&BindingTestContext[Idx]->SupportedContext, sizeof (DRIVER_SUPPORTED_START_CONTEXT));
+    ZeroMem (&BindingTestContext[Idx]->StartContext, sizeof (DRIVER_SUPPORTED_START_CONTEXT));
+    ZeroMem (&BindingTestContext[Idx]->StopContext, sizeof (DRIVER_STOP_CONTEXT));
+    if (Idx == 0) {
+      BindingTestContext[Idx]->SupportedResult          = EFI_SUCCESS;
+      BindingTestContext[Idx]->StartResult              = EFI_SUCCESS;
+      BindingTestContext[Idx]->StartOpenDevPathByDriver = TRUE;
+      BindingTestContext[Idx]->StopResult               = EFI_SUCCESS;
+    } else if (Idx == 1) {
+      BindingTestContext[Idx]->SupportedResult          = EFI_SUCCESS;
+      BindingTestContext[Idx]->StartResult              = EFI_SUCCESS;
+      BindingTestContext[Idx]->StartOpenDevPathByDriver = FALSE;
+      BindingTestContext[Idx]->StopResult               = EFI_UNSUPPORTED;
+    } else {
+      BindingTestContext[Idx]->SupportedResult          = EFI_UNSUPPORTED;
+      BindingTestContext[Idx]->StartResult              = EFI_UNSUPPORTED;
+      BindingTestContext[Idx]->StartOpenDevPathByDriver = FALSE;
+      BindingTestContext[Idx]->StopResult               = EFI_UNSUPPORTED;
+    }
+
+    BindingTestContext[Idx]->SupportedCallOrder = 0;
+    BindingTestContext[Idx]->StartCallOrder     = 0;
+    BindingTestContext[Idx]->StopCallOrder      = 0;
+    BindingTestContext[Idx]->Binding.Version    = (UINT32)Idx;
+  }
+
+  Status = gBS->ConnectController (ControllerHandle, NULL, DevPath, FALSE);
+  ASSERT (Status == EFI_SUCCESS);
+
+  Status = gBS->DisconnectController (ControllerHandle, NULL, NULL);
+  ASSERT (Status == EFI_SUCCESS);
+
+  ASSERT (BindingTestContext[0]->StartCallOrder != 0);
+  ASSERT (BindingTestContext[0]->StopCallOrder != 0);
+  ASSERT (BindingTestContext[1]->StartCallOrder != 0);
+  ASSERT (BindingTestContext[1]->StopCallOrder == 0);
+
+  DEBUG ((DEBUG_INFO, "[%a] Testing Complete\n", __FUNCTION__));
+}
+
 EFI_STATUS
 EFIAPI
 RustFfiTestEntry (
@@ -1711,6 +2001,7 @@ RustFfiTestEntry (
   TestFvSupport ();
   TestInstallConfigTableSupport ();
   TestDxeServices ();
+  TestDriverServices (ImageHandle);
 
   // Note: this calls gBS->Exit(), so it should be last as it will not return.
   TestImaging (ImageHandle, SystemTable);
