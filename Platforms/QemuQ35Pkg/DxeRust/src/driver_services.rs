@@ -57,34 +57,34 @@ fn core_connect_single_controller(
 
   //The following sources for driver instances are considered per UEFI Spec 2.10 section 7.3.12:
   //1. Context Override
-  let mut driver_candidate_handles = Vec::new();
-  driver_candidate_handles.extend(get_bindings_for_handles(driver_handles));
+  let mut driver_candidates = Vec::new();
+  driver_candidates.extend(get_bindings_for_handles(driver_handles));
 
   //2. Platform Driver Override
   let mut platform_override_drivers = get_platform_driver_override_bindings(controller_handle);
-  platform_override_drivers.retain(|x| !driver_candidate_handles.contains(x));
-  driver_candidate_handles.append(&mut platform_override_drivers);
+  platform_override_drivers.retain(|x| !driver_candidates.contains(x));
+  driver_candidates.append(&mut platform_override_drivers);
 
   //3. Driver Family Override Search
   let mut family_override_drivers = get_family_override_bindings();
-  family_override_drivers.retain(|x| !driver_candidate_handles.contains(x));
-  driver_candidate_handles.append(&mut family_override_drivers);
+  family_override_drivers.retain(|x| !driver_candidates.contains(x));
+  driver_candidates.append(&mut family_override_drivers);
 
   //4. Bus Specific Driver Override
   let mut bus_override_drivers = get_bus_specific_override_bindings(controller_handle);
-  bus_override_drivers.retain(|x| !driver_candidate_handles.contains(x));
-  driver_candidate_handles.append(&mut bus_override_drivers);
+  bus_override_drivers.retain(|x| !driver_candidates.contains(x));
+  driver_candidates.append(&mut bus_override_drivers);
 
   //5. Driver Binding Search
-  let mut driver_binding_handles = get_all_driver_bindings();
-  driver_binding_handles.retain(|x| !driver_candidate_handles.contains(x));
-  driver_candidate_handles.append(&mut driver_binding_handles);
+  let mut driver_bindings = get_all_driver_bindings();
+  driver_bindings.retain(|x| !driver_candidates.contains(x));
+  driver_candidates.append(&mut driver_bindings);
 
   //loop until no more drivers can be started on handle.
   let mut one_started = false;
   loop {
     let mut started_drivers = Vec::new();
-    for driver_binding_interface in driver_candidate_handles.clone() {
+    for driver_binding_interface in driver_candidates.clone() {
       let driver_binding = unsafe { &mut *(driver_binding_interface) };
       let device_path =
         remaining_device_path.or(Some(core::ptr::null_mut() as *mut device_path::Protocol)).expect("must be some");
@@ -102,7 +102,7 @@ fn core_connect_single_controller(
     if started_drivers.len() == 0 {
       break;
     }
-    driver_candidate_handles.retain(|x| !started_drivers.contains(x));
+    driver_candidates.retain(|x| !started_drivers.contains(x));
   }
 
   if one_started {
@@ -118,14 +118,28 @@ fn core_connect_single_controller(
   Err(Status::NOT_FOUND)
 }
 
-//Safety Note: we can't hold the protocol db lock while executing DriverBinding->Supported()/Start() since they need to
-//access protocol db services. That means we can't guarantee that driver bindings remain valid. For example, if a driver
-//were be unloaded after returning true from Supported() before Start() is called, then the driver binding instance
-//would be invalid and Start() would be an invalid function pointer when invoked. In general, the spec (and therefore
-//this implementation as well as the EDK2 reference) implicitly assumes that DriverBindings that exist at the start of
-//the call to ConnectController() must remain valid for the duration of the ConnectController() call, and undefined
-//behavior may result if they are not.
-pub fn core_connect_controller(
+/// Connects a controller to drivers
+///
+/// This function matches the behavior of EFI_BOOT_SERVICES.ConnectController() API in the UEFI spec 2.10 section
+/// 7.3.12. Refer to the UEFI spec description for details on input parameters, behavior, and error return codes.
+///
+/// ## Safety:
+/// This routine cannot hold the protocol db lock while executing DriverBinding->Supported()/Start() since
+/// they need to access protocol db services. That means this routine can't guarantee that driver bindings remain
+/// valid for the duration of its execution. For example, if a driver were be unloaded in a timer callback after
+/// returning true from Supported() before Start() is called, then the driver binding instance would be uninstalled or
+/// invalid and Start() would be an invalid function pointer when invoked. In general, the spec implicitly assumes
+/// that driver binding instances that are valid at the start of he call to ConnectController() must remain valid for
+/// the duration of the ConnectController() call. If this is not true, then behavior is undefined. This function is
+/// marked unsafe for this reason.
+///
+/// ## Example
+///
+/// ```no_run
+/// let result = core_connect_controller(controller_handle, Vec::new(), None, false);
+/// ```
+///
+pub unsafe fn core_connect_controller(
   handle: Handle,
   driver_handles: Vec<Handle>,
   remaining_device_path: Option<*mut device_path::Protocol>,
@@ -169,14 +183,36 @@ extern "efiapi" fn connect_controller(
   };
 
   let device_path = NonNull::new(remaining_device_path).map(|x| x.as_ptr());
-
-  match core_connect_controller(handle, driver_handles, device_path, recursive.into()) {
-    Err(err) => err,
-    _ => Status::SUCCESS,
+  unsafe {
+    match core_connect_controller(handle, driver_handles, device_path, recursive.into()) {
+      Err(err) => err,
+      _ => Status::SUCCESS,
+    }
   }
 }
 
-pub fn core_disconnect_controller(
+/// Disconnects drivers from a controller.
+///
+/// This function matches the behavior of EFI_BOOT_SERVICES.ConnectController() API in the UEFI spec 2.10 section
+/// 7.3.13. Refer to the UEFI spec description for details on input parameters, behavior, and error return codes.
+///
+/// ## Safety:
+/// This routine cannot hold the protocol db lock while executing DriverBinding->Supported()/Start() since
+/// they need to access protocol db services. That means this routine can't guarantee that driver bindings remain
+/// valid for the duration of its execution. For example, if a driver were be unloaded in a timer callback after
+/// returning true from Supported() before Start() is called, then the driver binding instance would be uninstalled or
+/// invalid and Start() would be an invalid function pointer when invoked. In general, the spec implicitly assumes
+/// that driver binding instances that are valid at the start of he call to ConnectController() must remain valid for
+/// the duration of the ConnectController() call. If this is not true, then behavior is undefined. This function is
+/// marked unsafe for this reason.
+///
+/// ## Example
+///
+/// ```no_run
+/// let result = core_disconnect_controller(controller_handle, None, None);
+/// ```
+///
+pub unsafe fn core_disconnect_controller(
   controller_handle: Handle,
   driver_image_handle: Option<Handle>,
   child_handle: Option<Handle>,
@@ -271,9 +307,11 @@ extern "efiapi" fn disconnect_controller(
 ) -> Status {
   let driver_image_handle = NonNull::new(driver_image_handle).map(|x| x.as_ptr());
   let child_handle = NonNull::new(child_handle).map(|x| x.as_ptr());
-  match core_disconnect_controller(controller_handle, driver_image_handle, child_handle) {
-    Err(err) => err,
-    _ => Status::SUCCESS,
+  unsafe {
+    match core_disconnect_controller(controller_handle, driver_image_handle, child_handle) {
+      Err(err) => err,
+      _ => Status::SUCCESS,
+    }
   }
 }
 
