@@ -1764,7 +1764,7 @@ TestDriverBindingStart (
   TestContext->StartCallOrder                   = mCallOrder++;
 
   if (TestContext->StartOpenDevPathByDriver) {
-    Status = gBS->OpenProtocol (Controller, &gEfiDevicePathProtocolGuid, &DevPath, TestContext->Binding.DriverBindingHandle, Controller, EFI_OPEN_PROTOCOL_BY_DRIVER);
+    Status = gBS->OpenProtocol (Controller, &gEfiDevicePathProtocolGuid, (VOID **)&DevPath, TestContext->Binding.DriverBindingHandle, Controller, EFI_OPEN_PROTOCOL_BY_DRIVER);
     ASSERT_EFI_ERROR (Status);
   }
 
