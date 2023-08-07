@@ -193,7 +193,7 @@ extern "efiapi" fn connect_controller(
 
 /// Disconnects drivers from a controller.
 ///
-/// This function matches the behavior of EFI_BOOT_SERVICES.ConnectController() API in the UEFI spec 2.10 section
+/// This function matches the behavior of EFI_BOOT_SERVICES.DisconnectController() API in the UEFI spec 2.10 section
 /// 7.3.13. Refer to the UEFI spec description for details on input parameters, behavior, and error return codes.
 ///
 /// ## Safety:
