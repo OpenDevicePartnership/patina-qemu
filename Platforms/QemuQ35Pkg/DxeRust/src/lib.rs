@@ -6,6 +6,8 @@
 #![feature(slice_ptr_get)]
 #![feature(c_variadic)]
 #![feature(pointer_byte_offsets)]
+#![feature(is_sorted)]
+#![feature(get_many_mut)]
 use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
 
 extern crate alloc;
@@ -66,4 +68,20 @@ macro_rules! println {
 macro_rules! print {
     ($fmt:expr) => ($crate::serial_print!($fmt));
     ($fmt:expr, $($arg:tt)*) => ($crate::serial_print!($fmt, $($arg)*));
+}
+
+#[macro_export]
+macro_rules! ensure {
+  ($condition:expr, $err:expr) => {{
+    if !($condition) {
+      error!($err);
+    }
+  }};
+}
+
+#[macro_export]
+macro_rules! error {
+  ($err:expr) => {{
+    return Err($err.into()).into();
+  }};
 }

@@ -1,3 +1,7 @@
+mod gcd;
+mod memory_block;
+mod sorted_slice;
+
 use alloc::boxed::Box;
 use core::{ffi::c_void, mem, slice::from_raw_parts};
 
