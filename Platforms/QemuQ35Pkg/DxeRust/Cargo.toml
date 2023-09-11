@@ -29,6 +29,7 @@ spin = {workspace = true}
 uart_16550 = {workspace = true}
 UefiDevicePathLib = {workspace=true}
 UefiEventLib = {workspace=true}
+UefiGcdLib = {workspace=true}
 UefiPe32Lib = {workspace=true}
 UefiProtocolDbLib = {workspace=true}
 UefiRustAllocatorLib = {workspace=true}

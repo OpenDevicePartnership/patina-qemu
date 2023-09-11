@@ -18,6 +18,7 @@ UefiProtocolDbLib = {path = "Platforms/QemuQ35Pkg/Library/UefiProtocolDbLib"}
 UefiRustAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/UefiRustAllocatorLib"}
 RustAdvancedLoggerDxe = {path = "Common/MU/AdvLoggerPkg/Crates/RustAdvancedLoggerDxe"}
 RustBootServicesAllocatorDxe = {path = "Common/MU/MsCorePkg/Crates/RustBootServicesAllocatorDxe"}
+UefiGcdLib = {path = "Platforms/QemuQ35Pkg/Library/UefiGcdLib"}
 
 corosensei = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/corosensei_fork", rev = "b18e710605894b547da505c43d20feae52685ab3", default-features = false }
 crc32fast = { version = "1.3.2", default-features = false }

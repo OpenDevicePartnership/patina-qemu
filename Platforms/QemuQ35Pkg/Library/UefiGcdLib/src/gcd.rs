@@ -12,7 +12,7 @@ use super::{
 };
 
 const MEMORY_BLOCK_SLICE_LEN: usize = 4096;
-const MEMORY_BLOCK_SLICE_SIZE: usize = MEMORY_BLOCK_SLICE_LEN * mem::size_of::<MemoryBlock>();
+pub const MEMORY_BLOCK_SLICE_SIZE: usize = MEMORY_BLOCK_SLICE_LEN * mem::size_of::<MemoryBlock>();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
@@ -408,7 +408,9 @@ impl From<memory_block::Error> for InternalError {
 
 #[cfg(test)]
 mod tests {
+  extern crate std;
   use super::*;
+  use alloc::{vec, vec::Vec};
 
   #[test]
   fn test_gcd_initialization() {

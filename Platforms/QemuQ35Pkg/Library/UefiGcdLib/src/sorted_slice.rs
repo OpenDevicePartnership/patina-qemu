@@ -181,8 +181,9 @@ where
 
 #[cfg(test)]
 mod tests {
-
+  extern crate std;
   use super::*;
+  use alloc::vec::Vec;
 
   #[test]
   fn test_init_state_of_new_sorted_slice() {
