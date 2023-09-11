@@ -24,7 +24,7 @@ extends:
     do_non_ci_setup: true
     do_pr_eval: true
     container_build: false
-    extra_steps:
+    extra_install_step:
     - template: ../../../.azurepipelines/templates/git-config-auth.yml
     - task: RustInstaller@1
       inputs:

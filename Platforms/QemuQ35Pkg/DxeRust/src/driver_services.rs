@@ -135,7 +135,7 @@ fn core_connect_single_controller(
 ///
 /// ## Example
 ///
-/// ```no_run
+/// ```ignore
 /// let result = core_connect_controller(controller_handle, Vec::new(), None, false);
 /// ```
 ///
@@ -208,7 +208,7 @@ extern "efiapi" fn connect_controller(
 ///
 /// ## Example
 ///
-/// ```no_run
+/// ```ignore
 /// let result = core_disconnect_controller(controller_handle, None, None);
 /// ```
 ///

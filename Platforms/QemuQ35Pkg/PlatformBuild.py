@@ -6,15 +6,12 @@
 ##
 import os
 import logging
-import io
-import shutil
 import glob
 import datetime
-import xml.etree.ElementTree
-import tempfile
+import sys
 import uuid
-import string
 
+from edk2toolext import codeql as codeql_helpers
 from edk2toolext.environment import shell_environment
 from edk2toolext.environment.uefi_build import UefiBuilder
 from edk2toolext.invocables.edk2_platform_build import BuildSettingsManager
@@ -26,6 +23,8 @@ from typing import Tuple
 from pathlib import Path
 from io import StringIO
 
+WORKSPACE_ROOT = Path(__file__).parent.parent.parent.cwd()
+
 # Declare test whose failure will not return a non-zero exit code
 FAILURE_EXEMPT_TESTS = {
     "VariablePolicyFuncTestApp.efi": datetime.datetime(2023, 7, 20, 0, 0, 0),
@@ -34,9 +33,10 @@ FAILURE_EXEMPT_TESTS = {
 # Allow failure exempt tests to be ignored for 90 days
 FAILURE_EXEMPT_OMISSION_LENGTH = 90*24*60*60
 
-    # ####################################################################################### #
-    #                                Common Configuration                                     #
-    # ####################################################################################### #
+
+# ####################################################################################### #
+#                                Common Configuration                                     #
+# ####################################################################################### #
 class CommonPlatform():
     ''' Common settings for this platform.  Define static data here and use
         for the different parts of stuart
@@ -45,7 +45,6 @@ class CommonPlatform():
     ArchSupported = ("IA32", "X64")
     TargetsSupported = ("DEBUG", "RELEASE", "NOOPT")
     Scopes = ('qemu', 'qemuq35', 'edk2-build', 'cibuild', 'configdata')
-    WorkspaceRoot = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     PackagesPath = (
         "Platforms",
         "MU_BASECORE",
@@ -60,27 +59,27 @@ class CommonPlatform():
     @staticmethod
     def add_common_command_line_options(parserObj) -> None:
         """Adds command line options common to settings managers."""
-        parserObj.add_argument('--codeql', dest='codeql', action='store_true', default=False,
-            help="Optional - Produces CodeQL results from the build. See "
-                 "MU_BASECORE/.pytool/Plugin/CodeQL/Readme.md for more information.")
+        codeql_helpers.add_command_line_option(parserObj)
 
     @staticmethod
-    def retrieve_common_command_line_options(args) -> bool:
-        """Retrieves command line options common to settings managers."""
-        return args.codeql
+    def is_codeql_enabled(args) -> bool:
+        """Retrieves whether CodeQL is enabled."""
+        return codeql_helpers.is_codeql_enabled_on_command_line(args)
 
     @staticmethod
     def get_active_scopes(codeql_enabled: bool) -> Tuple[str]:
         """Returns the active scopes for the platform."""
         active_scopes = CommonPlatform.Scopes
+        active_scopes += codeql_helpers.get_scopes(codeql_enabled)
 
-        # Enable the CodeQL plugin if chosen on command line
         if codeql_enabled:
-            if GetHostInfo().os == "Linux":
-                active_scopes += ("codeql-linux-ext-dep",)
-            else:
-                active_scopes += ("codeql-windows-ext-dep",)
-            active_scopes += ("codeql-build", "codeql-analyze")
+            codeql_filter_files = [str(n) for n in glob.glob(
+                os.path.join(WORKSPACE_ROOT,
+                                '**/CodeQlFilters.yml'), recursive=True)]
+            shell_environment.GetBuildVars().SetValue(
+                "STUART_CODEQL_FILTER_FILES",
+                ','.join(codeql_filter_files),
+                "Set in CISettings.py")
 
         return active_scopes
 
@@ -95,7 +94,7 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
 
     def RetrieveCommandLineOptions(self, args):
         """Retrieve command line options from the argparser"""
-        self.codeql = CommonPlatform.retrieve_common_command_line_options(args)
+        self.codeql = CommonPlatform.is_codeql_enabled(args)
 
     def GetPackagesSupported(self):
         ''' return iterable of edk2 packages supported by this build.
@@ -143,7 +142,7 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
 
     def GetWorkspaceRoot(self):
         ''' get WorkspacePath '''
-        return CommonPlatform.WorkspaceRoot
+        return str(WORKSPACE_ROOT)
 
     def GetActiveScopes(self):
         ''' return tuple containing scopes that should be active for this process '''
@@ -154,8 +153,6 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
         based on changed files. This should cover things that can't
         be detected as dependencies. '''
         build_these_packages = []
-        submodules = set(map(lambda s: s.path, self.GetRequiredSubmodules()))
-
         possible_packages = potentialPackagesList.copy()
         for f in changedFilesList:
             # BaseTools files that might change the build
@@ -168,9 +165,6 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
             if "platform-build-run-steps.yml" in f:
                 build_these_packages = possible_packages
                 break
-
-            if f in submodules:
-                build_these_packages = possible_packages
 
         return build_these_packages
 
@@ -223,11 +217,11 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         if args.target is not None:
             shell_environment.GetBuildVars().SetValue("TARGET", args.target, "Set via command line argument")
 
-        self.codeql = CommonPlatform.retrieve_common_command_line_options(args)
+        self.codeql = CommonPlatform.is_codeql_enabled(args)
 
     def GetWorkspaceRoot(self):
         ''' get WorkspacePath '''
-        return CommonPlatform.WorkspaceRoot
+        return str(WORKSPACE_ROOT)
 
     def GetPackagesPath(self):
         ''' Return a list of workspace relative paths that should be mapped as edk2 PackagesPath '''
@@ -282,16 +276,13 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         self.env.SetValue("BLD_*_MEMORY_PROTECTION", "TRUE", "Default")
         # Include the MFCI test cert by default, override on the commandline with "BLD_*_SHIP_MODE=TRUE" if you want the retail MFCI cert
         self.env.SetValue("BLD_*_SHIP_MODE", "FALSE", "Default")
-        self.env.SetValue("CONF_AUTOGEN_INCLUDE_PATH", self.mws.join(self.ws, "Platforms", "QemuQ35Pkg", "Include"), "Platform Defined")
+        self.env.SetValue("CONF_AUTOGEN_INCLUDE_PATH", self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuQ35Pkg", "Include"), "Platform Defined")
 
-        self.env.SetValue("YAML_POLICY_FILE", self.mws.join(self.ws, "QemuQ35Pkg", "PolicyData", "PolicyDataUsb.yaml"), "Platform Hardcoded")
-        self.env.SetValue("POLICY_DATA_STRUCT_FOLDER", self.mws.join(self.ws, "QemuQ35Pkg", "Include"), "Platform Defined")
-        self.env.SetValue('POLICY_REPORT_FOLDER', self.mws.join(self.ws, "QemuQ35Pkg", "PolicyData"), "Platform Defined")
-        self.env.SetValue('MU_SCHEMA_DIR', self.mws.join(self.ws, "Platforms", "QemuQ35Pkg", "CfgData"), "Platform Defined")
+        self.env.SetValue('MU_SCHEMA_DIR', self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuQ35Pkg", "CfgData"), "Platform Defined")
         self.env.SetValue('MU_SCHEMA_FILE_NAME', "QemuQ35PkgCfgData.xml", "Platform Hardcoded")
         self.env.SetValue('CONF_PROFILE_PATHS',
-                          self.mws.join(self.ws, 'Platforms', 'QemuQ35Pkg', 'CfgData', 'Profile0QemuQ35PkgCfgData.csv') + " " +
-                          self.mws.join(self.ws, 'Platforms', 'QemuQ35Pkg', 'CfgData', 'Profile1QemuQ35PkgCfgData.csv'),
+                          self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath('QemuQ35Pkg', 'CfgData', 'Profile0QemuQ35PkgCfgData.csv') + " " +
+                          self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath('QemuQ35Pkg', 'CfgData', 'Profile1QemuQ35PkgCfgData.csv'),
                           "Platform Hardcoded"
         )
         self.env.SetValue('CONF_PROFILE_NAMES', "P0,P1", "Platform Hardcoded")
@@ -327,7 +318,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
             logging.info("Override: RUSTC_BOOTSTRAP={}".format(rustc_bootstrap))
 
         # Here we build the secure policy blob for build system to use and add into the targeted FV
-        policy_example_dir = self.mws.join(self.mws.WORKSPACE, "MmSupervisorPkg", "SupervisorPolicyTools", "MmIsolationPoliciesExample.xml")
+        policy_example_dir = self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("MmSupervisorPkg", "SupervisorPolicyTools", "MmIsolationPoliciesExample.xml")
         output_dir = os.path.join(self.env.GetValue("BUILD_OUTPUT_BASE"), "Policy")
         if (not os.path.isdir(output_dir)):
             os.makedirs (output_dir)
@@ -338,6 +329,37 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
             raise Exception("SupervisorPolicyMaker Failed: Errorcode %d" % ret)
         self.env.SetValue("BLD_*_POLICY_BIN_PATH", output_name, "Set generated secure policy path")
         return ret
+
+    # TODO: Validation should be done by parsing the cpu.c file from qemu
+    def __ValidateCpuModelInfo(self):
+        output_file = os.path.join(self.ws, "Build", "BUILDLOG_" +  self.GetName() + ".txt")
+        cpu_brandname_dict = {
+            "phenom": "AMD Phenom(tm) 9550 Quad-Core Processor",
+            "coreduo": "Genuine Intel(R) CPU           T2600  @ 2.16GHz",
+            "core2duo": "Intel(R) Core(TM)2 Duo CPU     T7700  @ 2.40GHz",
+            "Skylake-Client-v1": "Intel Core Processor (Skylake)",
+            "Skylake-Client-v2": "Intel Core Processor (Skylake, IBRS)",
+            "Skylake-Client-v3": "Intel Core Processor (Skylake, IBRS, no TSX)",
+            "Skylake-Client-v4": "Intel Core Processor (Skylake)",
+        }
+
+        cpu_model = self.env.GetValue("CPU_MODEL")
+        cpu_brandname_log = 'CPU Brand Name:'
+
+        with open(output_file, 'r') as handle:
+            logs = handle.readlines()
+            for line in logs:
+                if cpu_brandname_log in line:
+                    cpu_brandname = line.split(cpu_brandname_log)[-1].strip()
+
+                    if cpu_brandname_dict[cpu_model] == cpu_brandname:
+                        logging.critical("CPU brandname matches")
+                        return 0
+
+        # If the right logs are not found
+        logging.error("CPU branding logs missing or incorrect")
+        return -1
+
 
     def __SetEsrtGuidVars(self, var_name, guid_str, desc_string):
         cur_guid = uuid.UUID(guid_str)
@@ -410,6 +432,9 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
             logging.critical("Failed running Qemu")
             return ret
 
+        if self.env.GetValue("CPU_MODEL") is not None:
+            self.__ValidateCpuModelInfo()
+
         if not run_tests:
             return 0
 
@@ -419,7 +444,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         FEOL = FAILURE_EXEMPT_OMISSION_LENGTH
 
         if run_paging_audit:
-            self.Helper.generate_paging_audit (virtual_drive, Path(drive_path).parent / "unit_test_results", self.env.GetValue("VERSION"), "Q35", "X64")
+            self.Helper.generate_paging_audit (virtual_drive, Path(drive_path).parent / "unit_test_results", self.env.GetValue("VERSION"), "Q35")
 
         # Filter out tests that are exempt
         tests = list(filter(lambda file: file.name not in FET or not (now - FET.get(file.name)).total_seconds() < FEOL, test_list))

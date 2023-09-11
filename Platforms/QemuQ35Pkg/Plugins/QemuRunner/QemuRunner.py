@@ -106,8 +106,15 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         else:
             args += " -m 2048"
 
+        cpu_model = env.GetValue("CPU_MODEL")
+        if cpu_model is None:
+            cpu_model = "qemu64"
+
+        logging.log(logging.INFO, "CPU model: " + cpu_model)
+
         #args += " -cpu qemu64,+rdrand,umip,+smep,+popcnt" # most compatible x64 CPU model + RDRAND + UMIP + SMEP +POPCNT support (not included by default)
-        args += " -cpu qemu64,rdrand=on,umip=on,smep=on,pdpe1gb=on,popcnt=on" # most compatible x64 CPU model + RDRAND + UMIP + SMEP + PDPE1GB + POPCNT support (not included by default)
+        cpu_arg = " -cpu " + cpu_model + ",rdrand=on,umip=on,smep=on,pdpe1gb=on,popcnt=on"
+        args += cpu_arg
 
         if env.GetBuildValue ("QEMU_CORE_NUM") is not None:
             args += " -smp " + env.GetBuildValue ("QEMU_CORE_NUM")
@@ -161,7 +168,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             args += " -net none"
             # Mount disk with startup.nsh
             if os.path.isfile(VirtualDrive):
-                args += f" -hdd {VirtualDrive}"
+                args += f" -drive file={VirtualDrive},if=virtio"
             elif os.path.isdir(VirtualDrive):
                 args += f" -drive file=fat:rw:{VirtualDrive},format=raw,media=disk"
             else:

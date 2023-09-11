@@ -13,3 +13,6 @@ tags/
 Cargo.lock
 UefiDbgExt/x64/
 /**/Include/Generated/**
+
+# Ignore Rust build output
+/target

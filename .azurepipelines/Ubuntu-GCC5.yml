@@ -1,5 +1,8 @@
 ## @file
-# Azure Pipeline build file for a build using ubuntu and GCC5.
+# Azure Pipeline build file for a build using Ubuntu and GCC.
+#
+# IMPORTANT: This file requires the local repo to contain a .azurepipelines/Matrix-Build-Job.yml file that
+#            performs the actual build steps for the configurations and packages supported by the repo.
 #
 # NOTE: This file is automatically synchronized from Mu DevOps. Update the original file there
 #       instead of the file in this repo.
@@ -25,13 +28,19 @@ extends:
     do_non_ci_setup: true
     do_pr_eval: true
     container_build: true
+    os_type: Linux
+    rust_build: true
+    extra_cargo_steps:
+      - template: templates/git-config-auth.yml
+      - script: pip install -r pip-requirements.txt --upgrade
+        displayName: Install and Upgrade pip Modules
+        condition: succeeded()
+      - task: CmdLine@2
+        displayName: Repo Setup
+        inputs:
+          script: stuart_setup -c .pytool/CISettings.py
+        condition: succeeded()
     extra_install_step:
-    - task: CmdLine@2
-      displayName: Cargo Format
-      inputs:
-        script: cargo fmt --all --check
-        failOnStandardError: true
-    extra_steps:
     - template: templates/git-config-auth.yml
     # - script: sudo apt-get install libssl-dev
     #  displayName: Install openssl
@@ -52,7 +61,28 @@ extends:
       displayName: Download Cargo Make
     - script: sudo chmod +x $(CARGO_HOME)/bin/cargo-make
     build_matrix:
+#     TARGET_QEMU:
+#       Pkgs: 'QemuPkg'
+#       Targets: 'DEBUG,RELEASE,NO-TARGET,NOOPT'
+#       ArchList: IA32,X64,AARCH64
       TARGET_Q35:
         Pkgs: 'QemuQ35Pkg'
         Targets: 'NO-TARGET'
-        ArchList: 'IA32,X64'
+        ArchList: IA32,X64
+#     TARGET_SBSA:
+#       Pkgs: 'QemuSbsaPkg'
+#       Targets: 'NO-TARGET'
+#       ArchList: AARCH64
+#     TARGET_QEMU_ARM:
+#       Pkgs: 'QemuPkg'
+#       Targets: 'DEBUG,RELEASE,NO-TARGET,NOOPT'
+#       ArchList: IA32,X64,AARCH64
+#       SelfHostAgent: true
+#     TARGET_Q35_ARM:
+#       Pkgs: 'QemuQ35Pkg'
+#       Targets: 'NO-TARGET'
+#       ArchList: IA32,X64
+#       SelfHostAgent: true
+#     TARGET_SBSA_ARM:
+#       Pkgs: 'QemuSbsaPkg'
+#       Targets: 'NO-TARGET'

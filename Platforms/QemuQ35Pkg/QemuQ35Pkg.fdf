@@ -249,6 +249,9 @@ INF  MmSupervisorPkg/Drivers/MmCommunicationBuffer/MmCommunicationBufferPei.inf
 INF  UefiCpuPkg/CpuMpPei/CpuMpPei.inf
 
 !if $(TPM_ENABLE) == TRUE
+!if $(TPM_REPLAY_ENABLED) == TRUE
+INF  TpmTestingPkg/TpmReplayPei/Pei/TpmReplayPei.inf
+!endif
 INF  QemuPkg/Tcg/Tcg2Config/Tcg2ConfigPei.inf
 INF  SecurityPkg/Tcg/Tcg2Pei/Tcg2Pei.inf
 !endif
@@ -339,6 +342,9 @@ INF  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
 INF  MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf
 INF  MdeModulePkg/Universal/Metronome/Metronome.inf
 INF  PcAtChipsetPkg/PcatRealTimeClockRuntimeDxe/PcatRealTimeClockRuntimeDxe.inf
+
+# CPU branding information
+INF  QemuQ35Pkg/CpuInfoDxe/CpuInfoDxe.inf
 
 INF  QemuPkg/VirtioPciDeviceDxe/VirtioPciDeviceDxe.inf
 INF  QemuPkg/Virtio10Dxe/Virtio10.inf
@@ -485,7 +491,11 @@ INF  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
 # TPM support
 #
 !if $(TPM_ENABLE) == TRUE
+!if $(TPM_REPLAY_ENABLED) == TRUE
+INF  TpmTestingPkg/Overrides/Tcg2Dxe/Tcg2Dxe.inf
+!else
 INF  SecurityPkg/Tcg/Tcg2Dxe/Tcg2Dxe.inf
+!endif
 !if $(TPM_CONFIG_ENABLE) == TRUE
 INF  SecurityPkg/Tcg/Tcg2Config/Tcg2ConfigDxe.inf
 !endif
@@ -518,6 +528,7 @@ INF  MdeModulePkg/Bus/Usb/UsbMouseAbsolutePointerDxe/UsbMouseAbsolutePointerDxe.
 INF  DfciPkg/Application/DfciMenu/DfciMenu.inf
 INF  MsGraphicsPkg/PrintScreenLogger/PrintScreenLogger.inf
 INF  SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
+INF  MsCorePkg/HelloWorldRustDxe/HelloWorldRustDxe.inf
 INF  MsCorePkg/AcpiRGRT/AcpiRgrt.inf
 
 #SHARED_CRYPTO Crypto Bin Modules

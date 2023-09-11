@@ -23,7 +23,7 @@ extends:
     do_non_ci_setup: true
     do_pr_eval: true
     container_build: true
-    extra_steps:
+    extra_install_step:
     - template: ../../../.azurepipelines/templates/git-config-auth.yml
     # - script: sudo apt-get install libssl-dev
     #  displayName: Install openssl
