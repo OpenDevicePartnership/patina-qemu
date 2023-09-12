@@ -132,8 +132,7 @@ impl PrivateImageData {
     let wrapped_allocator = AlignedAllocWrapper::new(alignment, allocator);
 
     self.image_buffer = unsafe { Box::new_uninit_slice_in(size, wrapped_allocator).assume_init() };
-    let mut image_info = self.image_info.as_mut();
-    image_info.image_base = self.image_buffer.as_mut_ptr() as *mut c_void;
+    self.image_info.image_base = self.image_buffer.as_mut_ptr() as *mut c_void;
   }
 }
 
@@ -421,10 +420,9 @@ pub extern "efiapi" fn start_image(
     let mut private_data = PRIVATE_IMAGE_DATA.lock();
 
     // mark the image as started and grab a copy of the private info.
-    let mut private_info = private_data.private_image_data.get_mut(&image_handle).unwrap();
+    let private_info = private_data.private_image_data.get_mut(&image_handle).unwrap();
     private_info.started = true;
     let entry_point = private_info.entry_point;
-    drop(private_info);
 
     // save a pointer to the yeilder so that exit() can use it.
     private_data.image_start_contexts.push(yielder as *const Yielder<_, _>);
@@ -601,7 +599,7 @@ extern "efiapi" fn exit(
   // save the exit data, if present, into the private_image_data for this
   // image for start_image to retrieve and return.
   if (exit_data_size != 0) && !exit_data.is_null() {
-    let mut image_data = private_data.private_image_data.get_mut(&image_handle).unwrap();
+    let image_data = private_data.private_image_data.get_mut(&image_handle).unwrap();
     image_data.exit_data = Some((exit_data_size, exit_data));
   }
 

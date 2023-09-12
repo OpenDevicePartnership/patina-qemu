@@ -346,7 +346,7 @@ impl EventDb {
 
   fn signal_event(&mut self, event: r_efi::efi::Event) -> Result<(), r_efi::efi::Status> {
     let id = event as usize;
-    let mut current_event = self.events.get_mut(&id).ok_or(r_efi::efi::Status::INVALID_PARAMETER)?;
+    let current_event = self.events.get_mut(&id).ok_or(r_efi::efi::Status::INVALID_PARAMETER)?;
 
     //signal all the members of the same event group (including the current one), if present.
     if let Some(target_group) = current_event.event_group {
@@ -374,7 +374,7 @@ impl EventDb {
 
   fn clear_signal(&mut self, event: r_efi::efi::Event) -> Result<(), r_efi::efi::Status> {
     let id = event as usize;
-    let mut event = self.events.get_mut(&id).ok_or(r_efi::efi::Status::INVALID_PARAMETER)?;
+    let event = self.events.get_mut(&id).ok_or(r_efi::efi::Status::INVALID_PARAMETER)?;
     event.signalled = false;
     Ok(())
   }

@@ -508,7 +508,7 @@ impl ProtocolDb {
     let key = handle as usize;
     let handle_instance = self.handles.get(&key).ok_or(r_efi::efi::Status::NOT_FOUND)?;
 
-    let usages = handle_instance.iter().map(|(guid, instance)| (guid.clone().0, instance.usage.clone())).collect();
+    let usages = handle_instance.iter().map(|(guid, instance)| (guid.0.clone(), instance.usage.clone())).collect();
 
     Ok(usages)
   }
