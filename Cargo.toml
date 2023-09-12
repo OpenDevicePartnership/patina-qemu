@@ -11,6 +11,7 @@ members = [
 [workspace.dependencies]
 DxeRust = {path = "Platforms/QemuQ35Pkg/DxeRust"}
 DynamicFrameAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/DynamicFrameAllocatorLib"}
+UefiDepexLib = {path = "Platforms/QemuQ35Pkg/Library/UefiDepexLib"}
 UefiDevicePathLib = {path = "Platforms/QemuQ35Pkg/Library/UefiDevicePathLib"}
 UefiEventLib = {path = "Platforms/QemuQ35Pkg/Library/UefiEventLib"}
 UefiPe32Lib = {path = "Platforms/QemuQ35Pkg/Library/UefiPe32Lib"}

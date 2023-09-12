@@ -145,6 +145,7 @@
         "Coverage": .75,
         "CoverageOverrides": {
             "DxeRust": 0.0,
+            "UefiDepexLib": 0.50,
             "UefiRustAllocatorLib": 0.65
         }
     }

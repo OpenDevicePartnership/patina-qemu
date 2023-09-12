@@ -27,6 +27,7 @@ r-pi = {workspace = true}
 scroll = {workspace = true}
 spin = {workspace = true}
 uart_16550 = {workspace = true}
+UefiDepexLib = {workspace=true}
 UefiDevicePathLib = {workspace=true}
 UefiEventLib = {workspace=true}
 UefiGcdLib = {workspace=true}
