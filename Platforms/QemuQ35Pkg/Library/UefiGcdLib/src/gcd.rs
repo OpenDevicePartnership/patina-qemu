@@ -16,6 +16,7 @@ pub const MEMORY_BLOCK_SLICE_SIZE: usize = MEMORY_BLOCK_SLICE_LEN * mem::size_of
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
+  NotInitialized,
   InvalidParameter,
   OutOfResources,
   Unsupported,
@@ -47,9 +48,15 @@ pub struct GCD {
 }
 
 impl GCD {
-  /// Create an instance of the Global Coherency Domain (GCD).
-  pub fn new(processor_address_bits: u32) -> Self {
+  // Create an instance of the Global Coherency Domain (GCD) for testing.
+  #[cfg(test)]
+  pub(crate) const fn new(processor_address_bits: u32) -> Self {
+    assert!(processor_address_bits > 0);
     Self { memory_blocks: None, maximum_address: 1 << processor_address_bits }
+  }
+
+  pub fn init(&mut self, processor_address_bits: u32) {
+    self.maximum_address = 1 << processor_address_bits;
   }
 
   unsafe fn init_memory_blocks(
@@ -59,6 +66,7 @@ impl GCD {
     len: usize,
     capabilities: u64,
   ) -> Result<usize, Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
     ensure!(memory_type == GcdMemoryType::SystemMemory && len >= MEMORY_BLOCK_SLICE_SIZE, Error::OutOfResources);
 
     let unallocated_memory_space = MemoryBlock::Unallocated(MemorySpaceDescriptor {
@@ -100,6 +108,7 @@ impl GCD {
     len: usize,
     capabilities: u64,
   ) -> Result<usize, Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
     ensure!(len > 0, Error::InvalidParameter);
     ensure!(base_address + len <= self.maximum_address, Error::Unsupported);
 
@@ -134,6 +143,7 @@ impl GCD {
   /// # Documentation
   /// UEFI Platform Initialization Specification, Release 1.8, Section II-7.2.4.4
   pub fn remove_memory_space(&mut self, base_address: usize, len: usize) -> Result<(), Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
     ensure!(len > 0, Error::InvalidParameter);
     ensure!(base_address + len <= self.maximum_address, Error::Unsupported);
 
@@ -169,6 +179,7 @@ impl GCD {
     image_handle: Handle,
     device_handle: Option<Handle>,
   ) -> Result<usize, Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
     ensure!(
       len > 0 && image_handle > ptr::null_mut() && memory_type != GcdMemoryType::Unaccepted,
       Error::InvalidParameter
@@ -323,6 +334,7 @@ impl GCD {
   /// # Documentation
   /// UEFI Platform Initialization Specification, Release 1.8, Section II-7.2.4.3
   pub fn free_memory_space(&mut self, base_address: usize, len: usize) -> Result<(), Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
     ensure!(len > 0, Error::InvalidParameter);
     ensure!(base_address + len <= self.maximum_address, Error::Unsupported);
 
@@ -382,7 +394,8 @@ impl GCD {
     Ok(idx)
   }
 
-  pub fn memory_block_count(&self) -> usize {
+  #[cfg(test)]
+  fn memory_block_count(&self) -> usize {
     self.memory_blocks.as_ref().map(|mbs| mbs.len()).unwrap_or(0)
   }
 }
@@ -405,6 +418,62 @@ impl From<memory_block::Error> for InternalError {
     InternalError::MemoryBlockErr(value)
   }
 }
+
+/// Implements a spin locked GCD  suitable for use as a static global.
+#[derive(Debug)]
+pub struct SpinLockedGcd {
+  inner: spin::Mutex<GCD>,
+}
+
+impl SpinLockedGcd {
+  /// Creates a new uninitialized GCD. [`Self::init`] must be invoked before any other functions or they will return
+  /// [`Error::NotInitialized`]
+  pub const fn new() -> Self {
+    Self { inner: spin::Mutex::new(GCD { maximum_address: 0, memory_blocks: None }) }
+  }
+
+  /// Acquires lock and delegates to [`GCD::init`]
+  pub fn init(&self, processor_address_bits: u32) {
+    self.inner.lock().init(processor_address_bits);
+  }
+
+  /// Acquires lock and delegates to [`GCD::add_memory_space`]
+  pub unsafe fn add_memory_space(
+    &self,
+    memory_type: GcdMemoryType,
+    base_address: usize,
+    len: usize,
+    capabilities: u64,
+  ) -> Result<usize, Error> {
+    self.inner.lock().add_memory_space(memory_type, base_address, len, capabilities)
+  }
+
+  /// Acquires lock and delegates to [`GCD::remove_memory_space`]
+  pub fn remove_memory_space(&self, base_address: usize, len: usize) -> Result<(), Error> {
+    self.inner.lock().remove_memory_space(base_address, len)
+  }
+
+  /// Acquires lock and delegates to [`GCD::allocate_memory_space`]
+  pub fn allocate_memory_space(
+    &self,
+    allocate_type: AllocateType,
+    memory_type: GcdMemoryType,
+    alignment: u32,
+    len: usize,
+    image_handle: Handle,
+    device_handle: Option<Handle>,
+  ) -> Result<usize, Error> {
+    self.inner.lock().allocate_memory_space(allocate_type, memory_type, alignment, len, image_handle, device_handle)
+  }
+
+  /// Acquires lock and delegates to [`GCD::free_memory_space`]
+  pub fn free_memory_space(&self, base_address: usize, len: usize) -> Result<(), Error> {
+    self.inner.lock().free_memory_space(base_address, len)
+  }
+}
+
+unsafe impl Sync for SpinLockedGcd {}
+unsafe impl Send for SpinLockedGcd {}
 
 #[cfg(test)]
 mod tests {
@@ -1224,5 +1293,39 @@ mod tests {
   unsafe fn get_memory(size: usize) -> &'static mut [u8] {
     let addr = alloc::alloc::alloc(alloc::alloc::Layout::from_size_align(size, 8).unwrap());
     core::slice::from_raw_parts_mut(addr, size)
+  }
+
+  #[test]
+  fn spin_locked_allocator_should_error_if_not_initialized() {
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+
+    assert_eq!(GCD.inner.lock().maximum_address, 0);
+
+    let add_result = unsafe { GCD.add_memory_space(GcdMemoryType::SystemMemory, 0, 100, 0) };
+    assert_eq!(add_result, Err(Error::NotInitialized));
+
+    let allocate_result =
+      GCD.allocate_memory_space(AllocateType::Address(0), GcdMemoryType::SystemMemory, 0, 10, 1 as _, None);
+    assert_eq!(allocate_result, Err(Error::NotInitialized));
+
+    let free_result = GCD.free_memory_space(0, 10);
+    assert_eq!(free_result, Err(Error::NotInitialized));
+
+    let remove_result = GCD.remove_memory_space(0, 10);
+    assert_eq!(remove_result, Err(Error::NotInitialized));
+  }
+
+  #[test]
+  fn spin_locked_allocator_init_should_initialize() {
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+
+    assert_eq!(GCD.inner.lock().maximum_address, 0);
+
+    let mem = unsafe { get_memory(MEMORY_BLOCK_SLICE_SIZE) };
+    let address = mem.as_ptr() as usize;
+    GCD.init(48);
+    unsafe {
+      GCD.add_memory_space(GcdMemoryType::SystemMemory, address, MEMORY_BLOCK_SLICE_SIZE, 0).unwrap();
+    }
   }
 }
