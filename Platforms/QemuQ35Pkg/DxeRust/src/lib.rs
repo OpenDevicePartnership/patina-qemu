@@ -6,7 +6,7 @@
 #![feature(slice_ptr_get)]
 #![feature(c_variadic)]
 #![feature(pointer_byte_offsets)]
-use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+use uefi_gcd_lib::gcd::SpinLockedGcd;
 
 extern crate alloc;
 pub mod allocator;
@@ -25,7 +25,7 @@ pub mod serial;
 pub mod systemtables;
 pub mod utility;
 
-pub static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+pub static GCD: SpinLockedGcd = SpinLockedGcd::new();
 
 #[cfg(target_os = "uefi")]
 pub fn init() {

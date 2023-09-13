@@ -5,7 +5,7 @@ use core::{
   slice::{from_raw_parts, from_raw_parts_mut},
 };
 
-use crate::FRAME_ALLOCATOR;
+use crate::GCD;
 use r_efi::{
   efi::Status,
   system::{
@@ -17,26 +17,24 @@ use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 
 //EfiReservedMemoryType - no allocator (unused).
 //EfiLoaderCode
-pub static EFI_LOADER_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, LOADER_CODE);
+pub static EFI_LOADER_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, LOADER_CODE);
 //EfiLoaderData
-pub static EFI_LOADER_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, LOADER_DATA);
+pub static EFI_LOADER_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, LOADER_DATA);
 //EfiBootServicesCode
-pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, BOOT_SERVICES_CODE);
+pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_CODE);
 //EfiBootServicesData - (default allocator for DxeRust)
 #[cfg_attr(not(test), global_allocator)]
-pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, BOOT_SERVICES_DATA);
+pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_DATA);
 //EfiRuntimeServicesCode
-pub static EFI_RUNTIME_SERVICES_CODE_ALLOCATOR: UefiAllocator =
-  UefiAllocator::new(&FRAME_ALLOCATOR, RUNTIME_SERVICES_CODE);
+pub static EFI_RUNTIME_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, RUNTIME_SERVICES_CODE);
 //EfiRuntimeServicesData
-pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: UefiAllocator =
-  UefiAllocator::new(&FRAME_ALLOCATOR, RUNTIME_SERVICES_DATA);
+pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, RUNTIME_SERVICES_DATA);
 //EfiConventionalMemory - no allocator (free memory)
 //EfiUnusableMemory - no allocator (unusable)
 //EfiACPIReclaimMemory
-pub static EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, ACPI_RECLAIM_MEMORY);
+pub static EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, ACPI_RECLAIM_MEMORY);
 //EfiACPIMemoryNVS
-pub static EFI_ACPI_MEMORY_NVS_ALLOCATOR: UefiAllocator = UefiAllocator::new(&FRAME_ALLOCATOR, ACPI_MEMORY_NVS);
+pub static EFI_ACPI_MEMORY_NVS_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, ACPI_MEMORY_NVS);
 //EFiMemoryMappedIo - no allocator (MMIO)
 //EFiMemoryMappedIOPortSpace - no allocator (MMIO)
 //EfiPalCode - no allocator (no Itanium support)

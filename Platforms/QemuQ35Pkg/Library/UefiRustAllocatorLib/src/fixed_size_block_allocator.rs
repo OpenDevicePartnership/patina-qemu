@@ -14,12 +14,14 @@ extern crate alloc;
 use core::{
   alloc::{AllocError, Allocator, GlobalAlloc, Layout},
   cmp::max,
+  ffi::c_void,
   fmt::{self, Display},
   mem::{align_of, size_of},
   ptr::{self, slice_from_raw_parts_mut, NonNull},
 };
-use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
 use linked_list_allocator::{align_down, align_up};
+use r_pi::dxe_services::GcdMemoryType;
+use uefi_gcd_lib::gcd::SpinLockedGcd;
 
 /// Type for describing errors that this implementation can produce.
 #[derive(Debug)]
@@ -29,8 +31,10 @@ pub enum FixedSizeBlockAllocatorError {
 }
 
 /// Minimum expansion size - allocator will request at least this much memory
-/// from the underlying frame allocator when expansion is needed.
+/// from the underlying GCD instance expansion is needed.
 pub const MIN_EXPANSION: usize = 0x100000;
+const ALIGNMENT_BITS: u32 = 12;
+const ALIGNMENT: usize = 0x1000;
 
 const BLOCK_SIZES: &[usize] = &[8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096];
 
@@ -75,32 +79,38 @@ impl Iterator for AllocatorIterator {
 ///
 /// Implements an expandable memory allocator using fixed-sized blocks for speed backed by a linked-list allocator
 /// implementation when an appropriate sized free block is not available. If more memory is required than can be
-/// satisfied by either the block list or the linked-list, more memory is requested from a dynamic frame allocator
-/// supplied at instantiation and a new backing linked-list is created.
+/// satisfied by either the block list or the linked-list, more memory is requested from the GCD supplied at
+/// instantiation and a new backing linked-list is created.
 ///
 /// ## Example
 /// ```
 /// # use core::alloc::Layout;
 /// # use std::alloc::System;
 /// # use std::alloc::GlobalAlloc;
+/// # use r_pi::dxe_services::GcdMemoryType;
 ///
-/// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+/// use uefi_gcd_lib::gcd::SpinLockedGcd;
 /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
-/// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+/// # fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
 /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
 /// #   let base = unsafe { System.alloc(layout) as u64 };
 /// #   unsafe {
-/// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+/// #     gcd.add_memory_space(
+/// #       GcdMemoryType::SystemMemory,
+/// #       base as usize,
+/// #       size,
+/// #       0).unwrap();
 /// #   }
 /// #   base
 /// # }
 ///
-/// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+/// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+/// GCD.init(48); //hard-coded processor address size.
 ///
-/// //initialize the frame allocator for this example with some memory from the System allocator.
-/// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+/// //initialize the gcd for this example with some memory from the System allocator.
+/// let base = init_gcd(&GCD, 0x400000);
 ///
-/// let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+/// let mut fsb = FixedSizeBlockAllocator::new(&GCD);
 ///
 /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
 /// let allocation = fsb.allocate(layout).unwrap().as_ptr() as *mut u8;
@@ -109,38 +119,38 @@ impl Iterator for AllocatorIterator {
 /// ```
 ///
 pub struct FixedSizeBlockAllocator {
-  frame_allocator: &'static SpinLockedDynamicFrameAllocator,
+  gcd: &'static SpinLockedGcd,
   list_heads: [Option<&'static mut BlockListNode>; BLOCK_SIZES.len()],
   allocators: Option<*mut AllocatorListNode>,
 }
 
 impl FixedSizeBlockAllocator {
-  /// Creates a new empty FixedSizeBlockAllocator that will request frames from `frame_allocator` as needed to satisfy
+  /// Creates a new empty FixedSizeBlockAllocator that will request memory from `gcd` as needed to satisfy
   /// requests.
-  pub const fn new(frame_allocator: &'static SpinLockedDynamicFrameAllocator) -> Self {
+  pub const fn new(gcd: &'static SpinLockedGcd) -> Self {
     const EMPTY: Option<&'static mut BlockListNode> = None;
-    FixedSizeBlockAllocator {
-      frame_allocator: frame_allocator,
-      list_heads: [EMPTY; BLOCK_SIZES.len()],
-      allocators: None,
-    }
+    FixedSizeBlockAllocator { gcd: gcd, list_heads: [EMPTY; BLOCK_SIZES.len()], allocators: None }
   }
 
-  // Expand the memory available to this allocator by requesting a new
-  // contiguous region of frames from the frame allocator and setting up a
-  // new allocator node to manage this range
+  // Expand the memory available to this allocator by requesting a new contiguous region of memory from the gcd setting
+  // up a new allocator node to manage this range
   fn expand(&mut self, layout: Layout) -> Result<(), FixedSizeBlockAllocatorError> {
     let size = layout.pad_to_align().size() + Layout::new::<AllocatorListNode>().pad_to_align().size();
     let size = max(size, MIN_EXPANSION);
-    //Allocate memory from the frame allocator.
-    let (start_address, size) = self
-      .frame_allocator
-      .lock()
-      .allocate_frames_from_size(size as u64)
+    //ensure size is a multiple of alignment to avoid fragmentation.
+    let size = align_up(size, ALIGNMENT);
+    //Allocate memory from the gcd.
+    let start_address = self
+      .gcd
+      .allocate_memory_space(
+        uefi_gcd_lib::gcd::AllocateType::BottomUp(None),
+        GcdMemoryType::SystemMemory,
+        ALIGNMENT_BITS,
+        size,
+        1 as *mut c_void, //todo: figure out where to get this from.
+        None,
+      )
       .map_err(|_| FixedSizeBlockAllocatorError::OutOfMemory)?;
-
-    //Ensure that the frame allocator start address is aligned reasonably.
-    assert!(align_of::<AllocatorListNode>() < dynamic_frame_allocator_lib::FRAME_SIZE as usize);
 
     //set up the new allocator, reserving space at the beginning of the range for the AllocatorListNode structure.
     let start_address = start_address as usize;
@@ -199,24 +209,30 @@ impl FixedSizeBlockAllocator {
   /// # use core::alloc::Layout;
   /// # use std::alloc::System;
   /// # use std::alloc::GlobalAlloc;
+  /// # use r_pi::dxe_services::GcdMemoryType;
   ///
-  /// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// use uefi_gcd_lib::gcd::SpinLockedGcd;
   /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
-  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// # fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
   /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
   /// #   let base = unsafe { System.alloc(layout) as u64 };
   /// #   unsafe {
-  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #     gcd.add_memory_space(
+  /// #       GcdMemoryType::SystemMemory,
+  /// #       base as usize,
+  /// #       size,
+  /// #       0).unwrap();
   /// #   }
   /// #   base
   /// # }
   ///
-  /// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+  /// GCD.init(48); //hard-coded processor address size.
   ///
-  /// //initialize the frame allocator for this example with some memory from the System allocator.
-  /// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  /// //initialize the gcd allocator for this example with some memory from the System allocator.
+  /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD);
   ///
   /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
   /// let allocation = fsb.alloc(layout);
@@ -263,24 +279,30 @@ impl FixedSizeBlockAllocator {
   /// # use core::alloc::Layout;
   /// # use std::alloc::System;
   /// # use std::alloc::GlobalAlloc;
+  /// # use r_pi::dxe_services::GcdMemoryType;
   ///
-  /// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// use uefi_gcd_lib::gcd::SpinLockedGcd;
   /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
-  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// # fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
   /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
   /// #   let base = unsafe { System.alloc(layout) as u64 };
   /// #   unsafe {
-  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #     gcd.add_memory_space(
+  /// #       GcdMemoryType::SystemMemory,
+  /// #       base as usize,
+  /// #       size,
+  /// #       0).unwrap();
   /// #   }
   /// #   base
   /// # }
   ///
-  /// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+  /// GCD.init(48); //hard-coded processor address size.
   ///
-  /// //initialize the frame allocator for this example with some memory from the System allocator.
-  /// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  /// //initialize the gcd for this example with some memory from the System allocator.
+  /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD);
   ///
   /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
   /// let allocation = fsb.allocate(layout).unwrap().as_ptr() as *mut u8;
@@ -321,24 +343,30 @@ impl FixedSizeBlockAllocator {
   /// # use core::alloc::Layout;
   /// # use std::alloc::System;
   /// # use std::alloc::GlobalAlloc;
+  /// # use r_pi::dxe_services::GcdMemoryType;
   ///
-  /// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// use uefi_gcd_lib::gcd::SpinLockedGcd;
   /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
-  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// # fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
   /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
   /// #   let base = unsafe { System.alloc(layout) as u64 };
   /// #   unsafe {
-  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #     gcd.add_memory_space(
+  /// #       GcdMemoryType::SystemMemory,
+  /// #       base as usize,
+  /// #       size,
+  /// #       0).unwrap();
   /// #   }
   /// #   base
   /// # }
   ///
-  /// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+  /// GCD.init(48); //hard-coded processor address size.
   ///
-  /// //initialize the frame allocator for this example with some memory from the System allocator.
-  /// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  /// //initialize the gcd for this example with some memory from the System allocator.
+  /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD);
   ///
   /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
   /// let allocation = fsb.alloc(layout);
@@ -381,24 +409,30 @@ impl FixedSizeBlockAllocator {
   /// # use core::alloc::Layout;
   /// # use std::alloc::System;
   /// # use std::alloc::GlobalAlloc;
+  /// # use r_pi::dxe_services::GcdMemoryType;
   ///
-  /// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// use uefi_gcd_lib::gcd::SpinLockedGcd;
   /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
-  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// # fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
   /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
   /// #   let base = unsafe { System.alloc(layout) as u64 };
   /// #   unsafe {
-  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #     gcd.add_memory_space(
+  /// #       GcdMemoryType::SystemMemory,
+  /// #       base as usize,
+  /// #       size,
+  /// #       0).unwrap();
   /// #   }
   /// #   base
   /// # }
   ///
-  /// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+  /// GCD.init(48); //hard-coded processor address size.
   ///
-  /// //initialize the frame allocator for this example with some memory from the System allocator.
-  /// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  /// //initialize the gcd for this example with some memory from the System allocator.
+  /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD);
   ///
   /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
   /// let allocation = fsb.allocate(layout).unwrap().as_non_null_ptr();
@@ -424,24 +458,30 @@ impl FixedSizeBlockAllocator {
   /// # use core::alloc::Layout;
   /// # use std::alloc::System;
   /// # use std::alloc::GlobalAlloc;
+  /// # use r_pi::dxe_services::GcdMemoryType;
   ///
-  /// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// use uefi_gcd_lib::gcd::SpinLockedGcd;
   /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
-  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// # fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
   /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
   /// #   let base = unsafe { System.alloc(layout) as u64 };
   /// #   unsafe {
-  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #     gcd.add_memory_space(
+  /// #       GcdMemoryType::SystemMemory,
+  /// #       base as usize,
+  /// #       size,
+  /// #       0).unwrap();
   /// #   }
   /// #   base
   /// # }
   ///
-  /// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+  /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+  /// GCD.init(48); //hard-coded processor address size.
   ///
-  /// //initialize the frame allocator for this example with some memory from the System allocator.
-  /// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  /// //initialize the gcd for this example with some memory from the System allocator.
+  /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD);
   ///
   /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
   /// let allocation = fsb.allocate(layout).unwrap().as_non_null_ptr();
@@ -498,23 +538,30 @@ impl Display for FixedSizeBlockAllocator {
 /// # use core::alloc::Allocator;
 /// # use core::alloc::GlobalAlloc;
 /// # use std::alloc::System;
+/// # use r_pi::dxe_services::GcdMemoryType;
 ///
-/// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+/// use uefi_gcd_lib::gcd::SpinLockedGcd;
 /// use uefi_rust_allocator_lib::fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator;
-/// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+/// # fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
 /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
 /// #   let base = unsafe { System.alloc(layout) as u64 };
 /// #   unsafe {
-/// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+/// #     gcd.add_memory_space(
+/// #       GcdMemoryType::SystemMemory,
+/// #       base as usize,
+/// #       size,
+/// #       0).unwrap();
 /// #   }
 /// #   base
 /// # }
 ///
-/// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
-/// static ALLOCATOR: SpinLockedFixedSizeBlockAllocator  = SpinLockedFixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+/// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+/// GCD.init(48); //hard-coded processor address size.
 ///
-/// //initialize the frame allocator for this example with some memory from the System allocator.
-/// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+///static ALLOCATOR: SpinLockedFixedSizeBlockAllocator  = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+///
+/// //initialize the gcd for this example with some memory from the System allocator.
+/// let base = init_gcd(&GCD, 0x400000);
 ///
 /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
 /// let allocation = ALLOCATOR.allocate(layout).unwrap().as_ptr() as *mut u8;
@@ -527,10 +574,10 @@ pub struct SpinLockedFixedSizeBlockAllocator {
 }
 
 impl SpinLockedFixedSizeBlockAllocator {
-  /// Creates a new empty FixedSizeBlockAllocator that will request frames from `frame_allocator` as needed to satisfy
+  /// Creates a new empty FixedSizeBlockAllocator that will request memory from `gcd` as needed to satisfy
   /// requests.
-  pub const fn new(frame_allocator: &'static SpinLockedDynamicFrameAllocator) -> Self {
-    SpinLockedFixedSizeBlockAllocator { inner: spin::Mutex::new(FixedSizeBlockAllocator::new(frame_allocator)) }
+  pub const fn new(gcd: &'static SpinLockedGcd) -> Self {
+    SpinLockedFixedSizeBlockAllocator { inner: spin::Mutex::new(FixedSizeBlockAllocator::new(gcd)) }
   }
 
   /// Locks the allocator
@@ -545,23 +592,30 @@ impl SpinLockedFixedSizeBlockAllocator {
   /// # use core::alloc::Allocator;
   /// # use core::alloc::GlobalAlloc;
   /// # use std::alloc::System;
+  /// # use r_pi::dxe_services::GcdMemoryType;
   ///
-  /// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+  /// use uefi_gcd_lib::gcd::SpinLockedGcd;
   /// use uefi_rust_allocator_lib::fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator;
-  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// # fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
   /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
   /// #   let base = unsafe { System.alloc(layout) as u64 };
   /// #   unsafe {
-  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #     gcd.add_memory_space(
+  /// #       GcdMemoryType::SystemMemory,
+  /// #       base as usize,
+  /// #       size,
+  /// #       0).unwrap();
   /// #   }
   /// #   base
   /// # }
   ///
-  /// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
-  /// static ALLOCATOR: SpinLockedFixedSizeBlockAllocator  = SpinLockedFixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+  /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+  /// GCD.init(48); //hard-coded processor address size.
   ///
-  /// //initialize the frame allocator for this example with some memory from the System allocator.
-  /// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  /// static ALLOCATOR: SpinLockedFixedSizeBlockAllocator  = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+  ///
+  /// //initialize the gcd for this example with some memory from the System allocator.
+  /// let base = init_gcd(&GCD, 0x400000);
   ///
   /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
   ///
@@ -626,11 +680,11 @@ mod tests {
 
   use super::*;
 
-  fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
     let layout = Layout::from_size_align(size, 0x1000).unwrap();
     let base = unsafe { System.alloc(layout) as u64 };
     unsafe {
-      frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+      gcd.add_memory_space(GcdMemoryType::SystemMemory, base as usize, size, 0).unwrap();
     }
     base
   }
@@ -658,23 +712,25 @@ mod tests {
 
   #[test]
   fn test_construct_empty_fixed_size_block_allocator() {
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
-    let fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
-    assert!(core::ptr::eq(fsb.frame_allocator, &FRAME_ALLOCATOR));
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
+    let fsb = FixedSizeBlockAllocator::new(&GCD);
+    assert!(core::ptr::eq(fsb.gcd, &GCD));
     assert!(fsb.list_heads.iter().all(|x| x.is_none()));
     assert!(fsb.allocators.is_none());
   }
 
   #[test]
   fn test_expand() {
-    // Create a static frame allocator for testing expand.
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
-    let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+    let base = init_gcd(&GCD, 0x400000);
 
     //verify no allocators exist before expand.
-    let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+    let mut fsb = FixedSizeBlockAllocator::new(&GCD);
     assert!(fsb.allocators.is_none());
 
     //expand by a page. This will round up to MIN_EXPANSION.
@@ -704,13 +760,14 @@ mod tests {
 
   #[test]
   fn test_allocation_iterator() {
-    // Create a static frame allocator for testing expand.
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
-    init_frame_allocator(&FRAME_ALLOCATOR, 0x800000);
+    init_gcd(&GCD, 0x800000);
 
-    let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+    let mut fsb = FixedSizeBlockAllocator::new(&GCD);
     let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
     fsb.expand(layout).unwrap();
     fsb.expand(layout).unwrap();
@@ -725,13 +782,14 @@ mod tests {
 
   #[test]
   fn test_fallback_alloc() {
-    // Create a static frame allocator for testing expand.
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
-    let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+    let base = init_gcd(&GCD, 0x400000);
 
-    let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+    let mut fsb = FixedSizeBlockAllocator::new(&GCD);
 
     let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
     let allocation = fsb.fallback_alloc(layout);
@@ -742,13 +800,14 @@ mod tests {
 
   #[test]
   fn test_alloc() {
-    // Create a static frame allocator for testing expand.
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
-    let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+    let base = init_gcd(&GCD, 0x400000);
 
-    let fsb = SpinLockedFixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
 
     let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
     let allocation = unsafe { fsb.alloc(layout) };
@@ -759,13 +818,14 @@ mod tests {
 
   #[test]
   fn test_allocate() {
-    // Create a static frame allocator for testing expand.
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
-    let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+    let base = init_gcd(&GCD, 0x400000);
 
-    let fsb = SpinLockedFixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
 
     let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
     let allocation = fsb.allocate(layout).unwrap().as_ptr() as *mut u8;
@@ -776,13 +836,14 @@ mod tests {
 
   #[test]
   fn test_fallback_dealloc() {
-    // Create a static frame allocator for testing expand.
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
-    init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+    init_gcd(&GCD, 0x400000);
 
-    let mut fsb = FixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+    let mut fsb = FixedSizeBlockAllocator::new(&GCD);
 
     let layout = Layout::from_size_align(0x8, 0x8).unwrap();
     let allocation = fsb.fallback_alloc(layout);
@@ -795,13 +856,14 @@ mod tests {
 
   #[test]
   fn test_dealloc() {
-    // Create a static frame allocator for testing expand.
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
-    init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+    init_gcd(&GCD, 0x400000);
 
-    let fsb = SpinLockedFixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
 
     let layout = Layout::from_size_align(0x8, 0x8).unwrap();
     let allocation = unsafe { fsb.alloc(layout) };
@@ -822,13 +884,14 @@ mod tests {
 
   #[test]
   fn test_deallocate() {
-    // Create a static frame allocator for testing expand.
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
-    init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+    init_gcd(&GCD, 0x400000);
 
-    let fsb = SpinLockedFixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
 
     let layout = Layout::from_size_align(0x8, 0x8).unwrap();
     let allocation = fsb.allocate(layout).unwrap().as_non_null_ptr();
@@ -851,13 +914,14 @@ mod tests {
 
   #[test]
   fn test_contains() {
-    // Create a static frame allocator for testing expand.
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
-    init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+    init_gcd(&GCD, 0x400000);
 
-    let fsb = SpinLockedFixedSizeBlockAllocator::new(&FRAME_ALLOCATOR);
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
 
     let layout = Layout::from_size_align(0x8, 0x8).unwrap();
     let allocation = fsb.allocate(layout).unwrap().as_non_null_ptr();

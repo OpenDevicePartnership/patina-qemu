@@ -6,6 +6,7 @@
 extern crate alloc;
 
 use r_pi::{
+  dxe_services::GcdMemoryType,
   fw_fs::{FfsSection, FfsSectionType, FirmwareVolume},
   hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
 };
@@ -22,9 +23,12 @@ use dxe_rust::{
   physical_memory, println,
   protocols::init_protocol_support,
   systemtables::{init_system_table, SYSTEM_TABLE},
-  FRAME_ALLOCATOR,
+  GCD,
 };
-use r_efi::efi::Guid;
+use r_efi::{
+  efi::Guid,
+  system::{MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP},
+};
 use x86_64::{align_down, align_up, structures::paging::PageTableFlags};
 
 #[cfg_attr(target_os = "uefi", export_name = "efi_main")]
@@ -36,23 +40,53 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
   // Unsafe because it assumes DXE loader set up identity mapped paging for
   // the system beforehand and that the PHIT hob contents are correct
 
-  // 1. Initialize global frame allocator with free memory region from PHIT hob.
-  //    Note: this is _required_ before the global heap is used, since we need
-  //    a source of frames to expand the global heap once it starts being used.
-  let phit_hob: *const PhaseHandoffInformationTable = physical_hob_list as *const PhaseHandoffInformationTable;
-  let free_start = unsafe { align_up((*phit_hob).free_memory_bottom, 0x1000) };
-  let free_size = unsafe { align_down((*phit_hob).free_memory_top, 0x1000) - free_start };
+  // 1. Initialize GCD with free memory region from PHIT hob and CPU info hob.
+  //    Note: this is _required_ before the global heap is used, since we need a source of memory to expand the global
+  //    heap once it starts being used.
+
+  let mut free_memory_start: u64 = 0;
+  let mut free_memory_size: u64 = 0;
+  let mut memory_start: u64 = 0;
+  let mut memory_end: u64 = 0;
+
+  let hob_list =
+    Hob::Handoff(unsafe { (physical_hob_list as *const PhaseHandoffInformationTable).as_ref::<'static>().unwrap() });
+  for hob in &hob_list {
+    match hob {
+      Hob::Handoff(handoff) => {
+        free_memory_start = align_up(handoff.free_memory_bottom, 0x1000);
+        free_memory_size = align_down(handoff.free_memory_top, 0x1000) - free_memory_start;
+        memory_start = handoff.memory_bottom;
+        memory_end = handoff.memory_top;
+      }
+      Hob::Cpu(cpu) => {
+        GCD.init(cpu.size_of_memory_space as u32);
+      }
+      _ => (),
+    }
+  }
+
+  println!("free_memory_start: {:x?}", free_memory_start);
+  println!("free_memory_size: {:x?}", free_memory_size);
+
+  // make sure the PHIT is present and it was reasonable.
+  assert!(free_memory_size > 0, "Not enough free memory for DXE core to start");
+  assert!(memory_start < memory_end, "Not enough memory available for DXE core to start.");
+
+  // initialize the GCD with an initial memory space. Note: this will fail if GCD.init() above didn't happen.
   unsafe {
-    FRAME_ALLOCATOR
-      .lock()
-      .add_physical_region(free_start, free_size)
-      .expect("Failed to add initial region to global frame allocator.")
+    GCD
+      .add_memory_space(
+        GcdMemoryType::SystemMemory,
+        free_memory_start as usize,
+        free_memory_size as usize,
+        MEMORY_UC | MEMORY_WC | MEMORY_WT | MEMORY_WB | MEMORY_WP | MEMORY_RP | MEMORY_XP | MEMORY_RO,
+      )
+      .expect("Failed to add initial region to GCD.")
   };
 
   // 2. set up new page tables to replace those set up by the loader.
   //    initially map EfiMemoryBottom->EfiMemoryTop.
-  let memory_start = unsafe { (*phit_hob).memory_bottom };
-  let memory_end = unsafe { (*phit_hob).memory_top };
   unsafe {
     physical_memory::x86_64::x86_paging_support::PAGE_TABLE
       .lock()
@@ -60,10 +94,13 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
       .expect("Failed to initialize page table");
   }
 
+  // 3. At this point Rust Heap usage is permitted (since GCD is initialized and memory is mapped).
+  // That means that HobList::discover can be used to relocate the hobs from the input list into a Vec.
   let mut hob_list = HobList::default();
   hob_list.discover_hobs(physical_hob_list);
 
-  // 3. iterate over the hob list and map memory ranges from the pre-DXE memory allocation hobs.
+  // 4. iterate over the hob list and map memory ranges from the pre-DXE memory allocation hobs.
+  // TODO: this maps the pages for these memory ranges; but we should also update the GCD accordingly.
   for hob in hob_list.iter() {
     let range = match hob {
       Hob::MemoryAllocation(MemoryAllocation { header: _, alloc_descriptor: desc })

@@ -8,6 +8,8 @@
 //!
 //! SPDX-License-Identifier: BSD-2-Clause-Patent
 //!
+use uefi_gcd_lib::gcd::SpinLockedGcd;
+
 use crate::fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator;
 use core::{
   alloc::{Allocator, GlobalAlloc, Layout},
@@ -15,7 +17,6 @@ use core::{
   fmt::{self, Display},
   ptr::NonNull,
 };
-use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
 
 const POOL_SIG: u32 = 0x04151980; //arbitrary number.
 const UEFI_POOL_ALIGN: usize = 8; //per UEFI spec.
@@ -38,21 +39,30 @@ struct AllocationInfo {
 /// # use core::ffi::c_void;
 /// # use std::alloc::System;
 /// # use std::alloc::GlobalAlloc;
-/// use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
+/// # use r_pi::dxe_services::GcdMemoryType;
+///
 /// use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
-/// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+/// use uefi_gcd_lib::gcd::SpinLockedGcd;
+/// # fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
 /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
 /// #   let base = unsafe { System.alloc(layout) as u64 };
 /// #   unsafe {
-/// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+/// #     gcd.add_memory_space(
+/// #       GcdMemoryType::SystemMemory,
+/// #       base as usize,
+/// #       size,
+/// #       0).unwrap();
 /// #   }
 /// #   base
 /// # }
 ///
-/// static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
-/// let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+/// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+/// GCD.init(48); //hard-coded processor address size.
 ///
-/// let ua = UefiAllocator::new(&FRAME_ALLOCATOR, r_efi::efi::BOOT_SERVICES_DATA);
+/// //initialize the gcd for this example with some memory from the System allocator.
+/// let base = init_gcd(&GCD, 0x400000);
+///
+/// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA);
 ///
 /// let mut buffer: *mut c_void = core::ptr::null_mut();
 /// assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);
@@ -67,14 +77,11 @@ pub struct UefiAllocator {
 }
 
 impl UefiAllocator {
-  /// Creates a new UEFI allocator using the provided `frame_allocator`.
+  /// Creates a new UEFI allocator using the provided `gcd`.
   ///
   /// See [`SpinLockedFixedSizeBlockAllocator::new`]
-  pub const fn new(
-    frame_allocator: &'static SpinLockedDynamicFrameAllocator,
-    memory_type: r_efi::system::MemoryType,
-  ) -> Self {
-    UefiAllocator { allocator: SpinLockedFixedSizeBlockAllocator::new(frame_allocator), memory_type: memory_type }
+  pub const fn new(gcd: &'static SpinLockedGcd, memory_type: r_efi::system::MemoryType) -> Self {
+    UefiAllocator { allocator: SpinLockedFixedSizeBlockAllocator::new(gcd), memory_type: memory_type }
   }
 
   /// Indicates whether the given pointer falls within a memory region managed by this allocator.
@@ -99,21 +106,30 @@ impl UefiAllocator {
   /// # use core::ffi::c_void;
   /// # use std::alloc::System;
   /// # use std::alloc::GlobalAlloc;
-  /// # use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
-  /// # use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
-  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// # use r_pi::dxe_services::GcdMemoryType;
+  ///
+  /// use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
+  /// use uefi_gcd_lib::gcd::SpinLockedGcd;
+  /// # fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
   /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
   /// #   let base = unsafe { System.alloc(layout) as u64 };
   /// #   unsafe {
-  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #     gcd.add_memory_space(
+  /// #       GcdMemoryType::SystemMemory,
+  /// #       base as usize,
+  /// #       size,
+  /// #       0).unwrap();
   /// #   }
   /// #   base
   /// # }
   ///
-  /// # static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
-  /// # let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+  /// GCD.init(48); //hard-coded processor address size.
   ///
-  /// let ua = UefiAllocator::new(&FRAME_ALLOCATOR, r_efi::efi::BOOT_SERVICES_DATA);
+  /// //initialize the gcd for this example with some memory from the System allocator.
+  /// let base = init_gcd(&GCD, 0x400000);
+  ///
+  /// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA);
   ///
   /// let mut buffer: *mut c_void = core::ptr::null_mut();
   /// ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer));
@@ -155,21 +171,30 @@ impl UefiAllocator {
   /// # use core::ffi::c_void;
   /// # use std::alloc::System;
   /// # use std::alloc::GlobalAlloc;
-  /// # use dynamic_frame_allocator_lib::SpinLockedDynamicFrameAllocator;
-  /// # use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
-  /// # fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  /// # use r_pi::dxe_services::GcdMemoryType;
+  ///
+  /// use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
+  /// use uefi_gcd_lib::gcd::SpinLockedGcd;
+  /// # fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
   /// #   let layout = Layout::from_size_align(size, 0x1000).unwrap();
   /// #   let base = unsafe { System.alloc(layout) as u64 };
   /// #   unsafe {
-  /// #     frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+  /// #     gcd.add_memory_space(
+  /// #       GcdMemoryType::SystemMemory,
+  /// #       base as usize,
+  /// #       size,
+  /// #       0).unwrap();
   /// #   }
   /// #   base
   /// # }
   ///
-  /// # static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
-  /// # let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+  /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+  /// GCD.init(48); //hard-coded processor address size.
   ///
-  /// let ua = UefiAllocator::new(&FRAME_ALLOCATOR, r_efi::efi::BOOT_SERVICES_DATA);
+  /// //initialize the gcd for this example with some memory from the System allocator.
+  /// let base = init_gcd(&GCD, 0x400000);
+  ///
+  /// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA);
   ///
   /// let mut buffer: *mut c_void = core::ptr::null_mut();
   /// ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer));
@@ -245,34 +270,38 @@ mod tests {
   use core::alloc::GlobalAlloc;
   use std::alloc::System;
 
+  use r_pi::dxe_services::GcdMemoryType;
+
   use super::*;
 
-  fn init_frame_allocator(frame_allocator: &SpinLockedDynamicFrameAllocator, size: usize) -> u64 {
+  fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
     let layout = Layout::from_size_align(size, 0x1000).unwrap();
     let base = unsafe { System.alloc(layout) as u64 };
     unsafe {
-      frame_allocator.lock().add_physical_region(base, size as u64).unwrap();
+      gcd.add_memory_space(GcdMemoryType::SystemMemory, base as usize, size, 0).unwrap();
     }
     base
   }
 
   #[test]
   fn test_uefi_allocator_new() {
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
-    let ua = UefiAllocator::new(&FRAME_ALLOCATOR, r_efi::system::BOOT_SERVICES_DATA);
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
+    let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA);
     assert_eq!(ua.memory_type, r_efi::system::BOOT_SERVICES_DATA);
   }
 
   #[test]
   fn test_allocate_pool() {
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
 
-    let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+    let base = init_gcd(&GCD, 0x400000);
 
-    let ua = UefiAllocator::new(&FRAME_ALLOCATOR, r_efi::system::BOOT_SERVICES_DATA);
+    let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA);
 
     let mut buffer: *mut c_void = core::ptr::null_mut();
-    assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);
+    assert_eq!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)), r_efi::efi::Status::SUCCESS);
     assert!(buffer as u64 > base);
     assert!((buffer as u64) < base + 0x400000);
 
@@ -294,11 +323,12 @@ mod tests {
 
   #[test]
   fn test_free_pool() {
-    static FRAME_ALLOCATOR: SpinLockedDynamicFrameAllocator = SpinLockedDynamicFrameAllocator::new();
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
 
-    let base = init_frame_allocator(&FRAME_ALLOCATOR, 0x400000);
+    let base = init_gcd(&GCD, 0x400000);
 
-    let ua = UefiAllocator::new(&FRAME_ALLOCATOR, r_efi::system::BOOT_SERVICES_DATA);
+    let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA);
 
     let mut buffer: *mut c_void = core::ptr::null_mut();
     assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);

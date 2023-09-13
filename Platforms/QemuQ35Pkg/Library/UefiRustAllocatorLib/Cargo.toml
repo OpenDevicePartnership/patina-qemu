@@ -9,7 +9,8 @@ path = "src/lib.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-DynamicFrameAllocatorLib = {workspace=true}
+UefiGcdLib = {workspace=true}
 linked_list_allocator = {workspace=true}
 r-efi = {workspace=true}
+r-pi = {workspace=true}
 spin = {workspace=true}
