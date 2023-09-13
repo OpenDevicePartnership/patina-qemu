@@ -1,5 +1,8 @@
 [workspace]
 
+# Use the 2021 edition resolver
+resolver = "2"
+
 # Add packages that generate binaries here
 members = [
     "Platforms/QemuQ35Pkg/DxeRust",
