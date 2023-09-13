@@ -275,7 +275,184 @@ mod tests {
   use super::*;
 
   #[test]
+  fn true_should_eval_true() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    let depex = Depex::new(vec![0x06, 0x08]);
+    assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), true);
+  }
+
+  #[test]
+  fn false_should_eval_false() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    let depex = Depex::new(vec![0x07, 0x08]);
+    assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
+  }
+
+  #[test]
+  #[should_panic(expected = "Exiting early due to an unexpected BEFORE or AFTER.")]
+  fn before_should_eval_false() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    let depex = Depex::new(vec![0x00, 0x08]);
+    assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
+  }
+
+  #[test]
+  #[should_panic(expected = "Exiting early due to an unexpected BEFORE or AFTER.")]
+  fn after_should_eval_false() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    let depex = Depex::new(vec![0x01, 0x08]);
+    assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
+  }
+
+  #[test]
+  fn sor_first_opcode_should_eval_false() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    // Treated as a no-op, with no other operands, false should be returned
+    let depex = Depex::new(vec![0x09, 0x08]);
+    assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
+  }
+
+  #[test]
+  fn sor_first_opcode_followed_by_true_should_eval_true() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    let depex = Depex::new(vec![0x09, 0x06, 0x08]);
+    assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), true);
+  }
+
+  #[test]
+  #[should_panic(expected = "Exiting early due to an unexpected SOR.")]
+  fn sor_not_first_opcode_should_eval_false() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    let depex = Depex::new(vec![0x06, 0x09, 0x08]);
+    assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
+  }
+
+  #[test]
+  #[should_panic(expected = "The ReplaceTrue operation is not supported (yet).")]
+  fn replacetrue_should_eval_false() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    let depex = Depex::new(vec![0xFF, 0x08]);
+    assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
+  }
+
+  #[test]
+  #[should_panic(expected = "Exiting early due to an unknown opcode.")]
+  fn unknown_opcode_should_return_false() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    let depex = Depex::new(vec![0xE0, 0x08]);
+    assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
+  }
+
+  #[test]
+  fn not_true_should_eval_false() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    let depex = Depex::new(vec![0x07, 0x06, 0x08]);
+    assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), true);
+  }
+
+  #[test]
+  fn not_false_should_eval_true() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    let depex = Depex::new(vec![0x07, 0x05, 0x08]);
+    assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), true);
+  }
+
+  #[test]
+  /// Tests a DEPEX expression with all AND operations that should evaluate to true when all protocols are installed.
+  ///
+  /// This test is based on the following dependency expression:
+  ///   PUSH EfiPcdProtocolGuid
+  ///   PUSH EfiDevicePathUtilitiesProtocolGuid
+  ///   PUSH EfiHiiStringProtocolGuid
+  ///   PUSH EfiHiiDatabaseProtocolGuid
+  ///   PUSH EfiHiiConfigRoutingProtocolGuid
+  ///   PUSH EfiResetArchProtocolGuid
+  ///   PUSH EfiVariableWriteArchProtocolGuid
+  ///   PUSH EfiVariableArchProtocolGuid
+  ///   AND
+  ///   AND
+  ///   AND
+  ///   AND
+  ///   AND
+  ///   AND
+  ///   AND
+  ///   END
+  fn all_protocols_installed_and_should_eval_true() {
+    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
+
+    let efi_pcd_prot_uuid = Uuid::from_str("13a3f0f6-264a-3ef0-f2e0-dec512342f34").unwrap();
+    let efi_pcd_prot_guid: Guid = unsafe { core::mem::transmute(*efi_pcd_prot_uuid.as_bytes()) };
+    let efi_device_path_utilities_prot_uuid = Uuid::from_str("0379be4e-d706-437d-b037-edb82fb772a4").unwrap();
+    let efi_device_path_utilities_prot_guid: Guid =
+      unsafe { core::mem::transmute(*efi_device_path_utilities_prot_uuid.as_bytes()) };
+    let efi_hii_string_prot_uuid = Uuid::from_str("0fd96974-23aa-4cdc-b9cb-98d17750322a").unwrap();
+    let efi_hii_string_prot_guid: Guid = unsafe { core::mem::transmute(*efi_hii_string_prot_uuid.as_bytes()) };
+    let efi_hii_db_prot_uuid = Uuid::from_str("ef9fc172-a1b2-4693-b327-6d32fc416042").unwrap();
+    let efi_hii_db_prot_guid: Guid = unsafe { core::mem::transmute(*efi_hii_db_prot_uuid.as_bytes()) };
+    let efi_hii_config_routing_prot_uuid = Uuid::from_str("587e72d7-cc50-4f79-8209-ca291fc1a10f").unwrap();
+    let efi_hii_config_routing_prot_guid: Guid =
+      unsafe { core::mem::transmute(*efi_hii_config_routing_prot_uuid.as_bytes()) };
+    let efi_reset_arch_prot_uuid = Uuid::from_str("27cfac88-46cc-11d4-9a38-0090273fc14d").unwrap();
+    let efi_reset_arch_prot_guid: Guid = unsafe { core::mem::transmute(*efi_reset_arch_prot_uuid.as_bytes()) };
+    let efi_var_write_arch_prot_uuid = Uuid::from_str("6441f818-6362-eb44-5700-7dba31dd2453").unwrap();
+    let efi_var_write_arch_prot_guid: Guid = unsafe { core::mem::transmute(*efi_var_write_arch_prot_uuid.as_bytes()) };
+    let efi_var_arch_prot_uuid = Uuid::from_str("1e5668e2-8481-11d4-bcf1-0080c73c8881").unwrap();
+    let efi_var_arch_prot_guid: Guid = unsafe { core::mem::transmute(*efi_var_arch_prot_uuid.as_bytes()) };
+
+    let interface: *mut c_void = 0x1234 as *mut c_void;
+    SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, efi_pcd_prot_guid, interface).unwrap();
+    SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, efi_device_path_utilities_prot_guid, interface).unwrap();
+    SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, efi_hii_string_prot_guid, interface).unwrap();
+    SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, efi_hii_db_prot_guid, interface).unwrap();
+    SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, efi_hii_config_routing_prot_guid, interface).unwrap();
+    SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, efi_reset_arch_prot_guid, interface).unwrap();
+    SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, efi_var_write_arch_prot_guid, interface).unwrap();
+    SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, efi_var_arch_prot_guid, interface).unwrap();
+
+    println!("Testing DEPEX for BdsDxe DXE driver...\n");
+
+    let expression: &[u8] = &[
+      0x02, 0xF6, 0xF0, 0xA3, 0x13, 0x4A, 0x26, 0xF0, 0x3E, 0xF2, 0xE0, 0xDE, 0xC5, 0x12, 0x34, 0x2F, 0x34, 0x02, 0x4E,
+      0xBE, 0x79, 0x03, 0x06, 0xD7, 0x7D, 0x43, 0xB0, 0x37, 0xED, 0xB8, 0x2F, 0xB7, 0x72, 0xA4, 0x02, 0x74, 0x69, 0xD9,
+      0x0F, 0xAA, 0x23, 0xDC, 0x4C, 0xB9, 0xCB, 0x98, 0xD1, 0x77, 0x50, 0x32, 0x2A, 0x02, 0x72, 0xC1, 0x9F, 0xEF, 0xB2,
+      0xA1, 0x93, 0x46, 0xB3, 0x27, 0x6D, 0x32, 0xFC, 0x41, 0x60, 0x42, 0x02, 0xD7, 0x72, 0x7E, 0x58, 0x50, 0xCC, 0x79,
+      0x4F, 0x82, 0x09, 0xCA, 0x29, 0x1F, 0xC1, 0xA1, 0x0F, 0x02, 0x88, 0xAC, 0xCF, 0x27, 0xCC, 0x46, 0xD4, 0x11, 0x9A,
+      0x38, 0x00, 0x90, 0x27, 0x3F, 0xC1, 0x4D, 0x02, 0x18, 0xF8, 0x41, 0x64, 0x62, 0x63, 0x44, 0xEB, 0x57, 0x00, 0x7D,
+      0xBA, 0x31, 0xDD, 0x24, 0x53, 0x02, 0xE2, 0x68, 0x56, 0x1E, 0x81, 0x84, 0xD4, 0x11, 0xBC, 0xF1, 0x00, 0x80, 0xC7,
+      0x3C, 0x88, 0x81, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x08,
+    ];
+    let depex = Depex::new(expression.to_vec());
+
+    assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), true);
+  }
+
+  #[test]
   /// Tests a DEPEX expression with AND and OR operations that should evaluate to true when all protocols are installed.
+  ///
+  /// This test is based on the following dependency expression:
+  ///   PUSH EfiVariableArchProtocolGuid
+  ///   PUSH EfiVariableWriteArchProtocolGuid
+  ///   PUSH EfiTcgProtocolGuid
+  ///   PUSH EfiTrEEProtocolGuid
+  ///   OR
+  ///   AND
+  ///   AND
+  ///   PUSH EfiPcdProtocolGuid
+  ///   PUSH EfiDevicePathUtilitiesProtocolGuid
+  ///   AND
+  ///   AND
+  ///   END
   fn all_protocols_installed_or_and_should_eval_true() {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
