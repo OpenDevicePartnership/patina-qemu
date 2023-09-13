@@ -309,7 +309,18 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         return 0
 
     def PlatformPreBuild(self):
+        import pathlib
+        import shutil
+
         shell_env = shell_environment.GetEnvironment()
+
+        dxe_rust_dir = pathlib.Path(WORKSPACE_ROOT, "Build", "QemuQ35Pkg",
+                                    f"{self.env.GetValue('TARGET')}_{self.env.GetValue('TOOL_CHAIN_TAG').upper()}",
+                                    "X64", "QemuQ35Pkg", "DxeRust")
+
+        if dxe_rust_dir.exists():
+            logging.warning(f"Deleting DXE Rust build folder at\n  {str(dxe_rust_dir)}")
+            shutil.rmtree(dxe_rust_dir)
 
         # Unless explicitly set, default to RUSTC_BOOTSTRAP=1
         if shell_env.get_shell_var("RUSTC_BOOTSTRAP") is None:
