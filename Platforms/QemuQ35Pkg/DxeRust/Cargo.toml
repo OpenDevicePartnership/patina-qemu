@@ -25,7 +25,6 @@ r-efi = {workspace = true}
 r-pi = {workspace = true}
 scroll = {workspace = true}
 spin = {workspace = true}
-uart_16550 = {workspace = true}
 UefiDepexLib = {workspace=true}
 UefiDevicePathLib = {workspace=true}
 UefiEventLib = {workspace=true}
@@ -35,4 +34,7 @@ UefiProtocolDbLib = {workspace=true}
 UefiRustAllocatorLib = {workspace=true}
 uuid = {workspace = true}
 volatile = {workspace = true}
+
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+uart_16550 = {workspace = true}
 x86_64 = {workspace = true}

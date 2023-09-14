@@ -261,6 +261,22 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
         return 0
 
     def PlatformPreBuild(self):
+        dxe_rust_dir = Path(self.GetWorkspaceRoot(), "Build", "QemuSbsaPkg",
+                                    f"{self.env.GetValue('TARGET')}_{self.env.GetValue('TOOL_CHAIN_TAG').upper()}",
+                                    "AARCH64", "QemuSbsaPkg", "DxeRust")
+
+        if dxe_rust_dir.exists():
+            logging.warning("Deleting DXE Rust build folder at\n %s", str(dxe_rust_dir))
+            shutil.rmtree(dxe_rust_dir)
+
+        shell_env = shell_environment.GetEnvironment()
+
+        # Unless explicitly set, default to RUSTC_BOOTSTRAP=1
+        if shell_env.get_shell_var("RUSTC_BOOTSTRAP") is None:
+            rustc_bootstrap = self.env.GetValue("RUSTC_BOOTSTRAP", "1")
+            shell_env.set_shell_var("RUSTC_BOOTSTRAP", rustc_bootstrap)
+            logging.info("Override: RUSTC_BOOTSTRAP={}".format(rustc_bootstrap))
+
         return 0
 
     #
@@ -353,7 +369,7 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
         if run_tests:
             if test_regex == "":
                 logging.warning("Running tests, but no Tests specified. use TEST_REGEX to specify tests to run.")
-        
+
             if not empty_drive:
                 logging.info("EMPTY_DRIVE=FALSE. Old files can persist, could effect test results.")
 
@@ -378,7 +394,7 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
 
             if any("DxePagingAuditTestApp.efi" in os.path.basename(test) for test in test_list):
                 run_paging_audit = True
-            
+
             self.Helper.add_tests(virtual_drive, test_list, auto_run = run_tests, auto_shutdown = shutdown_after_run, paging_audit = run_paging_audit)
         # Otherwise add an empty startup script
         else:
@@ -407,7 +423,7 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
 
         if not run_tests:
             return 0
-        
+
         # Gather test results if they were run.
         now = datetime.datetime.now()
         FET = FAILURE_EXEMPT_TESTS
@@ -418,12 +434,11 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
 
         # Filter out tests that are exempt
         tests = list(filter(lambda file: file.name not in FET or not (now - FET.get(file.name)).total_seconds() < FEOL, test_list))
-        tests_exempt = list(filter(lambda file: file.name in FET and (now - FET.get(file.name)).total_seconds() < FEOL, test_list))       
+        tests_exempt = list(filter(lambda file: file.name in FET and (now - FET.get(file.name)).total_seconds() < FEOL, test_list))
         if len(tests_exempt) > 0:
             self.Helper.report_results(virtual_drive, tests_exempt, Path(drive_path).parent / "unit_test_results")
         # Helper located at QemuPkg/Plugins/VirtualDriveManager
         return self.Helper.report_results(virtual_drive, tests, Path(drive_path).parent / "unit_test_results")
-
 
 if __name__ == "__main__":
     import argparse

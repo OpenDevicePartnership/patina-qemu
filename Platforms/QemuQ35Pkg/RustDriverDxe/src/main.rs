@@ -1,6 +1,7 @@
 #![no_std]
 #![no_main]
 #![feature(custom_test_frameworks)]
+#![allow(non_snake_case)]
 
 use core::panic::PanicInfo;
 use dxe_rust::serial_println;

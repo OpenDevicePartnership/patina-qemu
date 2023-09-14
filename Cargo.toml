@@ -13,7 +13,6 @@ members = [
 # Add packages that generate libraries here
 [workspace.dependencies]
 DxeRust = {path = "Platforms/QemuQ35Pkg/DxeRust"}
-DynamicFrameAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/DynamicFrameAllocatorLib"}
 UefiDepexLib = {path = "Platforms/QemuQ35Pkg/Library/UefiDepexLib"}
 UefiDevicePathLib = {path = "Platforms/QemuQ35Pkg/Library/UefiDevicePathLib"}
 UefiEventLib = {path = "Platforms/QemuQ35Pkg/Library/UefiEventLib"}
@@ -26,7 +25,7 @@ UefiGcdLib = {path = "Platforms/QemuQ35Pkg/Library/UefiGcdLib"}
 
 corosensei = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/corosensei_fork", rev = "b18e710605894b547da505c43d20feae52685ab3", default-features = false }
 crc32fast = { version = "1.3.2", default-features = false }
-goblin = { version = "0.5.3", default-features = false, features = ["pe32", "pe64"] }
+goblin = { version = "0.7.1", default-features = false, features = ["pe32", "pe64"] }
 indoc = "1.0"
 lazy_static = { version = "1.0.0", features = ["spin_no_std"] }
 linked_list_allocator = "0.9.0"
