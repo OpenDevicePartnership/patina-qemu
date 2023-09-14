@@ -1,4 +1,8 @@
-use core::{ffi::c_void, mem::size_of, slice};
+use core::{
+  ffi::c_void,
+  mem::{self, size_of},
+  slice,
+};
 
 use alloc::{boxed::Box, collections::BTreeMap};
 use r_pi::{
@@ -9,6 +13,8 @@ use r_pi::{
   },
   hob::{Hob, HobList},
 };
+
+use r_efi::protocols::device_path;
 
 use crate::{allocator::allocate_pool, protocols::core_install_protocol_interface};
 
@@ -38,6 +44,7 @@ unsafe impl Send for PrivateGlobalData {}
 static PRIVATE_FV_DATA: spin::Mutex<PrivateGlobalData> =
   spin::Mutex::new(PrivateGlobalData { fv_information: BTreeMap::new() });
 
+// FVB Protocol Functions
 extern "efiapi" fn fvb_get_attributes(
   this: *mut FirmwareVolumeBlockProtocol::Protocol,
   attributes: *mut EfiFvbAttributes2,
@@ -223,6 +230,7 @@ fn install_fvb_protocol(
   core_install_protocol_interface(handle, FirmwareVolumeBlockProtocol::GUID, fvb_ptr)
 }
 
+// Firmware Volume protocol functions
 extern "efiapi" fn fv_get_volume_attributes(
   this: *const FirmwareVolumeProtocol::Protocol,
   fv_attributes: *mut EfiFvAttributes,
@@ -542,11 +550,108 @@ fn install_fv_protocol(
   core_install_protocol_interface(handle, FirmwareVolumeProtocol::GUID, fv_ptr)
 }
 
+//Firmware Volume device path structures and functions
+#[repr(C)]
+struct MemMapDevicePath {
+  header: device_path::Protocol,
+  memory_type: u32,
+  starting_address: u64,
+  ending_address: u64,
+}
+
+#[repr(C)]
+struct FvMemMapDevicePath {
+  mem_map_device_path: MemMapDevicePath,
+  end_dev_path: device_path::End,
+}
+
+#[repr(C)]
+struct MediaFwVolDevicePath {
+  header: device_path::Protocol,
+  fv_name: r_efi::efi::Guid,
+}
+
+#[repr(C)]
+struct FvPiWgDevicePath {
+  fv_dev_path: MediaFwVolDevicePath,
+  end_dev_path: device_path::End,
+}
+
+fn install_fv_device_path_protocol(
+  handle: Option<r_efi::efi::Handle>,
+  base_address: u64,
+) -> Result<r_efi::efi::Handle, r_efi::efi::Status> {
+  let fv = FirmwareVolume::new(base_address);
+
+  let device_path_ptr = match fv.fv_name() {
+    Some(fv_name) => {
+      //Construct FvPiWgDevicePath
+      let device_path = FvPiWgDevicePath {
+        fv_dev_path: MediaFwVolDevicePath {
+          header: device_path::Protocol {
+            r#type: device_path::TYPE_MEDIA,
+            sub_type: 0x7, //MEDIA_PIWG_FW_VOL_DP not defined in r_efi.
+            length: [
+              (mem::size_of::<MediaFwVolDevicePath>() & 0xff) as u8,
+              ((mem::size_of::<MediaFwVolDevicePath>() >> 8) & 0xff) as u8,
+            ],
+          },
+          fv_name: fv_name.clone(),
+        },
+        end_dev_path: device_path::End {
+          header: device_path::Protocol {
+            r#type: device_path::TYPE_END,
+            sub_type: device_path::End::SUBTYPE_ENTIRE,
+            length: [
+              (mem::size_of::<device_path::End>() & 0xff) as u8,
+              ((mem::size_of::<device_path::End>() >> 8) & 0xff) as u8,
+            ],
+          },
+        },
+      };
+      Box::into_raw(Box::new(device_path)) as *mut c_void
+    }
+    None => {
+      //Construct FvMemMapDevicePath
+      let device_path = FvMemMapDevicePath {
+        mem_map_device_path: MemMapDevicePath {
+          header: device_path::Protocol {
+            r#type: device_path::TYPE_HARDWARE,
+            sub_type: device_path::Hardware::SUBTYPE_MMAP,
+            length: [
+              (mem::size_of::<MemMapDevicePath>() & 0xff) as u8,
+              ((mem::size_of::<MemMapDevicePath>() >> 8) & 0xff) as u8,
+            ],
+          },
+          memory_type: 11, //EfiMemoryMappedIo not defined in r_efi
+          starting_address: fv.base_address(),
+          ending_address: fv.top_address(),
+        },
+        end_dev_path: device_path::End {
+          header: device_path::Protocol {
+            r#type: device_path::TYPE_END,
+            sub_type: device_path::End::SUBTYPE_ENTIRE,
+            length: [
+              (mem::size_of::<device_path::End>() & 0xff) as u8,
+              ((mem::size_of::<device_path::End>() >> 8) & 0xff) as u8,
+            ],
+          },
+        },
+      };
+      Box::into_raw(Box::new(device_path)) as *mut c_void
+    }
+  };
+
+  // install the protocol and return status
+  core_install_protocol_interface(handle, device_path::PROTOCOL_GUID, device_path_ptr)
+}
+
 fn initialize_hob_fvs(hob_list: &HobList) -> Result<(), r_efi::efi::Status> {
   let fv_hobs = hob_list.iter().filter_map(|h| if let Hob::FirmwareVolume(&fv) = h { Some(fv) } else { None });
 
   for fv in fv_hobs {
-    let handle = install_fvb_protocol(None, None, fv.base_address)?;
+    let handle = install_fv_device_path_protocol(None, fv.base_address)?;
+    install_fvb_protocol(Some(handle), None, fv.base_address)?;
     install_fv_protocol(Some(handle), None, fv.base_address)?;
   }
 

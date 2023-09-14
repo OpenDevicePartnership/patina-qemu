@@ -13,7 +13,7 @@ use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 use crate::{
   allocator::{EFI_BOOT_SERVICES_CODE_ALLOCATOR, EFI_LOADER_CODE_ALLOCATOR, EFI_RUNTIME_SERVICES_CODE_ALLOCATOR},
   println,
-  protocols::{core_install_protocol_interface, PROTOCOL_DB},
+  protocols::{core_install_protocol_interface, core_locate_device_path, PROTOCOL_DB},
   systemtables::EfiSystemTable,
 };
 
@@ -307,8 +307,8 @@ pub fn core_load_image(
 
   //TODO: we only support loading from a slice for now. device path support
   //needs to be added.
-  if image.is_none() || !device_path.is_null() {
-    todo!("Support for DevicePath within LoadImage not yet implemented.");
+  if image.is_none() {
+    todo!("Support for loading from DevicePath within LoadImage not yet implemented.");
   }
 
   let image = image.unwrap();
@@ -319,6 +319,12 @@ pub fn core_load_image(
   let mut image_info = empty_image_info();
   image_info.system_table = PRIVATE_IMAGE_DATA.lock().system_table;
   image_info.parent_handle = parent_image_handle;
+
+  if !device_path.is_null() {
+    if let Ok((_, handle)) = core_locate_device_path(r_efi::protocols::device_path::PROTOCOL_GUID, device_path) {
+      image_info.device_handle = handle;
+    }
+  }
 
   let mut private_info = core_load_pe_image(image, image_info)?;
 
@@ -365,8 +371,7 @@ pub fn core_load_image(
 //                 manager from the specified device path. ignored if
 //                 source_buffer is not null.
 // * parent_image_handle - the caller's image handle.
-// * device_path - the file path from which the image is loaded (not yet
-//                 supported).
+// * device_path - the file path from which the image is loaded.
 // * source_buffer - if not null, pointer to the memory location containing the
 //                   image to be loaded.
 //  * source_size - size in bytes of source_buffer. ignored if source_buffer is

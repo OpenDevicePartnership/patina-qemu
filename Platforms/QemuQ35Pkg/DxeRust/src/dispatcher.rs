@@ -45,20 +45,28 @@ const DEFAULT_DEPEX: &[Opcode] = &[
 #[derive(Debug)]
 struct ScheduledDriver {
   file: ffs::File,
+  device_path: *mut efi::protocols::device_path::Protocol,
   execution_attempted: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct FvInfo {
+  base_address: u64,
+  handle: efi::Handle,
+  device_path: *mut efi::protocols::device_path::Protocol,
 }
 
 #[derive(Debug)]
 struct DispatcherContext {
-  discovered_fv_base_addresses: spin::Mutex<BTreeSet<u64>>, //anything interacting with this has to run at TPL_CALLBACK.
-  processed_fvs: spin::Mutex<BTreeSet<efi::Handle>>,        //anything interacting with this has to run at TPL_CALLBACK.
+  discovered_fv_info: spin::Mutex<BTreeSet<FvInfo>>, //anything interacting with this has to run at TPL_CALLBACK.
+  processed_fvs: spin::Mutex<BTreeSet<efi::Handle>>, //anything interacting with this has to run at TPL_CALLBACK.
   scheduled_driver_base_addresses: spin::Mutex<VecDeque<ScheduledDriver>>, //only used in dispatch loop, should not be touched from anywhere else.
 }
 
 impl DispatcherContext {
   const fn new() -> Self {
     Self {
-      discovered_fv_base_addresses: spin::Mutex::new(BTreeSet::new()),
+      discovered_fv_info: spin::Mutex::new(BTreeSet::new()),
       processed_fvs: spin::Mutex::new(BTreeSet::new()),
       scheduled_driver_base_addresses: spin::Mutex::new(VecDeque::new()),
     }
@@ -85,7 +93,15 @@ impl DispatcherContext {
           return;
         }
 
-        self.discovered_fv_base_addresses.lock().insert(fv_address);
+        let fv_device_path = PROTOCOL_DB.get_interface_for_handle(handle, efi::protocols::device_path::PROTOCOL_GUID);
+
+        let fv_info = FvInfo {
+          base_address: fv_address,
+          handle: handle,
+          device_path: fv_device_path.unwrap_or(core::ptr::null_mut()) as *mut efi::protocols::device_path::Protocol,
+        };
+
+        self.discovered_fv_info.lock().insert(fv_info);
       }
     }
   }
@@ -114,10 +130,11 @@ impl DispatcherContext {
   fn dispatch(&self) -> bool {
     let mut dispatch_attempted = false;
     let old_tpl = raise_tpl(TPL_CALLBACK);
-    let discovered_fv_base_addresses: Vec<u64> = self.discovered_fv_base_addresses.lock().clone().into_iter().collect();
+    let discovered_fv_info: Vec<FvInfo> = self.discovered_fv_info.lock().clone().into_iter().collect();
     restore_tpl(old_tpl);
 
-    for fv_base_address in discovered_fv_base_addresses {
+    for fv_info in discovered_fv_info {
+      let fv_base_address = fv_info.base_address;
       let fv = FirmwareVolume::new(fv_base_address);
       for file in fv.ffs_files() {
         match file.file_type_raw() {
@@ -128,7 +145,11 @@ impl DispatcherContext {
               && Self::evaluate_depex(file)
             {
               //depex is met, insert into scheduled queue
-              scheduled_queue.push_back(ScheduledDriver { file: file.clone(), execution_attempted: false });
+              scheduled_queue.push_back(ScheduledDriver {
+                file: file.clone(),
+                device_path: fv_info.device_path,
+                execution_attempted: false,
+              });
             }
           }
           _ => { /*don't care about other file types in the dispatcher */ }
@@ -147,7 +168,7 @@ impl DispatcherContext {
 
       if let Some(pe32_data) = pe32_section {
         let image_load_result =
-          core_load_image(get_dxe_core_handle(), core::ptr::null_mut(), Some(pe32_data.as_slice()));
+          core_load_image(get_dxe_core_handle(), candidate.device_path, Some(pe32_data.as_slice()));
         if let Ok(image_handle) = image_load_result {
           dispatch_attempted = true;
           let status = start_image(image_handle, core::ptr::null_mut(), core::ptr::null_mut());

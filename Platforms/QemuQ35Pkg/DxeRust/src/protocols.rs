@@ -8,6 +8,7 @@ use uefi_protocol_db_lib::SpinLockedProtocolDb;
 use crate::{
   allocator::allocate_pool,
   events::{signal_event, EVENT_DB},
+  println,
 };
 
 pub static PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
@@ -17,6 +18,7 @@ pub fn core_install_protocol_interface(
   protocol: r_efi::efi::Guid,
   interface: *mut c_void,
 ) -> Result<r_efi::efi::Handle, r_efi::efi::Status> {
+  println!("InstallProtocolInterface: {:?} @ {:x?}", uuid::Uuid::from_bytes_le(*protocol.as_bytes()), interface);
   let (handle, notifies) = PROTOCOL_DB.install_protocol_interface(handle, protocol, interface)?;
 
   let mut closed_events = Vec::new();
