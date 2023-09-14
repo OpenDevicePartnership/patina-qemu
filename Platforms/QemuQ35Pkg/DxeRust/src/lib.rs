@@ -10,6 +10,7 @@ use uefi_gcd_lib::gcd::SpinLockedGcd;
 
 extern crate alloc;
 pub mod allocator;
+pub mod dispatcher;
 pub mod driver_services;
 pub mod dxe_services;
 pub mod events;

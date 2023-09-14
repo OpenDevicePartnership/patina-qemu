@@ -7,28 +7,25 @@ extern crate alloc;
 
 use r_pi::{
   dxe_services::GcdMemoryType,
-  fw_fs::{FfsSection, FfsSectionType, FirmwareVolume},
   hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
 };
 
-use core::{ffi::c_void, panic::PanicInfo, str::FromStr};
+use core::{ffi::c_void, panic::PanicInfo};
 use dxe_rust::{
   allocator::{init_memory_support, ALL_ALLOCATORS},
+  dispatcher::{core_dispatcher, init_dispatcher},
   driver_services::init_driver_services,
   dxe_services::init_dxe_services,
   events::init_events_support,
   fv::init_fv_support,
-  image::{core_load_image, get_dxe_core_handle, init_image_support, start_image},
+  image::init_image_support,
   misc_boot_services::init_misc_boot_services_support,
   physical_memory, println,
   protocols::init_protocol_support,
   systemtables::{init_system_table, SYSTEM_TABLE},
   GCD,
 };
-use r_efi::{
-  efi::Guid,
-  system::{MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP},
-};
+use r_efi::system::{MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP};
 use x86_64::{align_down, align_up, structures::paging::PageTableFlags};
 
 #[cfg_attr(target_os = "uefi", export_name = "efi_main")]
@@ -135,7 +132,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     }
   }
 
-  // Instantiate system table. TODO: this instantiates it on the stack. It needs to be instantiated in runtime memory.
+  // Instantiate system table.
   init_system_table();
 
   // use a block to limit the lifetime of the lock guard on the SYSTEM_TABLE reference.
@@ -148,6 +145,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     init_protocol_support(st.boot_services());
     init_misc_boot_services_support(st.boot_services());
     init_image_support(&hob_list, &st);
+    init_dispatcher();
     init_fv_support(&hob_list);
     init_dxe_services(st);
     init_driver_services(st.boot_services());
@@ -155,44 +153,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     st.checksum_all();
   }
 
-  //
-  // attempt to load and execute an external module's entry point.
-  //
-  let fv_hob = hob_list
-    .iter()
-    .find_map(|h| {
-      if let Hob::FirmwareVolume(fv) = h {
-        return Some(fv);
-      }
-      None
-    })
-    .expect("FV hob went missing");
-
-  // locate the pe32 ffs section from our target file
-  let target_guid_from_str = uuid::Uuid::from_str("AAB84920-C0C2-46F9-82DF-0C383381BC58").unwrap().to_bytes_le();
-  let target_guid: Guid = unsafe { *(target_guid_from_str.as_ptr() as *const Guid) };
-
-  let target_module_pe32: FfsSection = FirmwareVolume::new(fv_hob.base_address)
-    .ffs_files()
-    .find_map(|file| {
-      if file.file_name() != target_guid {
-        return None;
-      }
-      file.ffs_sections().find_map(|section| {
-        if section.section_type() == Some(FfsSectionType::Pe32) {
-          println!("Located target module {:?}", file);
-          return Some(section);
-        }
-        None
-      })
-    })
-    .expect("Target module not found.");
-
-  let image_handle =
-    core_load_image(get_dxe_core_handle(), core::ptr::null_mut(), Some(target_module_pe32.section_data())).unwrap();
-  let status = start_image(image_handle, core::ptr::null_mut(), core::ptr::null_mut());
-
-  println!("Back from target module with status {:#x}", status.as_usize());
+  core_dispatcher();
 
   for allocator in ALL_ALLOCATORS {
     println!("{}", allocator);

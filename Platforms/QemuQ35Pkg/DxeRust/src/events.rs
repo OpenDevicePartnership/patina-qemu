@@ -195,7 +195,7 @@ pub extern "efiapi" fn set_timer(
   }
 }
 
-extern "efiapi" fn raise_tpl(new_tpl: r_efi::efi::Tpl) -> r_efi::efi::Tpl {
+pub extern "efiapi" fn raise_tpl(new_tpl: r_efi::efi::Tpl) -> r_efi::efi::Tpl {
   let prev_tpl = CURRENT_TPL.fetch_max(new_tpl, Ordering::SeqCst);
   if new_tpl < prev_tpl {
     panic!("Invalid attempt to raise TPL to lower value. New TPL: {:#x?}, Prev TPL: {:#x?}", new_tpl, prev_tpl);
