@@ -10,7 +10,7 @@ use r_pi::{
   hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
 };
 
-use core::{ffi::c_void, panic::PanicInfo};
+use core::{ffi::c_void, panic::PanicInfo, str::FromStr};
 use dxe_rust::{
   allocator::{init_memory_support, ALL_ALLOCATORS},
   dispatcher::{core_dispatcher, init_dispatcher},
@@ -25,7 +25,10 @@ use dxe_rust::{
   systemtables::{init_system_table, SYSTEM_TABLE},
   GCD,
 };
-use r_efi::system::{MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP};
+use r_efi::{
+  efi,
+  system::{MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP},
+};
 use x86_64::{align_down, align_up, structures::paging::PageTableFlags};
 
 #[cfg_attr(target_os = "uefi", export_name = "efi_main")]
@@ -151,6 +154,17 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     init_driver_services(st.boot_services());
     // re-checksum the system tables after above initialization.
     st.checksum_all();
+
+    // Install HobList configuration table
+    let hob_list_guid = uuid::Uuid::from_str("7739F24C-93D7-11D4-9A3A-0090273FC14D").unwrap();
+    let hob_list_guid: efi::Guid = unsafe { *(hob_list_guid.to_bytes_le().as_ptr() as *const efi::Guid) };
+
+    dxe_rust::misc_boot_services::core_install_configuration_table(
+      hob_list_guid,
+      unsafe { (physical_hob_list as *mut c_void).as_mut() },
+      st,
+    )
+    .unwrap();
   }
 
   core_dispatcher();
