@@ -1359,7 +1359,7 @@ TestInstallConfigTableSupport (
     0xcc6116f7, 0xb90e, 0x4ea7, { 0xa0, 0xb2, 0x7c, 0x00, 0x47, 0x75, 0xc0, 0x04 }
   };
   VOID        *TablePtr2;
-  UINT32      InitialNumberOfEntry = 1;
+  UINT32      InitialNumberOfEntry = 2;
   UINT32      LastIdx              = InitialNumberOfEntry - 1;
 
   DEBUG ((DEBUG_INFO, "[%a] Testing ConfigTableSupport\n", __FUNCTION__));

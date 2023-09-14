@@ -318,11 +318,11 @@ APRIORI DXE {
 INF  QemuQ35Pkg/DxeRust/DxeRust.inf
 
 # Simple pure Rust DXE driver that is loaded by Rust DXE Core
-INF  QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
+# INF  QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
 
 # Simple C Test DXE driver used to test Rust DXE Core FFI interfaces.
-INF  QemuQ35Pkg/RustFfiTestDxe/RustFfiTestDxe.inf
-INF  QemuQ35Pkg/RustFfiImageTestDxe/RustFfiImageTestDxe.inf
+# INF  QemuQ35Pkg/RustFfiTestDxe/RustFfiTestDxe.inf
+# INF  QemuQ35Pkg/RustFfiImageTestDxe/RustFfiImageTestDxe.inf
 
 INF  MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
 INF  MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf
