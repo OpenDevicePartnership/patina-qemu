@@ -6,11 +6,13 @@
 extern crate alloc;
 
 use r_pi::{
-  dxe_services::GcdMemoryType,
-  hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
+  dxe_services::{GcdIoType, GcdMemoryType},
+  hob::{
+    self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable, ResourceDescriptor,
+  },
 };
 
-use core::{ffi::c_void, panic::PanicInfo, str::FromStr};
+use core::{ffi::c_void, ops::Range, panic::PanicInfo, str::FromStr};
 use dxe_rust::{
   allocator::{init_memory_support, ALL_ALLOCATORS},
   dispatcher::{core_dispatcher, init_dispatcher},
@@ -29,7 +31,11 @@ use r_efi::{
   efi,
   system::{MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP},
 };
-use x86_64::{align_down, align_up, structures::paging::PageTableFlags};
+use uefi_gcd_lib::gcd;
+use x86_64::{
+  align_down, align_up,
+  structures::paging::{page_table, PageTableFlags},
+};
 
 #[cfg_attr(target_os = "uefi", export_name = "efi_main")]
 pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
@@ -66,6 +72,8 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     }
   }
 
+  println!("memory_start: {:x?}", memory_start);
+  println!("memory_size: {:x?}", memory_end - memory_start);
   println!("free_memory_start: {:x?}", free_memory_start);
   println!("free_memory_size: {:x?}", free_memory_size);
 
@@ -102,7 +110,65 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
   // 4. iterate over the hob list and map memory ranges from the pre-DXE memory allocation hobs.
   // TODO: this maps the pages for these memory ranges; but we should also update the GCD accordingly.
   for hob in hob_list.iter() {
+    let mut gcd_mem_type: GcdMemoryType = GcdMemoryType::NonExistent;
+    let mut gcd_io_type: GcdIoType = GcdIoType::NonExistent;
+    let mut resource_attributes: u32 = 0;
+    let mut page_table_flags: page_table::PageTableFlags = PageTableFlags::PRESENT;
+
     let range = match hob {
+      Hob::ResourceDescriptor(res_desc) => {
+        let base = res_desc.physical_start;
+        let size = res_desc.resource_length;
+
+        match res_desc.resource_type {
+          hob::EFI_RESOURCE_SYSTEM_MEMORY => {
+            resource_attributes = res_desc.resource_attribute;
+            if resource_attributes & hob::MEMORY_ATTRIBUTE_MASK == hob::TESTED_MEMORY_ATTRIBUTES {
+              if resource_attributes & hob::EFI_RESOURCE_ATTRIBUTE_MORE_RELIABLE
+                == hob::EFI_RESOURCE_ATTRIBUTE_MORE_RELIABLE
+              {
+                gcd_mem_type = GcdMemoryType::MoreReliable;
+              } else {
+                gcd_mem_type = GcdMemoryType::SystemMemory;
+              }
+              page_table_flags |= PageTableFlags::WRITABLE;
+            }
+
+            if (resource_attributes & hob::MEMORY_ATTRIBUTE_MASK == (hob::INITIALIZED_MEMORY_ATTRIBUTES))
+              || (resource_attributes & hob::PRESENT_MEMORY_ATTRIBUTES == (hob::PRESENT_MEMORY_ATTRIBUTES))
+            {
+              gcd_mem_type = GcdMemoryType::Reserved;
+              page_table_flags |= PageTableFlags::WRITABLE;
+            }
+
+            if resource_attributes & hob::EFI_RESOURCE_ATTRIBUTE_PERSISTENT == hob::EFI_RESOURCE_ATTRIBUTE_PERSISTENT {
+              gcd_mem_type = GcdMemoryType::Persistent;
+            }
+          }
+          hob::EFI_RESOURCE_MEMORY_MAPPED_IO | hob::EFI_RESOURCE_FIRMWARE_DEVICE => {
+            gcd_mem_type = GcdMemoryType::MemoryMappedIo;
+            page_table_flags |= PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+          }
+          hob::EFI_RESOURCE_MEMORY_MAPPED_IO_PORT | hob::EFI_RESOURCE_MEMORY_RESERVED => {
+            gcd_mem_type = GcdMemoryType::Reserved;
+            page_table_flags |= PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+          }
+          hob::EFI_RESOURCE_IO => {
+            gcd_io_type = GcdIoType::Io;
+          }
+          hob::EFI_RESOURCE_IO_RESERVED => {
+            gcd_io_type = GcdIoType::Reserved;
+          }
+          _ => {
+            debug_assert!(false, "Unknown resource type in HOB");
+          }
+        }
+
+        if gcd_mem_type != GcdMemoryType::NonExistent {
+          assert!(res_desc.attributes_valid());
+        }
+        base..base.checked_add(size).expect("Invalid resource descriptor hob")
+      }
       Hob::MemoryAllocation(MemoryAllocation { header: _, alloc_descriptor: desc })
       | Hob::MemoryAllocationModule(MemoryAllocationModule {
         header: _,
@@ -127,13 +193,38 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
       }) => *base_address..base_address.checked_add(*length).expect("Invalid FV hob"),
       _ => continue,
     };
-    unsafe {
-      physical_memory::x86_64::x86_paging_support::PAGE_TABLE
-        .lock()
-        .map_range(range, PageTableFlags::PRESENT)
-        .expect("Failed to map memory resource");
+
+    if gcd_mem_type != GcdMemoryType::NonExistent {
+      for split_range in remove_range_overlap(&range, &(free_memory_start..(free_memory_start + free_memory_size)))
+        .into_iter()
+        .take_while(|r| r.is_some())
+      {
+        if let Some(actual_range) = split_range {
+          println!(
+            "Mapping memory range {:x?} as {:?} with attributes {:x?}",
+            actual_range, gcd_mem_type, resource_attributes
+          );
+          unsafe {
+            GCD
+              .add_memory_space(
+                gcd_mem_type,
+                actual_range.start as usize,
+                actual_range.end.saturating_sub(actual_range.start) as usize,
+                gcd::get_capabilities(gcd_mem_type, resource_attributes as u64),
+              )
+              .expect("Failed to add memory space to GCD");
+            physical_memory::x86_64::x86_paging_support::PAGE_TABLE
+              .lock()
+              .map_range(actual_range, page_table_flags)
+              .expect("Failed to map memory resource");
+          }
+        }
+      }
     }
   }
+
+  println!("GCD after HOB iteration is:");
+  println!("{:#x?}", GCD);
 
   // Instantiate system table.
   init_system_table();
@@ -179,6 +270,21 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
   // Else it will hit hlt_loop and wait.
   dxe_rust::exit_qemu(dxe_rust::QemuExitCode::Success);
   dxe_rust::hlt_loop();
+}
+
+fn remove_range_overlap<T: PartialOrd + Copy>(a: &Range<T>, b: &Range<T>) -> [Option<Range<T>>; 2] {
+  if a.start < b.end && a.end > b.start {
+    // Check if `a` has a portion before the overlap
+    let first_range = if a.start < b.start { Some(a.start..b.start) } else { None };
+
+    // Check if `a` has a portion after the overlap
+    let second_range = if a.end > b.end { Some(b.end..a.end) } else { None };
+
+    [first_range, second_range]
+  } else {
+    // No overlap
+    [Some(a.start..a.end), None]
+  }
 }
 
 /// This function is called on panic.

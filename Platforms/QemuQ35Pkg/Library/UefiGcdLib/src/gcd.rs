@@ -1,8 +1,14 @@
 use core::{mem, ptr};
 
 use alloc::slice;
-use r_efi::efi::Handle;
-use r_pi::dxe_services::{GcdMemoryType, MemorySpaceDescriptor};
+use r_efi::{
+  efi::Handle,
+  system::{MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_UCE, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP},
+};
+use r_pi::{
+  dxe_services::{GcdMemoryType, MemorySpaceDescriptor},
+  hob,
+};
 
 use crate::{ensure, error};
 
@@ -38,6 +44,106 @@ pub enum AllocateType {
   TopDown(Option<usize>),
   // Allocate at this address.
   Address(usize),
+}
+
+#[derive(Clone, Copy)]
+struct GcdAttributeConversionEntry {
+  attribute: u32,
+  capability: u64,
+  memory: bool,
+}
+
+const ATTRIBUTE_CONVERSION_TABLE: [GcdAttributeConversionEntry; 15] = [
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_UNCACHEABLE,
+    capability: MEMORY_UC,
+    memory: true,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_UNCACHED_EXPORTED,
+    capability: MEMORY_UCE,
+    memory: true,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE,
+    capability: MEMORY_WC,
+    memory: true,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE,
+    capability: MEMORY_WT,
+    memory: true,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE,
+    capability: MEMORY_WB,
+    memory: true,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_READ_PROTECTABLE,
+    capability: MEMORY_RP,
+    memory: true,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_WRITE_PROTECTABLE,
+    capability: MEMORY_WP,
+    memory: true,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_EXECUTION_PROTECTABLE,
+    capability: MEMORY_XP,
+    memory: true,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_READ_ONLY_PROTECTABLE,
+    capability: MEMORY_RO,
+    memory: true,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_PRESENT,
+    capability: hob::EFI_MEMORY_PRESENT,
+    memory: false,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_INITIALIZED,
+    capability: hob::EFI_MEMORY_INITIALIZED,
+    memory: false,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_TESTED,
+    capability: hob::EFI_MEMORY_TESTED,
+    memory: false,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_PERSISTABLE,
+    capability: hob::EFI_MEMORY_NV,
+    memory: true,
+  },
+  GcdAttributeConversionEntry {
+    attribute: hob::EFI_RESOURCE_ATTRIBUTE_MORE_RELIABLE,
+    capability: hob::EFI_MEMORY_MORE_RELIABLE,
+    memory: true,
+  },
+  GcdAttributeConversionEntry { attribute: 0, capability: 0, memory: false },
+];
+
+pub fn get_capabilities(gcd_mem_type: GcdMemoryType, attributes: u64) -> u64 {
+  let mut capabilities = 0;
+
+  for conversion in ATTRIBUTE_CONVERSION_TABLE.iter() {
+    if conversion.attribute == 0 {
+      break;
+    }
+
+    if conversion.memory || (gcd_mem_type != GcdMemoryType::SystemMemory && gcd_mem_type != GcdMemoryType::MoreReliable)
+    {
+      if attributes & (conversion.attribute as u64) != 0 {
+        capabilities |= conversion.capability;
+      }
+    }
+  }
+
+  capabilities
 }
 
 #[derive(Debug)]
