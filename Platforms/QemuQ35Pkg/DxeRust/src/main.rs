@@ -88,7 +88,12 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
         free_memory_size as usize,
         MEMORY_UC | MEMORY_WC | MEMORY_WT | MEMORY_WB | MEMORY_WP | MEMORY_RP | MEMORY_XP | MEMORY_RO,
       )
-      .expect("Failed to add initial region to GCD.")
+      .expect("Failed to add initial region to GCD.");
+
+    // Mark the first page of memory as non-existent
+    GCD
+      .add_memory_space(GcdMemoryType::Reserved, 0, 0x1000, 0)
+      .expect("Failed to mark the first page as non-existent in the GCD.");
   };
 
   // 2. set up new page tables to replace those set up by the loader.
