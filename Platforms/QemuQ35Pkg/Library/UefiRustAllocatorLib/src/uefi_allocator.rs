@@ -223,6 +223,22 @@ impl UefiAllocator {
     self.allocator.deallocate(NonNull::new(allocation_info as *mut u8).unwrap(), (*allocation_info).layout);
     r_efi::efi::Status::SUCCESS
   }
+
+  pub unsafe fn allocate_at_address(
+    &self,
+    layout: core::alloc::Layout,
+    address: u64,
+  ) -> Result<core::ptr::NonNull<[u8]>, core::alloc::AllocError> {
+    self.allocator.alloc_at_address(layout, address)
+  }
+
+  pub unsafe fn allocate_below_address(
+    &self,
+    layout: core::alloc::Layout,
+    address: u64,
+  ) -> Result<core::ptr::NonNull<[u8]>, core::alloc::AllocError> {
+    self.allocator.alloc_below_address(layout, address)
+  }
 }
 
 unsafe impl GlobalAlloc for UefiAllocator {

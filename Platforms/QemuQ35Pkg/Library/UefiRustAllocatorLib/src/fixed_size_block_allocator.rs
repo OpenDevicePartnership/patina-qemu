@@ -505,6 +505,141 @@ impl FixedSizeBlockAllocator {
       })
       .is_some()
   }
+
+  /// Attempts to allocate at the specified address.
+  /// Note: `address` must be aligned to 0x1000, and `layout.align()` must also be 0x1000
+  pub unsafe fn alloc_at_address(
+    &mut self,
+    layout: Layout,
+    address: u64,
+  ) -> Result<core::ptr::NonNull<[u8]>, core::alloc::AllocError> {
+    //These are best-effort allocations. For this to succeed, the requested memory has to be available and free in the GCD.
+    //TODO: free will not release this memory back to the GCD. Consequently, a allocate/free/allocate of the same address and size
+    //will fail on the second allocate because the requested address will no longer be free in the GCD.
+
+    //Only page alignment is supported for this allocation, and the input address must be aligned.
+    if layout.align() != ALIGNMENT {
+      return Err(core::alloc::AllocError);
+    }
+    if (address % layout.align() as u64) != 0 {
+      return Err(core::alloc::AllocError);
+    }
+
+    //allocate an extra page for the allocator node. This is a lot like an expand(), except that
+    //it is more selective about how it requests memory from GCD.
+    let size = layout.pad_to_align().size() + ALIGNMENT;
+    let size = max(size, MIN_EXPANSION);
+    let size = align_up(size, ALIGNMENT);
+
+    // request an allocation from GCD starting one page before the desired address.
+    let requested_start_address = address as usize - ALIGNMENT;
+
+    let start_address = self
+      .gcd
+      .allocate_memory_space(
+        uefi_gcd_lib::gcd::AllocateType::Address(requested_start_address),
+        GcdMemoryType::SystemMemory,
+        ALIGNMENT_BITS,
+        size,
+        1 as *mut c_void, //todo: figure out where to get this from.
+        None,
+      )
+      .map_err(|_| core::alloc::AllocError)?;
+
+    assert_eq!(requested_start_address, start_address);
+
+    //set up the new allocator, reserving space at the beginning of the range for the AllocatorListNode structure.
+    let start_address = start_address as usize;
+    let size = size as usize;
+
+    let heap_bottom = start_address + size_of::<AllocatorListNode>();
+    let heap_size = size - (heap_bottom - start_address);
+
+    let alloc_node_ptr = start_address as *mut AllocatorListNode;
+    let node = AllocatorListNode { next: None, allocator: linked_list_allocator::Heap::empty() };
+
+    //write the allocator node structure into the start of the range, initialize its heap with the remainder of
+    //the range, and add the new allocator to the front of the allocator list.
+    unsafe {
+      alloc_node_ptr.write(node);
+      (*alloc_node_ptr).allocator.init(heap_bottom, heap_size);
+      (*alloc_node_ptr).next = self.allocators;
+    }
+
+    self.allocators = Some(alloc_node_ptr);
+
+    //Now - the first allocation from this range should produce the requested address (since it is the first page
+    //boundary above the allocation node at the start of the range). Just return that allocation.
+    let allocation = self.fallback_alloc(layout);
+    let allocation = slice_from_raw_parts_mut(allocation, layout.size());
+    let allocation = NonNull::new(allocation).ok_or(AllocError)?;
+    Ok(allocation)
+  }
+
+  /// Attempts to allocate a block below the specified address.
+  /// Note: layout.align() must be 0x01000.
+  pub unsafe fn alloc_below_address(
+    &mut self,
+    layout: Layout,
+    address: u64,
+  ) -> Result<core::ptr::NonNull<[u8]>, core::alloc::AllocError> {
+    //These are best-effort allocations. For this to succeed, the requested memory has to be available and free in the GCD.
+
+    //Only page alignment is supported for this allocation, and the input address must be aligned.
+    if layout.align() != ALIGNMENT {
+      return Err(core::alloc::AllocError);
+    }
+
+    //Align the requested "top" address down to the alignment size.
+    let address = align_down(address as usize, layout.align());
+
+    //allocate an extra page for the allocator node. This is a lot like an expand(), except that
+    //it is more selective about how it requests memory from GCD.
+    let size = layout.pad_to_align().size() + ALIGNMENT;
+    let size = max(size, MIN_EXPANSION);
+    let size = align_up(size, ALIGNMENT);
+
+    // request an allocation from GCD starting one page before the desired address.
+    let requested_start_address = address;
+    let start_address = self
+      .gcd
+      .allocate_memory_space(
+        uefi_gcd_lib::gcd::AllocateType::BottomUp(Some(requested_start_address)),
+        GcdMemoryType::SystemMemory,
+        ALIGNMENT_BITS,
+        size,
+        1 as *mut c_void, //todo: figure out where to get this from.
+        None,
+      )
+      .map_err(|_| core::alloc::AllocError)?;
+
+    //set up the new allocator, reserving space at the beginning of the range for the AllocatorListNode structure.
+    let start_address = start_address as usize;
+    let size = size as usize;
+
+    let heap_bottom = start_address + size_of::<AllocatorListNode>();
+    let heap_size = size - (heap_bottom - start_address);
+
+    let alloc_node_ptr = start_address as *mut AllocatorListNode;
+    let node = AllocatorListNode { next: None, allocator: linked_list_allocator::Heap::empty() };
+
+    //write the allocator node structure into the start of the range, initialize its heap with the remainder of
+    //the range, and add the new allocator to the front of the allocator list.
+    unsafe {
+      alloc_node_ptr.write(node);
+      (*alloc_node_ptr).allocator.init(heap_bottom, heap_size);
+      (*alloc_node_ptr).next = self.allocators;
+    }
+
+    self.allocators = Some(alloc_node_ptr);
+
+    //Now - the first allocation from this range should produce the requested address (since it is the first page
+    //boundary above the allocation node at the start of the range). Just return that allocation.
+    let allocation = self.fallback_alloc(layout);
+    let allocation = slice_from_raw_parts_mut(allocation, layout.size());
+    let allocation = NonNull::new(allocation).ok_or(AllocError)?;
+    Ok(allocation)
+  }
 }
 
 impl Display for FixedSizeBlockAllocator {
@@ -642,6 +777,26 @@ impl SpinLockedFixedSizeBlockAllocator {
   /// See [`FixedSizeBlockAllocator::contains()`]
   pub fn contains(&self, ptr: NonNull<u8>) -> bool {
     self.lock().contains(ptr.as_ptr())
+  }
+
+  /// Attempts to allocate at the specified address.
+  /// Note: `address` must be aligned to 0x1000, and `layout.align()` must also be 0x1000
+  pub unsafe fn alloc_at_address(
+    &self,
+    layout: Layout,
+    address: u64,
+  ) -> Result<core::ptr::NonNull<[u8]>, core::alloc::AllocError> {
+    self.lock().alloc_at_address(layout, address)
+  }
+
+  /// Attempts to allocate a block below the specified address.
+  /// Note: layout.align() must be 0x01000.
+  pub unsafe fn alloc_below_address(
+    &self,
+    layout: Layout,
+    address: u64,
+  ) -> Result<core::ptr::NonNull<[u8]>, core::alloc::AllocError> {
+    self.lock().alloc_below_address(layout, address)
   }
 }
 
@@ -926,5 +1081,49 @@ mod tests {
     let layout = Layout::from_size_align(0x8, 0x8).unwrap();
     let allocation = fsb.allocate(layout).unwrap().as_non_null_ptr();
     assert!(fsb.contains(allocation));
+  }
+
+  #[test]
+  fn test_allocate_at_address() {
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
+
+    // Allocate some space on the heap with the global allocator (std) to be used by expand().
+    let address = init_gcd(&GCD, 0x1000000);
+
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+
+    let target_address = address + 0x400000 - 8 * (ALIGNMENT as u64);
+    let size = 4 * ALIGNMENT;
+
+    let layout = Layout::from_size_align(size, ALIGNMENT).unwrap();
+    let allocation = unsafe { fsb.alloc_at_address(layout, target_address).unwrap().as_non_null_ptr() };
+    assert!(fsb.contains(allocation));
+    assert_eq!(allocation.as_ptr() as u64, target_address);
+
+    unsafe { fsb.deallocate(allocation, layout) };
+  }
+
+  #[test]
+  fn test_allocate_below_address() {
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48);
+
+    // Allocate some space on the heap with the global allocator (std) to be used by expand().
+    let address = init_gcd(&GCD, 0x1000000);
+
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+
+    let target_address = address + 0x400000 - 8 * (ALIGNMENT as u64);
+    let size = 4 * ALIGNMENT;
+
+    let layout = Layout::from_size_align(size, ALIGNMENT).unwrap();
+    let allocation = unsafe { fsb.alloc_below_address(layout, target_address).unwrap().as_non_null_ptr() };
+    assert!(fsb.contains(allocation));
+    assert!((allocation.as_ptr() as u64) < target_address);
+
+    unsafe { fsb.deallocate(allocation, layout) };
   }
 }

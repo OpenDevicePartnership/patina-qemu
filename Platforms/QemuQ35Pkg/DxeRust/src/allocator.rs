@@ -9,8 +9,9 @@ use crate::GCD;
 use r_efi::{
   efi::Status,
   system::{
-    BootServices, MemoryType, ACPI_MEMORY_NVS, ACPI_RECLAIM_MEMORY, BOOT_SERVICES_CODE, BOOT_SERVICES_DATA,
-    LOADER_CODE, LOADER_DATA, RUNTIME_SERVICES_CODE, RUNTIME_SERVICES_DATA,
+    BootServices, MemoryType, ACPI_MEMORY_NVS, ACPI_RECLAIM_MEMORY, ALLOCATE_ADDRESS, ALLOCATE_ANY_PAGES,
+    ALLOCATE_MAX_ADDRESS, BOOT_SERVICES_CODE, BOOT_SERVICES_DATA, LOADER_CODE, LOADER_DATA, RUNTIME_SERVICES_CODE,
+    RUNTIME_SERVICES_DATA,
   },
 };
 use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
@@ -104,11 +105,6 @@ extern "efiapi" fn allocate_pages(
     return Status::INVALID_PARAMETER;
   }
 
-  //TODO: For now we only support "AnyPages" allocation type.
-  if allocation_type != r_efi::system::ALLOCATE_ANY_PAGES {
-    return Status::UNSUPPORTED;
-  }
-
   let allocator = match get_allocator_for_type(memory_type) {
     Some(allocator) => allocator,
     None => return Status::INVALID_PARAMETER,
@@ -119,12 +115,41 @@ extern "efiapi" fn allocate_pages(
     Err(_) => return Status::INVALID_PARAMETER,
   };
 
-  match allocator.allocate(layout) {
-    Ok(ptr) => {
-      unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
-      Status::SUCCESS
+  match allocation_type {
+    ALLOCATE_ANY_PAGES => match allocator.allocate(layout) {
+      Ok(ptr) => {
+        unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
+        Status::SUCCESS
+      }
+      Err(_) => Status::OUT_OF_RESOURCES,
+    },
+    ALLOCATE_MAX_ADDRESS => {
+      if let Some(address) = unsafe { memory.as_ref() } {
+        match unsafe { allocator.allocate_below_address(layout, *address) } {
+          Ok(ptr) => {
+            unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
+            Status::SUCCESS
+          }
+          Err(_) => Status::OUT_OF_RESOURCES,
+        }
+      } else {
+        Status::INVALID_PARAMETER
+      }
     }
-    Err(_) => Status::OUT_OF_RESOURCES,
+    ALLOCATE_ADDRESS => {
+      if let Some(address) = unsafe { memory.as_ref() } {
+        match unsafe { allocator.allocate_at_address(layout, *address) } {
+          Ok(ptr) => {
+            unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
+            Status::SUCCESS
+          }
+          Err(_) => Status::OUT_OF_RESOURCES,
+        }
+      } else {
+        Status::INVALID_PARAMETER
+      }
+    }
+    _ => Status::UNSUPPORTED,
   }
 }
 
