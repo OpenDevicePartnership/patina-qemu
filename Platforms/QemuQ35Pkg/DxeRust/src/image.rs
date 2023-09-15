@@ -41,7 +41,7 @@ extern "efiapi" fn unimplemented_entry_point(
 
 // dummy function used to initialize image_info.Unload.
 extern "efiapi" fn unimplemented_unload(_handle: r_efi::efi::Handle) -> r_efi::efi::Status {
-  unimplemented!()
+  r_efi::efi::Status::SUCCESS
 }
 
 // define a wrapper for allocators that supports specified alignments.

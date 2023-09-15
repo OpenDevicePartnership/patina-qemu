@@ -528,7 +528,6 @@ impl FixedSizeBlockAllocator {
     //allocate an extra page for the allocator node. This is a lot like an expand(), except that
     //it is more selective about how it requests memory from GCD.
     let size = layout.pad_to_align().size() + ALIGNMENT;
-    let size = max(size, MIN_EXPANSION);
     let size = align_up(size, ALIGNMENT);
 
     // request an allocation from GCD starting one page before the desired address.
@@ -596,7 +595,6 @@ impl FixedSizeBlockAllocator {
     //allocate an extra page for the allocator node. This is a lot like an expand(), except that
     //it is more selective about how it requests memory from GCD.
     let size = layout.pad_to_align().size() + ALIGNMENT;
-    let size = max(size, MIN_EXPANSION);
     let size = align_up(size, ALIGNMENT);
 
     // request an allocation from GCD starting one page before the desired address.

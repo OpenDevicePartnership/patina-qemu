@@ -10,13 +10,14 @@ use r_efi::{
   efi::Status,
   system::{
     BootServices, MemoryType, ACPI_MEMORY_NVS, ACPI_RECLAIM_MEMORY, ALLOCATE_ADDRESS, ALLOCATE_ANY_PAGES,
-    ALLOCATE_MAX_ADDRESS, BOOT_SERVICES_CODE, BOOT_SERVICES_DATA, LOADER_CODE, LOADER_DATA, RUNTIME_SERVICES_CODE,
-    RUNTIME_SERVICES_DATA,
+    ALLOCATE_MAX_ADDRESS, BOOT_SERVICES_CODE, BOOT_SERVICES_DATA, LOADER_CODE, LOADER_DATA, RESERVED_MEMORY_TYPE,
+    RUNTIME_SERVICES_CODE, RUNTIME_SERVICES_DATA,
   },
 };
 use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 
-//EfiReservedMemoryType - no allocator (unused).
+//EfiReservedMemoryType
+pub static EFI_RESERVED_MEMORY_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, RESERVED_MEMORY_TYPE);
 //EfiLoaderCode
 pub static EFI_LOADER_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, LOADER_CODE);
 //EfiLoaderData
@@ -42,6 +43,7 @@ pub static EFI_ACPI_MEMORY_NVS_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GC
 //EfiPersistentMemory - no allocator (free memory)
 
 pub static ALL_ALLOCATORS: &[&'static UefiAllocator] = &[
+  &EFI_RESERVED_MEMORY_ALLOCATOR,
   &EFI_LOADER_CODE_ALLOCATOR,
   &EFI_LOADER_DATA_ALLOCATOR,
   &EFI_BOOT_SERVICES_CODE_ALLOCATOR,
