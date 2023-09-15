@@ -1,24 +1,30 @@
 use core::{mem, ptr};
 
-use alloc::{slice, vec::Vec};
+use alloc::{boxed::Box, slice, vec, vec::Vec};
 use r_efi::{
   efi::Handle,
   system::{MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_UCE, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP},
 };
 use r_pi::{
-  dxe_services::{GcdMemoryType, MemorySpaceDescriptor},
+  dxe_services::{GcdIoType, GcdMemoryType, IoSpaceDescriptor, MemorySpaceDescriptor},
   hob,
 };
 
 use crate::{ensure, error};
 
 use super::{
-  memory_block::{self, Error as MemoryBlockError, MemoryBlock, MemoryBlockSplit, StateTransition},
+  io_block::{self, Error as IoBlockError, IoBlock, IoBlockSplit, StateTransition as IoStateTransition},
+  memory_block::{
+    self, Error as MemoryBlockError, MemoryBlock, MemoryBlockSplit, StateTransition as MemoryStateTransition,
+  },
   sorted_slice::{self, Error as SortedSliceError, SortedSlice, SortedSliceKey},
 };
 
 const MEMORY_BLOCK_SLICE_LEN: usize = 4096;
 pub const MEMORY_BLOCK_SLICE_SIZE: usize = MEMORY_BLOCK_SLICE_LEN * mem::size_of::<MemoryBlock>();
+
+const IO_BLOCK_SLICE_LEN: usize = 4096;
+const IO_BLOCK_SLICE_SIZE: usize = IO_BLOCK_SLICE_LEN * mem::size_of::<IoBlock>();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
@@ -33,6 +39,7 @@ pub enum Error {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum InternalError {
   MemoryBlockErr(MemoryBlockError),
+  IoBlockErr(IoBlockError),
   SortedSliceErr(SortedSliceError),
 }
 
@@ -147,7 +154,7 @@ pub fn get_capabilities(gcd_mem_type: GcdMemoryType, attributes: u64) -> u64 {
 }
 
 #[derive(Debug)]
-///The Global Coherency Domain (GCD) Services are used to manage the memory and I/O resources visible to the boot processor.
+///The Global Coherency Domain (GCD) Services are used to manage the memory resources visible to the boot processor.
 pub struct GCD {
   maximum_address: usize,
   memory_blocks: Option<SortedSlice<'static, MemoryBlock>>,
@@ -234,7 +241,7 @@ impl GCD {
       idx,
       base_address,
       len,
-      StateTransition::Add(memory_type, capabilities),
+      MemoryStateTransition::Add(memory_type, capabilities),
     ) {
       Ok(idx) => Ok(idx),
       Err(InternalError::MemoryBlockErr(MemoryBlockError::BlockOutsideRange)) => error!(Error::AccessDenied),
@@ -260,7 +267,7 @@ impl GCD {
       Err(i) => i - 1,
     };
 
-    match Self::split_state_transition_at_idx(memory_blocks, idx, base_address, len, StateTransition::Remove) {
+    match Self::split_state_transition_at_idx(memory_blocks, idx, base_address, len, MemoryStateTransition::Remove) {
       Ok(_) => Ok(()),
       Err(InternalError::MemoryBlockErr(MemoryBlockError::BlockOutsideRange)) => error!(Error::NotFound),
       Err(InternalError::MemoryBlockErr(MemoryBlockError::InvalidStateTransition)) => match memory_blocks[idx] {
@@ -343,7 +350,7 @@ impl GCD {
         i,
         addr,
         len,
-        StateTransition::Allocate(image_handle, device_handle),
+        MemoryStateTransition::Allocate(image_handle, device_handle),
       ) {
         Ok(_) => return Ok(addr),
         Err(InternalError::MemoryBlockErr(_)) => continue,
@@ -388,7 +395,7 @@ impl GCD {
         i,
         addr,
         len,
-        StateTransition::Allocate(image_handle, device_handle),
+        MemoryStateTransition::Allocate(image_handle, device_handle),
       ) {
         Ok(_) => return Ok(addr),
         Err(InternalError::MemoryBlockErr(_)) => continue,
@@ -426,7 +433,7 @@ impl GCD {
       idx,
       address,
       len,
-      StateTransition::Allocate(image_handle, device_handle),
+      MemoryStateTransition::Allocate(image_handle, device_handle),
     ) {
       Ok(_) => Ok(address),
       Err(InternalError::MemoryBlockErr(_)) => error!(Error::NotFound),
@@ -451,7 +458,7 @@ impl GCD {
       Err(i) => i - 1,
     };
 
-    match Self::split_state_transition_at_idx(memory_blocks, idx, base_address, len, StateTransition::Free) {
+    match Self::split_state_transition_at_idx(memory_blocks, idx, base_address, len, MemoryStateTransition::Free) {
       Ok(_) => Ok(()),
       Err(InternalError::MemoryBlockErr(_)) => error!(Error::NotFound),
       Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
@@ -480,7 +487,7 @@ impl GCD {
       idx,
       base_address,
       len,
-      StateTransition::SetAttributes(attributes),
+      MemoryStateTransition::SetAttributes(attributes),
     ) {
       Ok(_) => Ok(()),
       Err(InternalError::MemoryBlockErr(_)) => error!(Error::Unsupported),
@@ -515,7 +522,7 @@ impl GCD {
       idx,
       base_address,
       len,
-      StateTransition::SetCapabilities(capabilities),
+      MemoryStateTransition::SetCapabilities(capabilities),
     ) {
       Ok(_) => Ok(()),
       Err(InternalError::MemoryBlockErr(_)) => error!(Error::Unsupported),
@@ -550,7 +557,7 @@ impl GCD {
     idx: usize,
     base_address: usize,
     len: usize,
-    transition: StateTransition,
+    transition: MemoryStateTransition,
   ) -> Result<usize, InternalError> {
     let mb_before_split = memory_blocks[idx];
     let new_idx = match memory_blocks[idx].split_state_transition(base_address, len, transition)? {
@@ -611,22 +618,431 @@ impl From<memory_block::Error> for InternalError {
   }
 }
 
+#[derive(Debug)]
+///The I/O Global Coherency Domain (GCD) Services are used to manage the I/O resources visible to the boot processor.
+pub struct IoGCD {
+  maximum_address: usize,
+  io_blocks: Option<SortedSlice<'static, IoBlock>>,
+}
+
+impl IoGCD {
+  // Create an instance of the Global Coherency Domain (GCD) for testing.
+  #[cfg(test)]
+  pub(crate) const fn _new(io_address_bits: u32) -> Self {
+    assert!(io_address_bits > 0);
+    Self { io_blocks: None, maximum_address: 1 << io_address_bits }
+  }
+
+  pub fn init(&mut self, io_address_bits: u32) {
+    self.maximum_address = 1 << io_address_bits;
+  }
+
+  fn init_io_blocks(&mut self) -> Result<(), Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
+
+    let mut io_blocks =
+      SortedSlice::new(unsafe { Box::into_raw(vec![0_u8; IO_BLOCK_SLICE_SIZE].into_boxed_slice()).as_mut().unwrap() });
+
+    io_blocks
+      .add(IoBlock::Unallocated(IoSpaceDescriptor {
+        io_type: GcdIoType::NonExistent,
+        base_address: 0,
+        length: self.maximum_address as u64,
+        ..Default::default()
+      }))
+      .map_err(|_| Error::OutOfResources)?;
+
+    self.io_blocks.replace(io_blocks);
+
+    Ok(())
+    /*
+    ensure!(memory_type == GcdMemoryType::SystemMemory && len >= MEMORY_BLOCK_SLICE_SIZE, Error::OutOfResources);
+
+    let unallocated_memory_space = MemoryBlock::Unallocated(MemorySpaceDescriptor {
+      memory_type: GcdMemoryType::NonExistent,
+      base_address: 0,
+      length: self.maximum_address as u64,
+      ..Default::default()
+    });
+
+    let mut memory_blocks =
+      SortedSlice::new(slice::from_raw_parts_mut::<'static>(base_address as *mut u8, MEMORY_BLOCK_SLICE_SIZE));
+    memory_blocks.add(unallocated_memory_space).map_err(|_| Error::OutOfResources)?;
+    self.memory_blocks.replace(memory_blocks);
+
+    self.add_memory_space(memory_type, base_address, len, capabilities)?;
+
+    self.allocate_memory_space(
+      AllocateType::Address(base_address),
+      GcdMemoryType::SystemMemory,
+      0,
+      MEMORY_BLOCK_SLICE_SIZE,
+      1 as _,
+      None,
+    ) */
+  }
+
+  /// This service adds reserved I/O, or system I/O resources to the global coherency domain of the processor.
+  ///
+  /// # Documentation
+  /// UEFI Platform Initialization Specification, Release 1.8, Section II-7.2.4.9
+  pub fn add_io_space(&mut self, io_type: GcdIoType, base_address: usize, len: usize) -> Result<usize, Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
+    ensure!(len > 0, Error::InvalidParameter);
+    ensure!(base_address + len <= self.maximum_address, Error::Unsupported);
+
+    if self.io_blocks.is_none() {
+      self.init_io_blocks()?;
+    }
+
+    let Some(io_blocks) = &mut self.io_blocks else {
+      return Err(Error::NotInitialized);
+    };
+
+    let idx = match io_blocks.search_idx_with_key(&(base_address as u64)) {
+      Ok(i) => i,
+      Err(i) => i - 1,
+    };
+
+    ensure!(io_blocks[idx].as_ref().io_type == GcdIoType::NonExistent, Error::AccessDenied);
+
+    match Self::split_state_transition_at_idx(io_blocks, idx, base_address, len, IoStateTransition::Add(io_type)) {
+      Ok(idx) => Ok(idx),
+      Err(InternalError::IoBlockErr(IoBlockError::BlockOutsideRange)) => error!(Error::AccessDenied),
+      Err(InternalError::IoBlockErr(IoBlockError::InvalidStateTransition)) => error!(Error::InvalidParameter),
+      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(e) => panic!("{e:?}"),
+    }
+  }
+
+  /// This service removes reserved I/O, or system I/O resources from the global coherency domain of the processor.
+  ///
+  /// # Documentation
+  /// UEFI Platform Initialization Specification, Release 1.8, Section II-7.2.4.12
+  pub fn remove_io_space(&mut self, base_address: usize, len: usize) -> Result<(), Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
+    ensure!(len > 0, Error::InvalidParameter);
+    ensure!(base_address + len <= self.maximum_address, Error::Unsupported);
+
+    if self.io_blocks.is_none() {
+      self.init_io_blocks()?;
+    }
+
+    let io_blocks = self.io_blocks.as_mut().ok_or(Error::NotInitialized)?;
+
+    let idx = match io_blocks.search_idx_with_key(&(base_address as u64)) {
+      Ok(i) => i,
+      Err(i) => i - 1,
+    };
+
+    match Self::split_state_transition_at_idx(io_blocks, idx, base_address, len, IoStateTransition::Remove) {
+      Ok(_) => Ok(()),
+      Err(InternalError::IoBlockErr(IoBlockError::BlockOutsideRange)) => error!(Error::NotFound),
+      Err(InternalError::IoBlockErr(IoBlockError::InvalidStateTransition)) => match io_blocks[idx] {
+        IoBlock::Unallocated(_) => error!(Error::NotFound),
+        IoBlock::Allocated(_) => error!(Error::AccessDenied),
+      },
+      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(e) => panic!("{e:?}"),
+    }
+  }
+
+  /// This service allocates reserved I/O, or system I/O resources from the global coherency domain of the processor.
+  ///
+  /// # Documentation
+  /// UEFI Platform Initialization Specification, Release 1.8, Section II-7.2.4.10
+  pub fn allocate_io_space(
+    &mut self,
+    allocate_type: AllocateType,
+    io_type: GcdIoType,
+    alignment: u32,
+    len: usize,
+    image_handle: Handle,
+    device_handle: Option<Handle>,
+  ) -> Result<usize, Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
+    ensure!(len > 0 && image_handle > ptr::null_mut(), Error::InvalidParameter);
+
+    match allocate_type {
+      AllocateType::BottomUp(max_address) => {
+        self.allocate_bottom_up(io_type, alignment, len, image_handle, device_handle, max_address.unwrap_or(usize::MAX))
+      }
+      AllocateType::TopDown(min_address) => {
+        self.allocate_top_down(io_type, alignment, len, image_handle, device_handle, min_address.unwrap_or(0))
+      }
+      AllocateType::Address(address) => {
+        ensure!(address + len <= self.maximum_address, Error::Unsupported);
+        self.allocate_address(io_type, alignment, len, image_handle, device_handle, address)
+      }
+    }
+  }
+
+  fn allocate_bottom_up(
+    &mut self,
+    io_type: GcdIoType,
+    alignment: u32,
+    len: usize,
+    image_handle: Handle,
+    device_handle: Option<Handle>,
+    max_address: usize,
+  ) -> Result<usize, Error> {
+    ensure!(len > 0, Error::InvalidParameter);
+
+    if self.io_blocks.is_none() {
+      self.init_io_blocks()?;
+    }
+
+    let io_blocks = self.io_blocks.as_mut().ok_or(Error::NotInitialized)?;
+
+    for i in 0..io_blocks.len() {
+      let mb = &io_blocks[i];
+      if mb.len() < len {
+        continue;
+      }
+      let address = mb.start();
+      let mut addr = address & (usize::MAX << alignment);
+      if addr < address {
+        addr += 1 << alignment;
+      }
+      ensure!(addr + len <= max_address, Error::NotFound);
+      if mb.as_ref().io_type != io_type {
+        continue;
+      }
+
+      match Self::split_state_transition_at_idx(
+        io_blocks,
+        i,
+        addr,
+        len,
+        IoStateTransition::Allocate(image_handle, device_handle),
+      ) {
+        Ok(_) => return Ok(addr),
+        Err(InternalError::IoBlockErr(_)) => continue,
+        Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+        Err(e) => panic!("{e:?}"),
+      }
+    }
+    Err(Error::NotFound)
+  }
+
+  fn allocate_top_down(
+    &mut self,
+    io_type: GcdIoType,
+    alignment: u32,
+    len: usize,
+    image_handle: Handle,
+    device_handle: Option<Handle>,
+    min_address: usize,
+  ) -> Result<usize, Error> {
+    ensure!(len > 0, Error::InvalidParameter);
+
+    if self.io_blocks.is_none() {
+      self.init_io_blocks()?;
+    }
+
+    let io_blocks = self.io_blocks.as_mut().ok_or(Error::NotInitialized)?;
+
+    for i in (0..io_blocks.len()).rev() {
+      let mb = &io_blocks[i];
+      if mb.len() < len {
+        continue;
+      }
+      let mut addr = mb.end() - len;
+      if addr < mb.start() {
+        continue;
+      }
+      addr = addr & (usize::MAX << alignment);
+      ensure!(addr >= min_address, Error::NotFound);
+
+      if mb.as_ref().io_type != io_type {
+        continue;
+      }
+
+      match Self::split_state_transition_at_idx(
+        io_blocks,
+        i,
+        addr,
+        len,
+        IoStateTransition::Allocate(image_handle, device_handle),
+      ) {
+        Ok(_) => return Ok(addr),
+        Err(InternalError::IoBlockErr(_)) => continue,
+        Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+        Err(e) => panic!("{e:?}"),
+      }
+    }
+    Err(Error::NotFound)
+  }
+
+  fn allocate_address(
+    &mut self,
+    io_type: GcdIoType,
+    alignment: u32,
+    len: usize,
+    image_handle: Handle,
+    device_handle: Option<Handle>,
+    address: usize,
+  ) -> Result<usize, Error> {
+    ensure!(len > 0, Error::InvalidParameter);
+    if self.io_blocks.is_none() {
+      self.init_io_blocks()?;
+    }
+    let io_blocks = self.io_blocks.as_mut().ok_or(Error::NotInitialized)?;
+
+    let idx = match io_blocks.search_idx_with_key(&(address as u64)) {
+      Ok(i) => i,
+      Err(i) => i - 1,
+    };
+
+    ensure!(
+      io_blocks[idx].as_ref().io_type == io_type && address == address & (usize::MAX << alignment),
+      Error::NotFound
+    );
+
+    match Self::split_state_transition_at_idx(
+      io_blocks,
+      idx,
+      address,
+      len,
+      IoStateTransition::Allocate(image_handle, device_handle),
+    ) {
+      Ok(_) => Ok(address),
+      Err(InternalError::IoBlockErr(_)) => error!(Error::NotFound),
+      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(e) => panic!("{e:?}"),
+    }
+  }
+
+  /// This service frees reserved I/O, or system I/O resources from the global coherency domain of the processor.
+  ///
+  /// # Documentation
+  /// UEFI Platform Initialization Specification, Release 1.8, Section II-7.2.4.11
+  pub fn free_io_space(&mut self, base_address: usize, len: usize) -> Result<(), Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
+    ensure!(len > 0, Error::InvalidParameter);
+    ensure!(base_address + len <= self.maximum_address, Error::Unsupported);
+
+    if self.io_blocks.is_none() {
+      self.init_io_blocks()?;
+    }
+
+    let io_blocks = self.io_blocks.as_mut().ok_or(Error::NotInitialized)?;
+
+    let idx = match io_blocks.search_idx_with_key(&(base_address as u64)) {
+      Ok(i) => i,
+      Err(i) => i - 1,
+    };
+
+    match Self::split_state_transition_at_idx(io_blocks, idx, base_address, len, IoStateTransition::Free) {
+      Ok(_) => Ok(()),
+      Err(InternalError::IoBlockErr(_)) => error!(Error::NotFound),
+      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(e) => panic!("{e:?}"),
+    }
+  }
+
+  /// This service returns a copy of the current set of memory blocks in the GCD.
+  /// Since GCD is used to service heap expansion requests and thus should avoid allocations,
+  /// Caller is required to initialize a vector of sufficient capacity to hold the descriptors
+  /// and provide a mutable reference to it.
+  pub fn get_io_descriptors(&mut self, buffer: &mut Vec<IoSpaceDescriptor>) -> Result<(), Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
+    ensure!(buffer.capacity() >= self.io_descriptor_count(), Error::InvalidParameter);
+    ensure!(buffer.len() == 0, Error::InvalidParameter);
+
+    if let Some(blocks) = &self.io_blocks {
+      for block in blocks {
+        match *block {
+          IoBlock::Allocated(descriptor) | IoBlock::Unallocated(descriptor) => buffer.push(descriptor),
+        }
+      }
+      Ok(())
+    } else {
+      Err(Error::NotFound)
+    }
+  }
+
+  fn split_state_transition_at_idx(
+    io_blocks: &mut SortedSlice<IoBlock>,
+    idx: usize,
+    base_address: usize,
+    len: usize,
+    transition: IoStateTransition,
+  ) -> Result<usize, InternalError> {
+    let ib_before_split = io_blocks[idx];
+    let new_idx = match io_blocks[idx].split_state_transition(base_address, len, transition)? {
+      IoBlockSplit::Same(_) => Ok(idx),
+      IoBlockSplit::After(_, next) => io_blocks.add(next),
+      IoBlockSplit::Before(_, next) => io_blocks.add(next).map(|_| idx),
+      IoBlockSplit::Middle(_, next, next2) => io_blocks.add_contiguous_slice(&[next, next2]),
+    };
+
+    let mut idx = match new_idx {
+      Ok(idx) => idx,
+      Err(e) => {
+        io_blocks[idx] = ib_before_split;
+        error!(e)
+      }
+    };
+
+    if let Ok([removed, next]) = io_blocks.get_many_mut([idx, idx + 1]) {
+      if removed.merge(next) {
+        io_blocks.remove_at_idx(idx + 1);
+      }
+    }
+
+    if idx > 0 {
+      if let Ok([prev, removed]) = io_blocks.get_many_mut([idx - 1, idx]) {
+        if prev.merge(removed) {
+          io_blocks.remove_at_idx(idx);
+          idx -= 1;
+        }
+      }
+    }
+
+    Ok(idx)
+  }
+
+  /// returns the current count of blocks in the list.
+  pub fn io_descriptor_count(&self) -> usize {
+    self.io_blocks.as_ref().map(|ibs| ibs.len()).unwrap_or(0)
+  }
+}
+
+impl SortedSliceKey for IoBlock {
+  type Key = u64;
+  fn ordering_key(&self) -> &Self::Key {
+    &self.as_ref().base_address
+  }
+}
+
+impl From<io_block::Error> for InternalError {
+  fn from(value: io_block::Error) -> Self {
+    InternalError::IoBlockErr(value)
+  }
+}
+
 /// Implements a spin locked GCD  suitable for use as a static global.
 #[derive(Debug)]
 pub struct SpinLockedGcd {
-  inner: spin::Mutex<GCD>,
+  memory: spin::Mutex<GCD>,
+  io: spin::Mutex<IoGCD>,
 }
 
 impl SpinLockedGcd {
   /// Creates a new uninitialized GCD. [`Self::init`] must be invoked before any other functions or they will return
   /// [`Error::NotInitialized`]
   pub const fn new() -> Self {
-    Self { inner: spin::Mutex::new(GCD { maximum_address: 0, memory_blocks: None }) }
+    Self {
+      memory: spin::Mutex::new(GCD { maximum_address: 0, memory_blocks: None }),
+      io: spin::Mutex::new(IoGCD { maximum_address: 0, io_blocks: None }),
+    }
   }
 
-  /// Acquires lock and delegates to [`GCD::init`]
-  pub fn init(&self, processor_address_bits: u32) {
-    self.inner.lock().init(processor_address_bits);
+  /// Acquires lock and delegates to [`GCD::init`] and [`IoGCD::init`]
+  pub fn init(&self, memory_address_bits: u32, io_address_bits: u32) {
+    self.memory.lock().init(memory_address_bits);
+    self.io.lock().init(io_address_bits);
   }
 
   /// Acquires lock and delegates to [`GCD::add_memory_space`]
@@ -637,12 +1053,12 @@ impl SpinLockedGcd {
     len: usize,
     capabilities: u64,
   ) -> Result<usize, Error> {
-    self.inner.lock().add_memory_space(memory_type, base_address, len, capabilities)
+    self.memory.lock().add_memory_space(memory_type, base_address, len, capabilities)
   }
 
   /// Acquires lock and delegates to [`GCD::remove_memory_space`]
   pub fn remove_memory_space(&self, base_address: usize, len: usize) -> Result<(), Error> {
-    self.inner.lock().remove_memory_space(base_address, len)
+    self.memory.lock().remove_memory_space(base_address, len)
   }
 
   /// Acquires lock and delegates to [`GCD::allocate_memory_space`]
@@ -655,32 +1071,70 @@ impl SpinLockedGcd {
     image_handle: Handle,
     device_handle: Option<Handle>,
   ) -> Result<usize, Error> {
-    self.inner.lock().allocate_memory_space(allocate_type, memory_type, alignment, len, image_handle, device_handle)
+    self.memory.lock().allocate_memory_space(allocate_type, memory_type, alignment, len, image_handle, device_handle)
   }
 
   /// Acquires lock and delegates to [`GCD::free_memory_space`]
   pub fn free_memory_space(&self, base_address: usize, len: usize) -> Result<(), Error> {
-    self.inner.lock().free_memory_space(base_address, len)
+    self.memory.lock().free_memory_space(base_address, len)
   }
 
   /// Acquires lock and delegates to [`GCD::set_memory_space_attributes`]
   pub fn set_memory_space_attributes(&self, base_address: usize, len: usize, attributes: u64) -> Result<(), Error> {
-    self.inner.lock().set_memory_space_attributes(base_address, len, attributes)
+    self.memory.lock().set_memory_space_attributes(base_address, len, attributes)
   }
 
   /// Acquires lock and delegates to [`GCD::set_memory_space_capabilities`]
   pub fn set_memory_space_capabilities(&self, base_address: usize, len: usize, capabilities: u64) -> Result<(), Error> {
-    self.inner.lock().set_memory_space_capabilities(base_address, len, capabilities)
+    self.memory.lock().set_memory_space_capabilities(base_address, len, capabilities)
   }
 
   /// Acquires lock and delegates to [`GCD::get_memory_descriptors`]
   pub fn get_memory_descriptors(&self, buffer: &mut Vec<MemorySpaceDescriptor>) -> Result<(), Error> {
-    self.inner.lock().get_memory_descriptors(buffer)
+    self.memory.lock().get_memory_descriptors(buffer)
   }
 
   /// Acquires lock and delegates to [`GCD::memory_descriptor_count`]
   pub fn memory_descriptor_count(&self) -> usize {
-    self.inner.lock().memory_descriptor_count()
+    self.memory.lock().memory_descriptor_count()
+  }
+
+  /// Acquires lock and delegates to [`IoGCD::add_io_space`]
+  pub fn add_io_space(&self, io_type: GcdIoType, base_address: usize, len: usize) -> Result<usize, Error> {
+    self.io.lock().add_io_space(io_type, base_address, len)
+  }
+
+  /// Acquires lock and delegates to [`IoGCD::remove_io_space`]
+  pub fn remove_io_space(&self, base_address: usize, len: usize) -> Result<(), Error> {
+    self.io.lock().remove_io_space(base_address, len)
+  }
+
+  /// Acquires lock and delegates to [`IoGCD::allocate_io_space`]
+  pub fn allocate_io_space(
+    &self,
+    allocate_type: AllocateType,
+    io_type: GcdIoType,
+    alignment: u32,
+    len: usize,
+    image_handle: Handle,
+    device_handle: Option<Handle>,
+  ) -> Result<usize, Error> {
+    self.io.lock().allocate_io_space(allocate_type, io_type, alignment, len, image_handle, device_handle)
+  }
+
+  /// Acquires lock and delegates to [`IoGCD::free_io_space]
+  pub fn free_io_space(&self, base_address: usize, len: usize) -> Result<(), Error> {
+    self.io.lock().free_io_space(base_address, len)
+  }
+
+  /// Acquires lock and delegates to [`IoGCD::get_io_descriptors`]
+  pub fn get_io_descriptors(&self, buffer: &mut Vec<IoSpaceDescriptor>) -> Result<(), Error> {
+    self.io.lock().get_io_descriptors(buffer)
+  }
+
+  /// Acquires lock and delegates to [`IoGCD::io_descriptor_count`]
+  pub fn io_descriptor_count(&self) -> usize {
+    self.io.lock().io_descriptor_count()
   }
 }
 
@@ -1511,7 +1965,7 @@ mod tests {
   fn spin_locked_allocator_should_error_if_not_initialized() {
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
 
-    assert_eq!(GCD.inner.lock().maximum_address, 0);
+    assert_eq!(GCD.memory.lock().maximum_address, 0);
 
     let add_result = unsafe { GCD.add_memory_space(GcdMemoryType::SystemMemory, 0, 100, 0) };
     assert_eq!(add_result, Err(Error::NotInitialized));
@@ -1531,11 +1985,11 @@ mod tests {
   fn spin_locked_allocator_init_should_initialize() {
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
 
-    assert_eq!(GCD.inner.lock().maximum_address, 0);
+    assert_eq!(GCD.memory.lock().maximum_address, 0);
 
     let mem = unsafe { get_memory(MEMORY_BLOCK_SLICE_SIZE) };
     let address = mem.as_ptr() as usize;
-    GCD.init(48);
+    GCD.init(48, 16);
     unsafe {
       GCD.add_memory_space(GcdMemoryType::SystemMemory, address, MEMORY_BLOCK_SLICE_SIZE, 0).unwrap();
     }

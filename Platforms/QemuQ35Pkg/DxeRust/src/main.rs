@@ -64,7 +64,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
         memory_end = handoff.memory_top;
       }
       Hob::Cpu(cpu) => {
-        GCD.init(cpu.size_of_memory_space as u32);
+        GCD.init(cpu.size_of_memory_space as u32, cpu.size_of_io_space as u32);
       }
       _ => (),
     }
@@ -108,7 +108,6 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
   // 4. iterate over the hob list and map resource descriptor hobs in the gcd and page table
   for hob in hob_list.iter() {
     let mut gcd_mem_type: GcdMemoryType = GcdMemoryType::NonExistent;
-    let mut _gcd_io_type: GcdIoType = GcdIoType::NonExistent;
     let mut mem_range: Range<u64> = 0..0;
     let mut resource_attributes: u32 = 0;
     let mut page_table_flags: page_table::PageTableFlags = PageTableFlags::PRESENT;
@@ -161,10 +160,20 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
           page_table_flags |= PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
         }
         hob::EFI_RESOURCE_IO => {
-          _gcd_io_type = GcdIoType::Io;
+          println!("Mapping io range {:x?} as {:?}", res_desc.physical_start..res_desc.resource_length, GcdIoType::Io);
+          GCD
+            .add_io_space(GcdIoType::Io, res_desc.physical_start as usize, res_desc.resource_length as usize)
+            .expect("Failed to add IO space to GCD");
         }
         hob::EFI_RESOURCE_IO_RESERVED => {
-          _gcd_io_type = GcdIoType::Reserved;
+          println!(
+            "Mapping io range {:x?} as {:?}",
+            res_desc.physical_start..res_desc.resource_length,
+            GcdIoType::Reserved
+          );
+          GCD
+            .add_io_space(GcdIoType::Reserved, res_desc.physical_start as usize, res_desc.resource_length as usize)
+            .expect("Failed to add IO space to GCD");
         }
         _ => {
           debug_assert!(false, "Unknown resource type in HOB");

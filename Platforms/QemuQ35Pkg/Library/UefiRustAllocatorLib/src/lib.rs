@@ -60,7 +60,7 @@
 //! # }
 //!
 //! static GCD: SpinLockedGcd = SpinLockedGcd::new();
-//! GCD.init(48); //hard-coded processor address size.
+//! GCD.init(48,16); //hard-coded processor address size.
 //! let base = init_gcd(&GCD, 0x400000);
 //!
 //! pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_DATA);
@@ -98,7 +98,7 @@
 //! # }
 //!
 //! static GCD: SpinLockedGcd = SpinLockedGcd::new();
-//! GCD.init(48); //hard-coded processor address size.
+//! GCD.init(48,16); //hard-coded processor address size.
 //! let base = init_gcd(&GCD, 0x400000);
 //!
 //! let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA);

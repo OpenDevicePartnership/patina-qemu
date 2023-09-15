@@ -57,7 +57,7 @@ struct AllocationInfo {
 /// # }
 ///
 /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
-/// GCD.init(48); //hard-coded processor address size.
+/// GCD.init(48,16); //hard-coded processor address size.
 ///
 /// //initialize the gcd for this example with some memory from the System allocator.
 /// let base = init_gcd(&GCD, 0x400000);
@@ -124,7 +124,7 @@ impl UefiAllocator {
   /// # }
   ///
   /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
-  /// GCD.init(48); //hard-coded processor address size.
+  /// GCD.init(48,16); //hard-coded processor address size.
   ///
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
@@ -189,7 +189,7 @@ impl UefiAllocator {
   /// # }
   ///
   /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
-  /// GCD.init(48); //hard-coded processor address size.
+  /// GCD.init(48,16); //hard-coded processor address size.
   ///
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
@@ -302,7 +302,7 @@ mod tests {
   #[test]
   fn test_uefi_allocator_new() {
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
     let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA);
     assert_eq!(ua.memory_type, r_efi::system::BOOT_SERVICES_DATA);
   }
@@ -310,7 +310,7 @@ mod tests {
   #[test]
   fn test_allocate_pool() {
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     let base = init_gcd(&GCD, 0x400000);
 
@@ -340,7 +340,7 @@ mod tests {
   #[test]
   fn test_free_pool() {
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     let base = init_gcd(&GCD, 0x400000);
 

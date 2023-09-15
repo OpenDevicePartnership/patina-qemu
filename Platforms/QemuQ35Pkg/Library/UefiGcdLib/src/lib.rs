@@ -23,7 +23,7 @@
 //!
 //! static GCD: SpinLockedGcd = SpinLockedGcd::new();
 //!
-//! GCD.init(48);
+//! GCD.init(48, 16);
 //!
 //! # let mem = unsafe { get_memory(MEMORY_BLOCK_SLICE_SIZE) };
 //! # let base_address = mem.as_ptr() as usize;
@@ -55,6 +55,7 @@
 extern crate alloc;
 
 pub mod gcd;
+pub mod io_block;
 pub mod memory_block;
 pub mod sorted_slice;
 

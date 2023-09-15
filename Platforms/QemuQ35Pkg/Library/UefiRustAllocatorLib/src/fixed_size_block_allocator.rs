@@ -105,7 +105,7 @@ impl Iterator for AllocatorIterator {
 /// # }
 ///
 /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
-/// GCD.init(48); //hard-coded processor address size.
+/// GCD.init(48,16); //hard-coded processor address size.
 ///
 /// //initialize the gcd for this example with some memory from the System allocator.
 /// let base = init_gcd(&GCD, 0x400000);
@@ -227,7 +227,7 @@ impl FixedSizeBlockAllocator {
   /// # }
   ///
   /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
-  /// GCD.init(48); //hard-coded processor address size.
+  /// GCD.init(48,16); //hard-coded processor address size.
   ///
   /// //initialize the gcd allocator for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
@@ -297,7 +297,7 @@ impl FixedSizeBlockAllocator {
   /// # }
   ///
   /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
-  /// GCD.init(48); //hard-coded processor address size.
+  /// GCD.init(48,16); //hard-coded processor address size.
   ///
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
@@ -361,7 +361,7 @@ impl FixedSizeBlockAllocator {
   /// # }
   ///
   /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
-  /// GCD.init(48); //hard-coded processor address size.
+  /// GCD.init(48,16); //hard-coded processor address size.
   ///
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
@@ -427,7 +427,7 @@ impl FixedSizeBlockAllocator {
   /// # }
   ///
   /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
-  /// GCD.init(48); //hard-coded processor address size.
+  /// GCD.init(48,16); //hard-coded processor address size.
   ///
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
@@ -476,7 +476,7 @@ impl FixedSizeBlockAllocator {
   /// # }
   ///
   /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
-  /// GCD.init(48); //hard-coded processor address size.
+  /// GCD.init(48,16); //hard-coded processor address size.
   ///
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
@@ -689,7 +689,7 @@ impl Display for FixedSizeBlockAllocator {
 /// # }
 ///
 /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
-/// GCD.init(48); //hard-coded processor address size.
+/// GCD.init(48,16); //hard-coded processor address size.
 ///
 ///static ALLOCATOR: SpinLockedFixedSizeBlockAllocator  = SpinLockedFixedSizeBlockAllocator::new(&GCD);
 ///
@@ -743,7 +743,7 @@ impl SpinLockedFixedSizeBlockAllocator {
   /// # }
   ///
   /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
-  /// GCD.init(48); //hard-coded processor address size.
+  /// GCD.init(48,16); //hard-coded processor address size.
   ///
   /// static ALLOCATOR: SpinLockedFixedSizeBlockAllocator  = SpinLockedFixedSizeBlockAllocator::new(&GCD);
   ///
@@ -866,7 +866,7 @@ mod tests {
   #[test]
   fn test_construct_empty_fixed_size_block_allocator() {
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
     let fsb = FixedSizeBlockAllocator::new(&GCD);
     assert!(core::ptr::eq(fsb.gcd, &GCD));
     assert!(fsb.list_heads.iter().all(|x| x.is_none()));
@@ -877,7 +877,7 @@ mod tests {
   fn test_expand() {
     // Create a static GCD
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     let base = init_gcd(&GCD, 0x400000);
@@ -915,7 +915,7 @@ mod tests {
   fn test_allocation_iterator() {
     // Create a static GCD
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     init_gcd(&GCD, 0x800000);
@@ -937,7 +937,7 @@ mod tests {
   fn test_fallback_alloc() {
     // Create a static GCD
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     let base = init_gcd(&GCD, 0x400000);
@@ -955,7 +955,7 @@ mod tests {
   fn test_alloc() {
     // Create a static GCD
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     let base = init_gcd(&GCD, 0x400000);
@@ -973,7 +973,7 @@ mod tests {
   fn test_allocate() {
     // Create a static GCD
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     let base = init_gcd(&GCD, 0x400000);
@@ -991,7 +991,7 @@ mod tests {
   fn test_fallback_dealloc() {
     // Create a static GCD
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     init_gcd(&GCD, 0x400000);
@@ -1011,7 +1011,7 @@ mod tests {
   fn test_dealloc() {
     // Create a static GCD
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     init_gcd(&GCD, 0x400000);
@@ -1039,7 +1039,7 @@ mod tests {
   fn test_deallocate() {
     // Create a static GCD
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     init_gcd(&GCD, 0x400000);
@@ -1069,7 +1069,7 @@ mod tests {
   fn test_contains() {
     // Create a static GCD
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     init_gcd(&GCD, 0x400000);
@@ -1085,7 +1085,7 @@ mod tests {
   fn test_allocate_at_address() {
     // Create a static GCD
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     let address = init_gcd(&GCD, 0x1000000);
@@ -1107,7 +1107,7 @@ mod tests {
   fn test_allocate_below_address() {
     // Create a static GCD
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
-    GCD.init(48);
+    GCD.init(48, 16);
 
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     let address = init_gcd(&GCD, 0x1000000);
