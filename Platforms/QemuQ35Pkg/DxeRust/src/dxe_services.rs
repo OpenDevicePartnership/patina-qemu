@@ -113,7 +113,7 @@ extern "efiapi" fn remove_memory_space(base_address: PhysicalAddress, length: u6
   }
 }
 
-extern "efiapi" fn get_memory_space_descriptor(
+pub extern "efiapi" fn get_memory_space_descriptor(
   base_address: PhysicalAddress,
   descriptor: *mut MemorySpaceDescriptor,
 ) -> Status {

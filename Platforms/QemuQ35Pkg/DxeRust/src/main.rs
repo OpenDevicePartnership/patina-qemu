@@ -6,7 +6,7 @@
 extern crate alloc;
 
 use r_pi::{
-  dxe_services::{GcdIoType, GcdMemoryType},
+  dxe_services::{GcdIoType, GcdMemoryType, MemorySpaceDescriptor},
   hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
 };
 
@@ -15,7 +15,7 @@ use dxe_rust::{
   allocator::{init_memory_support, ALL_ALLOCATORS},
   dispatcher::{core_dispatcher, init_dispatcher},
   driver_services::init_driver_services,
-  dxe_services::init_dxe_services,
+  dxe_services::{get_memory_space_descriptor, init_dxe_services},
   events::init_events_support,
   fv::init_fv_support,
   image::init_image_support,
@@ -105,96 +105,79 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
   let mut hob_list = HobList::default();
   hob_list.discover_hobs(physical_hob_list);
 
-  // 4. iterate over the hob list and map memory ranges from the pre-DXE memory allocation hobs.
-  // TODO: this maps the pages for these memory ranges; but we should also update the GCD accordingly.
+  // 4. iterate over the hob list and map resource descriptor hobs in the gcd and page table
   for hob in hob_list.iter() {
     let mut gcd_mem_type: GcdMemoryType = GcdMemoryType::NonExistent;
     let mut _gcd_io_type: GcdIoType = GcdIoType::NonExistent;
+    let mut mem_range: Range<u64> = 0..0;
     let mut resource_attributes: u32 = 0;
     let mut page_table_flags: page_table::PageTableFlags = PageTableFlags::PRESENT;
 
-    let range = match hob {
-      Hob::ResourceDescriptor(res_desc) => {
-        let base = res_desc.physical_start;
-        let size = res_desc.resource_length;
+    if let Hob::ResourceDescriptor(res_desc) = hob {
+      mem_range = res_desc.physical_start
+        ..res_desc.physical_start.checked_add(res_desc.resource_length).expect("Invalid resource descriptor hob");
 
-        match res_desc.resource_type {
-          hob::EFI_RESOURCE_SYSTEM_MEMORY => {
-            resource_attributes = res_desc.resource_attribute;
-            if resource_attributes & hob::MEMORY_ATTRIBUTE_MASK == hob::TESTED_MEMORY_ATTRIBUTES {
-              if resource_attributes & hob::EFI_RESOURCE_ATTRIBUTE_MORE_RELIABLE
-                == hob::EFI_RESOURCE_ATTRIBUTE_MORE_RELIABLE
-              {
-                gcd_mem_type = GcdMemoryType::MoreReliable;
-              } else {
-                gcd_mem_type = GcdMemoryType::SystemMemory;
-              }
-              page_table_flags |= PageTableFlags::WRITABLE;
-            }
+      match res_desc.resource_type {
+        hob::EFI_RESOURCE_SYSTEM_MEMORY => {
+          resource_attributes = res_desc.resource_attribute;
 
-            if (resource_attributes & hob::MEMORY_ATTRIBUTE_MASK == (hob::INITIALIZED_MEMORY_ATTRIBUTES))
-              || (resource_attributes & hob::PRESENT_MEMORY_ATTRIBUTES == (hob::PRESENT_MEMORY_ATTRIBUTES))
+          if resource_attributes & hob::MEMORY_ATTRIBUTE_MASK == hob::TESTED_MEMORY_ATTRIBUTES {
+            if resource_attributes & hob::EFI_RESOURCE_ATTRIBUTE_MORE_RELIABLE
+              == hob::EFI_RESOURCE_ATTRIBUTE_MORE_RELIABLE
             {
-              gcd_mem_type = GcdMemoryType::Reserved;
-              page_table_flags |= PageTableFlags::WRITABLE;
+              gcd_mem_type = GcdMemoryType::MoreReliable;
+            } else {
+              gcd_mem_type = GcdMemoryType::SystemMemory;
             }
+            page_table_flags |= PageTableFlags::WRITABLE;
+          }
 
-            if resource_attributes & hob::EFI_RESOURCE_ATTRIBUTE_PERSISTENT == hob::EFI_RESOURCE_ATTRIBUTE_PERSISTENT {
-              gcd_mem_type = GcdMemoryType::Persistent;
-            }
-          }
-          hob::EFI_RESOURCE_MEMORY_MAPPED_IO | hob::EFI_RESOURCE_FIRMWARE_DEVICE => {
-            resource_attributes = res_desc.resource_attribute;
-            gcd_mem_type = GcdMemoryType::MemoryMappedIo;
-            page_table_flags |= PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
-          }
-          hob::EFI_RESOURCE_MEMORY_MAPPED_IO_PORT | hob::EFI_RESOURCE_MEMORY_RESERVED => {
+          if (resource_attributes & hob::MEMORY_ATTRIBUTE_MASK == (hob::INITIALIZED_MEMORY_ATTRIBUTES))
+            || (resource_attributes & hob::MEMORY_ATTRIBUTE_MASK == (hob::PRESENT_MEMORY_ATTRIBUTES))
+          {
             gcd_mem_type = GcdMemoryType::Reserved;
-            page_table_flags |= PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+            page_table_flags |= PageTableFlags::WRITABLE;
           }
-          hob::EFI_RESOURCE_IO => {
-            _gcd_io_type = GcdIoType::Io;
-          }
-          hob::EFI_RESOURCE_IO_RESERVED => {
-            _gcd_io_type = GcdIoType::Reserved;
-          }
-          _ => {
-            debug_assert!(false, "Unknown resource type in HOB");
-          }
-        }
 
-        if gcd_mem_type != GcdMemoryType::NonExistent {
-          assert!(res_desc.attributes_valid());
+          if resource_attributes & hob::EFI_RESOURCE_ATTRIBUTE_PERSISTENT == hob::EFI_RESOURCE_ATTRIBUTE_PERSISTENT {
+            gcd_mem_type = GcdMemoryType::Persistent;
+          }
+
+          if res_desc.physical_start < 0x1000 {
+            let adjusted_base: u64 = 0x1000;
+            mem_range = adjusted_base
+              ..adjusted_base
+                .checked_add(res_desc.resource_length - adjusted_base)
+                .expect("Invalid resource descriptor hob length");
+          }
         }
-        base..base.checked_add(size).expect("Invalid resource descriptor hob")
+        hob::EFI_RESOURCE_MEMORY_MAPPED_IO | hob::EFI_RESOURCE_FIRMWARE_DEVICE => {
+          resource_attributes = res_desc.resource_attribute;
+          gcd_mem_type = GcdMemoryType::MemoryMappedIo;
+          page_table_flags |= PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+        }
+        hob::EFI_RESOURCE_MEMORY_MAPPED_IO_PORT | hob::EFI_RESOURCE_MEMORY_RESERVED => {
+          gcd_mem_type = GcdMemoryType::Reserved;
+          page_table_flags |= PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
+        }
+        hob::EFI_RESOURCE_IO => {
+          _gcd_io_type = GcdIoType::Io;
+        }
+        hob::EFI_RESOURCE_IO_RESERVED => {
+          _gcd_io_type = GcdIoType::Reserved;
+        }
+        _ => {
+          debug_assert!(false, "Unknown resource type in HOB");
+        }
+      };
+
+      if gcd_mem_type != GcdMemoryType::NonExistent {
+        assert!(res_desc.attributes_valid());
       }
-      Hob::MemoryAllocation(MemoryAllocation { header: _, alloc_descriptor: desc })
-      | Hob::MemoryAllocationModule(MemoryAllocationModule {
-        header: _,
-        alloc_descriptor: desc,
-        module_name: _,
-        entry_point: _,
-      }) => {
-        let base = desc.memory_base_address;
-        let size = desc.memory_length;
-        base..base.checked_add(size).expect("Invalid memory allocation hob")
-      }
-      Hob::FirmwareVolume(hob::FirmwareVolume { header: _, base_address, length })
-      | Hob::FirmwareVolume2(hob::FirmwareVolume2 { header: _, base_address, length, fv_name: _, file_name: _ })
-      | Hob::FirmwareVolume3(hob::FirmwareVolume3 {
-        header: _,
-        base_address,
-        length,
-        authentication_status: _,
-        extracted_fv: _,
-        fv_name: _,
-        file_name: _,
-      }) => *base_address..base_address.checked_add(*length).expect("Invalid FV hob"),
-      _ => continue,
-    };
+    }
 
     if gcd_mem_type != GcdMemoryType::NonExistent {
-      for split_range in remove_range_overlap(&range, &(free_memory_start..(free_memory_start + free_memory_size)))
+      for split_range in remove_range_overlap(&mem_range, &(free_memory_start..(free_memory_start + free_memory_size)))
         .into_iter()
         .take_while(|r| r.is_some())
       {
@@ -220,6 +203,64 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
         }
       }
     }
+  }
+
+  // 5. iterate over the hob list and memory allocation and fv hobs to the hob list
+  for hob in hob_list.iter() {
+    match hob {
+      Hob::MemoryAllocation(MemoryAllocation { header: _, alloc_descriptor: desc })
+      | Hob::MemoryAllocationModule(MemoryAllocationModule {
+        header: _,
+        alloc_descriptor: desc,
+        module_name: _,
+        entry_point: _,
+      }) => {
+        let mut descriptor: MemorySpaceDescriptor = MemorySpaceDescriptor::default();
+
+        if get_memory_space_descriptor(desc.memory_base_address, &mut descriptor as *mut MemorySpaceDescriptor)
+          == efi::Status::SUCCESS
+        {
+          let result = GCD.allocate_memory_space(
+            gcd::AllocateType::Address(desc.memory_base_address as usize),
+            descriptor.memory_type,
+            0,
+            desc.memory_length as usize,
+            1 as _,
+            None,
+          );
+          if let Err(_) = result {
+            println!(
+              "Failed to allocate memory space for memory allocation HOB at {:x?} of length {:x?}.",
+              desc.memory_base_address, desc.memory_length
+            );
+          }
+        }
+      }
+      Hob::FirmwareVolume(hob::FirmwareVolume { header: _, base_address, length })
+      | Hob::FirmwareVolume2(hob::FirmwareVolume2 { header: _, base_address, length, fv_name: _, file_name: _ })
+      | Hob::FirmwareVolume3(hob::FirmwareVolume3 {
+        header: _,
+        base_address,
+        length,
+        authentication_status: _,
+        extracted_fv: _,
+        fv_name: _,
+        file_name: _,
+      }) => {
+        let result = GCD.allocate_memory_space(
+          gcd::AllocateType::Address(*base_address as usize),
+          GcdMemoryType::MemoryMappedIo,
+          0,
+          *length as usize,
+          1 as _,
+          None,
+        );
+        if let Err(_) = result {
+          println!("Memory space is not yet available for the FV at {:x?} of length {:x?}.", base_address, length);
+        }
+      }
+      _ => continue,
+    };
   }
 
   println!("GCD after HOB iteration is:");
