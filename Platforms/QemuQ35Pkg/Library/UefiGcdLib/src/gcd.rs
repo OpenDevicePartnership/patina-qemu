@@ -1,6 +1,6 @@
 use core::{mem, ptr};
 
-use alloc::slice;
+use alloc::{slice, vec::Vec};
 use r_efi::{
   efi::Handle,
   system::{MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_UCE, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP},
@@ -459,6 +459,92 @@ impl GCD {
     }
   }
 
+  /// This service sets attributes on the given memory space.
+  ///
+  /// # Documentation
+  /// UEFI Platform Initialization Specification, Release 1.8, Section II-7.2.4.6
+  pub fn set_memory_space_attributes(&mut self, base_address: usize, len: usize, attributes: u64) -> Result<(), Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
+    ensure!(len > 0, Error::InvalidParameter);
+    ensure!(base_address + len <= self.maximum_address, Error::Unsupported);
+
+    let memory_blocks = self.memory_blocks.as_mut().ok_or(Error::NotFound)?;
+
+    let idx = match memory_blocks.search_idx_with_key(&(base_address as u64)) {
+      Ok(i) => i,
+      Err(i) => i - 1,
+    };
+
+    match Self::split_state_transition_at_idx(
+      memory_blocks,
+      idx,
+      base_address,
+      len,
+      StateTransition::SetAttributes(attributes),
+    ) {
+      Ok(_) => Ok(()),
+      Err(InternalError::MemoryBlockErr(_)) => error!(Error::Unsupported),
+      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(e) => panic!("{e:?}"),
+    }
+  }
+
+  /// This service sets capabilities on the given memory space.
+  ///
+  /// # Documentation
+  /// UEFI Platform Initialization Specification, Release 1.8, Section II-7.2.4.6
+  pub fn set_memory_space_capabilities(
+    &mut self,
+    base_address: usize,
+    len: usize,
+    capabilities: u64,
+  ) -> Result<(), Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
+    ensure!(len > 0, Error::InvalidParameter);
+    ensure!(base_address + len <= self.maximum_address, Error::Unsupported);
+
+    let memory_blocks = self.memory_blocks.as_mut().ok_or(Error::NotFound)?;
+
+    let idx = match memory_blocks.search_idx_with_key(&(base_address as u64)) {
+      Ok(i) => i,
+      Err(i) => i - 1,
+    };
+
+    match Self::split_state_transition_at_idx(
+      memory_blocks,
+      idx,
+      base_address,
+      len,
+      StateTransition::SetCapabilities(capabilities),
+    ) {
+      Ok(_) => Ok(()),
+      Err(InternalError::MemoryBlockErr(_)) => error!(Error::Unsupported),
+      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(e) => panic!("{e:?}"),
+    }
+  }
+
+  /// This service returns a copy of the current set of memory blocks in the GCD.
+  /// Since GCD is used to service heap expansion requests and thus should avoid allocations,
+  /// Caller is required to initialize a vector of sufficient capacity to hold the descriptors
+  /// and provide a mutable reference to it.
+  pub fn get_memory_descriptors(&mut self, buffer: &mut Vec<MemorySpaceDescriptor>) -> Result<(), Error> {
+    ensure!(self.maximum_address != 0, Error::NotInitialized);
+    ensure!(buffer.capacity() >= self.memory_descriptor_count(), Error::InvalidParameter);
+    ensure!(buffer.len() == 0, Error::InvalidParameter);
+
+    if let Some(blocks) = &self.memory_blocks {
+      for block in blocks {
+        match *block {
+          MemoryBlock::Allocated(descriptor) | MemoryBlock::Unallocated(descriptor) => buffer.push(descriptor),
+        }
+      }
+      Ok(())
+    } else {
+      Err(Error::NotFound)
+    }
+  }
+
   fn split_state_transition_at_idx(
     memory_blocks: &mut SortedSlice<MemoryBlock>,
     idx: usize,
@@ -500,8 +586,8 @@ impl GCD {
     Ok(idx)
   }
 
-  #[cfg(test)]
-  fn memory_block_count(&self) -> usize {
+  /// returns the current count of blocks in the list.
+  pub fn memory_descriptor_count(&self) -> usize {
     self.memory_blocks.as_ref().map(|mbs| mbs.len()).unwrap_or(0)
   }
 }
@@ -576,6 +662,26 @@ impl SpinLockedGcd {
   pub fn free_memory_space(&self, base_address: usize, len: usize) -> Result<(), Error> {
     self.inner.lock().free_memory_space(base_address, len)
   }
+
+  /// Acquires lock and delegates to [`GCD::set_memory_space_attributes`]
+  pub fn set_memory_space_attributes(&self, base_address: usize, len: usize, attributes: u64) -> Result<(), Error> {
+    self.inner.lock().set_memory_space_attributes(base_address, len, attributes)
+  }
+
+  /// Acquires lock and delegates to [`GCD::set_memory_space_capabilities`]
+  pub fn set_memory_space_capabilities(&self, base_address: usize, len: usize, capabilities: u64) -> Result<(), Error> {
+    self.inner.lock().set_memory_space_capabilities(base_address, len, capabilities)
+  }
+
+  /// Acquires lock and delegates to [`GCD::get_memory_descriptors`]
+  pub fn get_memory_descriptors(&self, buffer: &mut Vec<MemorySpaceDescriptor>) -> Result<(), Error> {
+    self.inner.lock().get_memory_descriptors(buffer)
+  }
+
+  /// Acquires lock and delegates to [`GCD::memory_descriptor_count`]
+  pub fn memory_descriptor_count(&self) -> usize {
+    self.inner.lock().memory_descriptor_count()
+  }
 }
 
 unsafe impl Sync for SpinLockedGcd {}
@@ -592,7 +698,7 @@ mod tests {
     let gdc = GCD::new(48);
     assert_eq!(2_usize.pow(48), gdc.maximum_address);
     assert!(gdc.memory_blocks.is_none());
-    assert_eq!(0, gdc.memory_block_count())
+    assert_eq!(0, gdc.memory_descriptor_count())
   }
 
   #[test]
@@ -606,14 +712,14 @@ mod tests {
       unsafe { gcd.add_memory_space(GcdMemoryType::Reserved, address, MEMORY_BLOCK_SLICE_SIZE, 0) },
       "First add memory space should be a system memory."
     );
-    assert_eq!(0, gcd.memory_block_count());
+    assert_eq!(0, gcd.memory_descriptor_count());
 
     assert_eq!(
       Err(Error::OutOfResources),
       unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, address, MEMORY_BLOCK_SLICE_SIZE - 1, 0) },
       "First add memory space with system memory should contain enough space to contain the block list."
     );
-    assert_eq!(0, gcd.memory_block_count());
+    assert_eq!(0, gcd.memory_descriptor_count());
   }
 
   #[test]
@@ -653,7 +759,7 @@ mod tests {
     let addr = address + MEMORY_BLOCK_SLICE_SIZE;
 
     let mut n = 0;
-    while gcd.memory_block_count() < MEMORY_BLOCK_SLICE_LEN {
+    while gcd.memory_descriptor_count() < MEMORY_BLOCK_SLICE_LEN {
       assert!(unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, addr + n, 1, n as u64) }.is_ok());
       n += 1;
     }
@@ -743,7 +849,7 @@ mod tests {
     let (mut gcd, _) = create_gcd();
 
     assert_eq!(Ok(1), unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 1000, 10, 0) });
-    let block_count = gcd.memory_block_count();
+    let block_count = gcd.memory_descriptor_count();
 
     // Test merging when added after
     match unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 1010, 10, 0) } {
@@ -751,7 +857,7 @@ mod tests {
         let mb = gcd.memory_blocks.as_ref().unwrap()[idx];
         assert_eq!(1000, mb.as_ref().base_address);
         assert_eq!(20, mb.as_ref().length);
-        assert_eq!(block_count, gcd.memory_block_count());
+        assert_eq!(block_count, gcd.memory_descriptor_count());
       }
       Err(e) => assert!(false, "{e:?}"),
     }
@@ -762,7 +868,7 @@ mod tests {
         let mb = gcd.memory_blocks.as_ref().unwrap()[idx];
         assert_eq!(990, mb.as_ref().base_address);
         assert_eq!(30, mb.as_ref().length);
-        assert_eq!(block_count, gcd.memory_block_count());
+        assert_eq!(block_count, gcd.memory_descriptor_count());
       }
       Err(e) => assert!(false, "{e:?}"),
     }
@@ -771,12 +877,12 @@ mod tests {
       unsafe { gcd.add_memory_space(GcdMemoryType::Reserved, 1020, 10, 0) }.is_ok(),
       "A different memory type should note result in a merge."
     );
-    assert_eq!(block_count + 1, gcd.memory_block_count());
+    assert_eq!(block_count + 1, gcd.memory_descriptor_count());
     assert!(
       unsafe { gcd.add_memory_space(GcdMemoryType::Reserved, 1030, 10, 1) }.is_ok(),
       "A different capabilities should note result in a merge."
     );
-    assert_eq!(block_count + 2, gcd.memory_block_count());
+    assert_eq!(block_count + 2, gcd.memory_descriptor_count());
 
     assert!(is_gcd_memory_slice_valid(&gcd));
   }
@@ -905,7 +1011,7 @@ mod tests {
 
     assert!(unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, addr, 10, 0 as u64) }.is_ok());
     let mut n = 1;
-    while gcd.memory_block_count() < MEMORY_BLOCK_SLICE_LEN {
+    while gcd.memory_descriptor_count() < MEMORY_BLOCK_SLICE_LEN {
       assert!(unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, addr + 10 + n, 1, n as u64) }.is_ok());
       n += 1;
     }
@@ -927,7 +1033,7 @@ mod tests {
     let (mut gcd, address) = create_gcd();
     assert!(unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 1, address - 2, 0) }.is_ok());
 
-    let block_count = gcd.memory_block_count();
+    let block_count = gcd.memory_descriptor_count();
 
     for i in 1..10 {
       assert!(gcd.remove_memory_space(address - 1 - i, 1).is_ok());
@@ -936,7 +1042,7 @@ mod tests {
     // First index because the add memory started at address 1.
     assert_eq!(address - 10, gcd.memory_blocks.as_ref().unwrap()[2].as_ref().base_address as usize);
     assert_eq!(10, gcd.memory_blocks.as_ref().unwrap()[2].as_ref().length as usize);
-    assert_eq!(block_count, gcd.memory_block_count());
+    assert_eq!(block_count, gcd.memory_descriptor_count());
     assert!(is_gcd_memory_slice_valid(&gcd));
 
     for i in 1..10 {
@@ -945,12 +1051,12 @@ mod tests {
     // First index because the add memory started at address 1.
     assert_eq!(0, gcd.memory_blocks.as_ref().unwrap()[0].as_ref().base_address as usize);
     assert_eq!(10, gcd.memory_blocks.as_ref().unwrap()[0].as_ref().length as usize);
-    assert_eq!(block_count, gcd.memory_block_count());
+    assert_eq!(block_count, gcd.memory_descriptor_count());
     assert!(is_gcd_memory_slice_valid(&gcd));
 
     // Removing in the middle should create a 2 new block.
     assert!(gcd.remove_memory_space(100, 1).is_ok());
-    assert_eq!(block_count + 2, gcd.memory_block_count());
+    assert_eq!(block_count + 2, gcd.memory_descriptor_count());
     assert!(is_gcd_memory_slice_valid(&gcd));
   }
 
@@ -1068,7 +1174,7 @@ mod tests {
     unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0, address, 0) }.unwrap();
 
     let mut n = 1;
-    while gcd.memory_block_count() < MEMORY_BLOCK_SLICE_LEN {
+    while gcd.memory_descriptor_count() < MEMORY_BLOCK_SLICE_LEN {
       gcd.allocate_memory_space(AllocateType::BottomUp(None), GcdMemoryType::SystemMemory, 0, 1, n as _, None).unwrap();
       n += 1;
     }
@@ -1171,30 +1277,30 @@ mod tests {
     unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0x1000, 0x1000, 0) }.unwrap();
 
     for allocate_type in [AllocateType::BottomUp(None), AllocateType::TopDown(None)] {
-      let block_count = gcd.memory_block_count();
+      let block_count = gcd.memory_descriptor_count();
       assert!(
         gcd.allocate_memory_space(allocate_type, GcdMemoryType::SystemMemory, 0, 1, 1 as _, None).is_ok(),
         "{allocate_type:?}"
       );
-      assert_eq!(block_count + 1, gcd.memory_block_count());
+      assert_eq!(block_count + 1, gcd.memory_descriptor_count());
       assert!(
         gcd.allocate_memory_space(allocate_type, GcdMemoryType::SystemMemory, 0, 1, 1 as _, None).is_ok(),
         "{allocate_type:?}"
       );
-      assert_eq!(block_count + 1, gcd.memory_block_count());
+      assert_eq!(block_count + 1, gcd.memory_descriptor_count());
       assert!(
         gcd.allocate_memory_space(allocate_type, GcdMemoryType::SystemMemory, 0, 1, 2 as _, None).is_ok(),
         "{allocate_type:?}: A different image handle should not result in a merge."
       );
-      assert_eq!(block_count + 2, gcd.memory_block_count());
+      assert_eq!(block_count + 2, gcd.memory_descriptor_count());
       assert!(
         gcd.allocate_memory_space(allocate_type, GcdMemoryType::SystemMemory, 0, 1, 2 as _, Some(1 as _)).is_ok(),
         "{allocate_type:?}: A different device handle should not result in a merge."
       );
-      assert_eq!(block_count + 3, gcd.memory_block_count());
+      assert_eq!(block_count + 3, gcd.memory_descriptor_count());
     }
 
-    let block_count = gcd.memory_block_count();
+    let block_count = gcd.memory_descriptor_count();
     assert_eq!(
       Ok(0x1000 + 4),
       gcd.allocate_memory_space(
@@ -1207,7 +1313,7 @@ mod tests {
       ),
       "Merge should work with address allocation too."
     );
-    assert_eq!(block_count, gcd.memory_block_count());
+    assert_eq!(block_count, gcd.memory_descriptor_count());
 
     assert!(is_gcd_memory_slice_valid(&gcd));
   }
@@ -1307,7 +1413,7 @@ mod tests {
     gcd.allocate_memory_space(AllocateType::Address(0), GcdMemoryType::SystemMemory, 0, 100, 1 as _, None).unwrap();
 
     let mut n = 1;
-    while gcd.memory_block_count() < MEMORY_BLOCK_SLICE_LEN {
+    while gcd.memory_descriptor_count() < MEMORY_BLOCK_SLICE_LEN {
       unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 1000 + n, 1, n as u64) }.unwrap();
       n += 1;
     }
@@ -1325,35 +1431,35 @@ mod tests {
     unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0, 1000, 0) }.unwrap();
     gcd.allocate_memory_space(AllocateType::Address(0), GcdMemoryType::SystemMemory, 0, 1000, 1 as _, None).unwrap();
 
-    let block_count = gcd.memory_block_count();
+    let block_count = gcd.memory_descriptor_count();
     assert_eq!(Ok(()), gcd.free_memory_space(0, 100), "Free beginning of a block.");
-    assert_eq!(block_count + 1, gcd.memory_block_count());
+    assert_eq!(block_count + 1, gcd.memory_descriptor_count());
     assert_eq!(Ok(()), gcd.free_memory_space(500, 100), "Free in the middle of a block");
-    assert_eq!(block_count + 3, gcd.memory_block_count());
+    assert_eq!(block_count + 3, gcd.memory_descriptor_count());
     assert_eq!(Ok(()), gcd.free_memory_space(900, 100), "Free at the end of a block");
-    assert_eq!(block_count + 4, gcd.memory_block_count());
+    assert_eq!(block_count + 4, gcd.memory_descriptor_count());
 
-    let block_count = gcd.memory_block_count();
+    let block_count = gcd.memory_descriptor_count();
     assert_eq!(Ok(()), gcd.free_memory_space(100, 100));
-    assert_eq!(block_count, gcd.memory_block_count());
+    assert_eq!(block_count, gcd.memory_descriptor_count());
     let mb = gcd.memory_blocks.as_ref().unwrap()[0];
     assert_eq!(0, mb.as_ref().base_address);
     assert_eq!(200, mb.as_ref().length);
 
     assert_eq!(Ok(()), gcd.free_memory_space(600, 100));
-    assert_eq!(block_count, gcd.memory_block_count());
+    assert_eq!(block_count, gcd.memory_descriptor_count());
     let mb = gcd.memory_blocks.as_ref().unwrap()[2];
     assert_eq!(500, mb.as_ref().base_address);
     assert_eq!(200, mb.as_ref().length);
 
     assert_eq!(Ok(()), gcd.free_memory_space(800, 100));
-    assert_eq!(block_count, gcd.memory_block_count());
+    assert_eq!(block_count, gcd.memory_descriptor_count());
     let mb = gcd.memory_blocks.as_ref().unwrap()[4];
     assert_eq!(800, mb.as_ref().base_address);
     assert_eq!(200, mb.as_ref().length);
 
     assert_eq!(Ok(()), gcd.free_memory_space(750, 10));
-    assert_eq!(block_count + 2, gcd.memory_block_count());
+    assert_eq!(block_count + 2, gcd.memory_descriptor_count());
 
     assert!(is_gcd_memory_slice_valid(&gcd));
   }

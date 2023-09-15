@@ -23,6 +23,8 @@ pub enum StateTransition {
   Remove,
   Allocate(Handle, Option<Handle>),
   Free,
+  SetAttributes(u64),
+  SetCapabilities(u64),
 }
 
 #[derive(Debug)]
@@ -151,6 +153,8 @@ impl MemoryBlock {
       StateTransition::Remove => self.remove_transition(),
       StateTransition::Allocate(image_handle, device_handle) => self.allocate_transition(image_handle, device_handle),
       StateTransition::Free => self.free_transition(),
+      StateTransition::SetAttributes(attributes) => self.attribute_transition(attributes),
+      StateTransition::SetCapabilities(capabilities) => self.capabilities_transition(capabilities),
     }
   }
 
@@ -199,6 +203,34 @@ impl MemoryBlock {
         md.device_handle = 0 as Handle;
         *self = Self::Unallocated(*md);
         Ok(())
+      }
+      _ => Err(Error::InvalidStateTransition),
+    }
+  }
+
+  pub fn attribute_transition(&mut self, attributes: u64) -> Result<(), Error> {
+    match self {
+      Self::Allocated(md) | Self::Unallocated(md) if md.memory_type != GcdMemoryType::NonExistent => {
+        if (md.capabilities | attributes) != md.capabilities {
+          Err(Error::InvalidStateTransition)
+        } else {
+          md.attributes = attributes;
+          Ok(())
+        }
+      }
+      _ => Err(Error::InvalidStateTransition),
+    }
+  }
+
+  pub fn capabilities_transition(&mut self, capabilities: u64) -> Result<(), Error> {
+    match self {
+      Self::Allocated(md) | Self::Unallocated(md) if md.memory_type != GcdMemoryType::NonExistent => {
+        if (capabilities | md.attributes) != capabilities {
+          Err(Error::InvalidStateTransition)
+        } else {
+          md.capabilities = capabilities;
+          Ok(())
+        }
       }
       _ => Err(Error::InvalidStateTransition),
     }

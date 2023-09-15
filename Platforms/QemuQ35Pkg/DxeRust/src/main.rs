@@ -7,9 +7,7 @@ extern crate alloc;
 
 use r_pi::{
   dxe_services::{GcdIoType, GcdMemoryType},
-  hob::{
-    self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable, ResourceDescriptor,
-  },
+  hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
 };
 
 use core::{ffi::c_void, ops::Range, panic::PanicInfo, str::FromStr};
@@ -111,7 +109,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
   // TODO: this maps the pages for these memory ranges; but we should also update the GCD accordingly.
   for hob in hob_list.iter() {
     let mut gcd_mem_type: GcdMemoryType = GcdMemoryType::NonExistent;
-    let mut gcd_io_type: GcdIoType = GcdIoType::NonExistent;
+    let mut _gcd_io_type: GcdIoType = GcdIoType::NonExistent;
     let mut resource_attributes: u32 = 0;
     let mut page_table_flags: page_table::PageTableFlags = PageTableFlags::PRESENT;
 
@@ -146,6 +144,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
             }
           }
           hob::EFI_RESOURCE_MEMORY_MAPPED_IO | hob::EFI_RESOURCE_FIRMWARE_DEVICE => {
+            resource_attributes = res_desc.resource_attribute;
             gcd_mem_type = GcdMemoryType::MemoryMappedIo;
             page_table_flags |= PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
           }
@@ -154,10 +153,10 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
             page_table_flags |= PageTableFlags::WRITABLE | PageTableFlags::NO_EXECUTE;
           }
           hob::EFI_RESOURCE_IO => {
-            gcd_io_type = GcdIoType::Io;
+            _gcd_io_type = GcdIoType::Io;
           }
           hob::EFI_RESOURCE_IO_RESERVED => {
-            gcd_io_type = GcdIoType::Reserved;
+            _gcd_io_type = GcdIoType::Reserved;
           }
           _ => {
             debug_assert!(false, "Unknown resource type in HOB");
