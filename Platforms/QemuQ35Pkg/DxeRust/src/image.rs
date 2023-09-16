@@ -8,6 +8,7 @@ use core::{
 
 use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, string::String, vec::Vec};
 use r_pi::hob::{Hob, HobList};
+use uefi_protocol_db_lib::DXE_CORE_HANDLE;
 use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 
 use crate::{
@@ -164,11 +165,6 @@ unsafe impl Send for DxeCoreGlobalImageData {}
 
 static PRIVATE_IMAGE_DATA: spin::Mutex<DxeCoreGlobalImageData> = spin::Mutex::new(DxeCoreGlobalImageData::new());
 
-/// returns the image handle for the dxe core.
-pub fn get_dxe_core_handle() -> r_efi::efi::Handle {
-  PRIVATE_IMAGE_DATA.lock().dxe_core_image_handle
-}
-
 // helper routine that returns an empty loaded_image::Protocol struct.
 fn empty_image_info() -> r_efi::efi::protocols::loaded_image::Protocol {
   r_efi::efi::protocols::loaded_image::Protocol {
@@ -222,12 +218,15 @@ fn install_dxe_core_image(hob_list: &HobList) {
   private_image_data.image_info_ptr = image_info_ptr;
 
   // install the loaded_image protocol on a new handle.
-  let handle =
-    match core_install_protocol_interface(None, r_efi::efi::protocols::loaded_image::PROTOCOL_GUID, image_info_ptr) {
-      Err(err) => panic!("Failed to install dxe_rust core image handle: {:?}", err),
-      Ok(handle) => handle,
-    };
-
+  let handle = match core_install_protocol_interface(
+    Some(DXE_CORE_HANDLE),
+    r_efi::efi::protocols::loaded_image::PROTOCOL_GUID,
+    image_info_ptr,
+  ) {
+    Err(err) => panic!("Failed to install dxe_rust core image handle: {:?}", err),
+    Ok(handle) => handle,
+  };
+  assert_eq!(handle, DXE_CORE_HANDLE);
   // record this handle as the new dxe_core handle.
   private_data.dxe_core_image_handle = handle;
 

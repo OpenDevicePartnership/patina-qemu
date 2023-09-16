@@ -27,10 +27,10 @@
 //! static GCD: SpinLockedGcd = SpinLockedGcd::new();
 //! /* Initialize GCD */
 //! //EfiBootServicesCode
-//! pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_CODE);
+//! pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_CODE, 1 as _);
 //! //EfiBootServicesData - (use as global allocator)
 //! #[global_allocator]
-//! pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_DATA);
+//! pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_DATA, 1 as _);
 //! ```
 //!
 //! Allocating memory in a particular allocator using Box:
@@ -63,8 +63,8 @@
 //! GCD.init(48,16); //hard-coded processor address size.
 //! let base = init_gcd(&GCD, 0x400000);
 //!
-//! pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_DATA);
-//! pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, RUNTIME_SERVICES_DATA);
+//! pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_DATA, 1 as _);
+//! pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, RUNTIME_SERVICES_DATA, 1 as _);
 //!
 //! //Allocate a box in Boot Services Data
 //! let boot_box = Box::new_in(5, &EFI_BOOT_SERVICES_DATA_ALLOCATOR);
@@ -101,7 +101,7 @@
 //! GCD.init(48,16); //hard-coded processor address size.
 //! let base = init_gcd(&GCD, 0x400000);
 //!
-//! let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA);
+//! let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA, 1 as _);
 //!
 //! let mut buffer: *mut c_void = core::ptr::null_mut();
 //! assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);

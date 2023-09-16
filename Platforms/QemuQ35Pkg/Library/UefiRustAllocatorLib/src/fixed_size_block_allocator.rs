@@ -110,7 +110,7 @@ impl Iterator for AllocatorIterator {
 /// //initialize the gcd for this example with some memory from the System allocator.
 /// let base = init_gcd(&GCD, 0x400000);
 ///
-/// let mut fsb = FixedSizeBlockAllocator::new(&GCD);
+/// let mut fsb = FixedSizeBlockAllocator::new(&GCD, 1 as _);
 ///
 /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
 /// let allocation = fsb.allocate(layout).unwrap().as_ptr() as *mut u8;
@@ -120,6 +120,7 @@ impl Iterator for AllocatorIterator {
 ///
 pub struct FixedSizeBlockAllocator {
   gcd: &'static SpinLockedGcd,
+  handle: r_efi::efi::Handle,
   list_heads: [Option<&'static mut BlockListNode>; BLOCK_SIZES.len()],
   allocators: Option<*mut AllocatorListNode>,
 }
@@ -127,9 +128,14 @@ pub struct FixedSizeBlockAllocator {
 impl FixedSizeBlockAllocator {
   /// Creates a new empty FixedSizeBlockAllocator that will request memory from `gcd` as needed to satisfy
   /// requests.
-  pub const fn new(gcd: &'static SpinLockedGcd) -> Self {
+  pub const fn new(gcd: &'static SpinLockedGcd, allocator_handle: r_efi::efi::Handle) -> Self {
     const EMPTY: Option<&'static mut BlockListNode> = None;
-    FixedSizeBlockAllocator { gcd: gcd, list_heads: [EMPTY; BLOCK_SIZES.len()], allocators: None }
+    FixedSizeBlockAllocator {
+      gcd: gcd,
+      handle: allocator_handle,
+      list_heads: [EMPTY; BLOCK_SIZES.len()],
+      allocators: None,
+    }
   }
 
   // Expand the memory available to this allocator by requesting a new contiguous region of memory from the gcd setting
@@ -147,7 +153,7 @@ impl FixedSizeBlockAllocator {
         GcdMemoryType::SystemMemory,
         ALIGNMENT_BITS,
         size,
-        1 as *mut c_void, //todo: figure out where to get this from.
+        self.handle,
         None,
       )
       .map_err(|_| FixedSizeBlockAllocatorError::OutOfMemory)?;
@@ -232,7 +238,7 @@ impl FixedSizeBlockAllocator {
   /// //initialize the gcd allocator for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD);
+  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD, 1 as _);
   ///
   /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
   /// let allocation = fsb.alloc(layout);
@@ -302,7 +308,7 @@ impl FixedSizeBlockAllocator {
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD);
+  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD, 1 as _);
   ///
   /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
   /// let allocation = fsb.allocate(layout).unwrap().as_ptr() as *mut u8;
@@ -366,7 +372,7 @@ impl FixedSizeBlockAllocator {
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD);
+  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD, 1 as _);
   ///
   /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
   /// let allocation = fsb.alloc(layout);
@@ -432,7 +438,7 @@ impl FixedSizeBlockAllocator {
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD);
+  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD, 1 as _);
   ///
   /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
   /// let allocation = fsb.allocate(layout).unwrap().as_non_null_ptr();
@@ -481,7 +487,7 @@ impl FixedSizeBlockAllocator {
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD);
+  /// let mut fsb = FixedSizeBlockAllocator::new(&GCD, 1 as _);
   ///
   /// let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
   /// let allocation = fsb.allocate(layout).unwrap().as_non_null_ptr();
@@ -691,7 +697,7 @@ impl Display for FixedSizeBlockAllocator {
 /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
 /// GCD.init(48,16); //hard-coded processor address size.
 ///
-///static ALLOCATOR: SpinLockedFixedSizeBlockAllocator  = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+///static ALLOCATOR: SpinLockedFixedSizeBlockAllocator  = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
 ///
 /// //initialize the gcd for this example with some memory from the System allocator.
 /// let base = init_gcd(&GCD, 0x400000);
@@ -709,8 +715,8 @@ pub struct SpinLockedFixedSizeBlockAllocator {
 impl SpinLockedFixedSizeBlockAllocator {
   /// Creates a new empty FixedSizeBlockAllocator that will request memory from `gcd` as needed to satisfy
   /// requests.
-  pub const fn new(gcd: &'static SpinLockedGcd) -> Self {
-    SpinLockedFixedSizeBlockAllocator { inner: spin::Mutex::new(FixedSizeBlockAllocator::new(gcd)) }
+  pub const fn new(gcd: &'static SpinLockedGcd, allocator_handle: r_efi::efi::Handle) -> Self {
+    SpinLockedFixedSizeBlockAllocator { inner: spin::Mutex::new(FixedSizeBlockAllocator::new(gcd, allocator_handle)) }
   }
 
   /// Locks the allocator
@@ -745,7 +751,7 @@ impl SpinLockedFixedSizeBlockAllocator {
   /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
   /// GCD.init(48,16); //hard-coded processor address size.
   ///
-  /// static ALLOCATOR: SpinLockedFixedSizeBlockAllocator  = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+  /// static ALLOCATOR: SpinLockedFixedSizeBlockAllocator  = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
   ///
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
@@ -867,7 +873,7 @@ mod tests {
   fn test_construct_empty_fixed_size_block_allocator() {
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
     GCD.init(48, 16);
-    let fsb = FixedSizeBlockAllocator::new(&GCD);
+    let fsb = FixedSizeBlockAllocator::new(&GCD, 1 as _);
     assert!(core::ptr::eq(fsb.gcd, &GCD));
     assert!(fsb.list_heads.iter().all(|x| x.is_none()));
     assert!(fsb.allocators.is_none());
@@ -883,7 +889,7 @@ mod tests {
     let base = init_gcd(&GCD, 0x400000);
 
     //verify no allocators exist before expand.
-    let mut fsb = FixedSizeBlockAllocator::new(&GCD);
+    let mut fsb = FixedSizeBlockAllocator::new(&GCD, 1 as _);
     assert!(fsb.allocators.is_none());
 
     //expand by a page. This will round up to MIN_EXPANSION.
@@ -920,7 +926,7 @@ mod tests {
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     init_gcd(&GCD, 0x800000);
 
-    let mut fsb = FixedSizeBlockAllocator::new(&GCD);
+    let mut fsb = FixedSizeBlockAllocator::new(&GCD, 1 as _);
     let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
     fsb.expand(layout).unwrap();
     fsb.expand(layout).unwrap();
@@ -942,7 +948,7 @@ mod tests {
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     let base = init_gcd(&GCD, 0x400000);
 
-    let mut fsb = FixedSizeBlockAllocator::new(&GCD);
+    let mut fsb = FixedSizeBlockAllocator::new(&GCD, 1 as _);
 
     let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
     let allocation = fsb.fallback_alloc(layout);
@@ -960,7 +966,7 @@ mod tests {
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     let base = init_gcd(&GCD, 0x400000);
 
-    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
 
     let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
     let allocation = unsafe { fsb.alloc(layout) };
@@ -978,7 +984,7 @@ mod tests {
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     let base = init_gcd(&GCD, 0x400000);
 
-    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
 
     let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
     let allocation = fsb.allocate(layout).unwrap().as_ptr() as *mut u8;
@@ -996,7 +1002,7 @@ mod tests {
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     init_gcd(&GCD, 0x400000);
 
-    let mut fsb = FixedSizeBlockAllocator::new(&GCD);
+    let mut fsb = FixedSizeBlockAllocator::new(&GCD, 1 as _);
 
     let layout = Layout::from_size_align(0x8, 0x8).unwrap();
     let allocation = fsb.fallback_alloc(layout);
@@ -1016,7 +1022,7 @@ mod tests {
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     init_gcd(&GCD, 0x400000);
 
-    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
 
     let layout = Layout::from_size_align(0x8, 0x8).unwrap();
     let allocation = unsafe { fsb.alloc(layout) };
@@ -1044,7 +1050,7 @@ mod tests {
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     init_gcd(&GCD, 0x400000);
 
-    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
 
     let layout = Layout::from_size_align(0x8, 0x8).unwrap();
     let allocation = fsb.allocate(layout).unwrap().as_non_null_ptr();
@@ -1074,7 +1080,7 @@ mod tests {
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     init_gcd(&GCD, 0x400000);
 
-    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
 
     let layout = Layout::from_size_align(0x8, 0x8).unwrap();
     let allocation = fsb.allocate(layout).unwrap().as_non_null_ptr();
@@ -1090,7 +1096,7 @@ mod tests {
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     let address = init_gcd(&GCD, 0x1000000);
 
-    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
 
     let target_address = address + 0x400000 - 8 * (ALIGNMENT as u64);
     let size = 4 * ALIGNMENT;
@@ -1112,7 +1118,7 @@ mod tests {
     // Allocate some space on the heap with the global allocator (std) to be used by expand().
     let address = init_gcd(&GCD, 0x1000000);
 
-    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
 
     let target_address = address + 0x400000 - 8 * (ALIGNMENT as u64);
     let size = 4 * ALIGNMENT;

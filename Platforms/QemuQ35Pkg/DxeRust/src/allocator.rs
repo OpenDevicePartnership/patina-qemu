@@ -1,42 +1,62 @@
 use core::{
   alloc::{Allocator, Layout},
   ffi::c_void,
+  mem,
   ptr::NonNull,
-  slice::{from_raw_parts, from_raw_parts_mut},
+  slice::{self, from_raw_parts, from_raw_parts_mut},
 };
+
+use alloc::vec::Vec;
+use crc32fast::Hasher;
 
 use crate::GCD;
 use r_efi::{
   efi::Status,
   system::{
     BootServices, MemoryType, ACPI_MEMORY_NVS, ACPI_RECLAIM_MEMORY, ALLOCATE_ADDRESS, ALLOCATE_ANY_PAGES,
-    ALLOCATE_MAX_ADDRESS, BOOT_SERVICES_CODE, BOOT_SERVICES_DATA, LOADER_CODE, LOADER_DATA, RESERVED_MEMORY_TYPE,
-    RUNTIME_SERVICES_CODE, RUNTIME_SERVICES_DATA,
+    ALLOCATE_MAX_ADDRESS, BOOT_SERVICES_CODE, BOOT_SERVICES_DATA, CONVENTIONAL_MEMORY, LOADER_CODE, LOADER_DATA,
+    MEMORY_MAPPED_IO, RESERVED_MEMORY_TYPE, RUNTIME_SERVICES_CODE, RUNTIME_SERVICES_DATA,
   },
+};
+use r_pi::dxe_services::{GcdMemoryType, MemorySpaceDescriptor};
+use uefi_protocol_db_lib::{
+  EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE, EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE,
+  EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE, EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE, EFI_LOADER_CODE_ALLOCATOR_HANDLE,
+  EFI_LOADER_DATA_ALLOCATOR_HANDLE, EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE,
+  EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE, INVALID_HANDLE, RESERVED_MEMORY_ALLOCATOR_HANDLE,
 };
 use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 
 //EfiReservedMemoryType
-pub static EFI_RESERVED_MEMORY_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, RESERVED_MEMORY_TYPE);
+pub static EFI_RESERVED_MEMORY_ALLOCATOR: UefiAllocator =
+  UefiAllocator::new(&GCD, RESERVED_MEMORY_TYPE, RESERVED_MEMORY_ALLOCATOR_HANDLE);
 //EfiLoaderCode
-pub static EFI_LOADER_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, LOADER_CODE);
+pub static EFI_LOADER_CODE_ALLOCATOR: UefiAllocator =
+  UefiAllocator::new(&GCD, LOADER_CODE, EFI_LOADER_CODE_ALLOCATOR_HANDLE);
 //EfiLoaderData
-pub static EFI_LOADER_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, LOADER_DATA);
+pub static EFI_LOADER_DATA_ALLOCATOR: UefiAllocator =
+  UefiAllocator::new(&GCD, LOADER_DATA, EFI_LOADER_DATA_ALLOCATOR_HANDLE);
 //EfiBootServicesCode
-pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_CODE);
+pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: UefiAllocator =
+  UefiAllocator::new(&GCD, BOOT_SERVICES_CODE, EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE);
 //EfiBootServicesData - (default allocator for DxeRust)
 #[cfg_attr(not(test), global_allocator)]
-pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_DATA);
+pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator =
+  UefiAllocator::new(&GCD, BOOT_SERVICES_DATA, EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE);
 //EfiRuntimeServicesCode
-pub static EFI_RUNTIME_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, RUNTIME_SERVICES_CODE);
+pub static EFI_RUNTIME_SERVICES_CODE_ALLOCATOR: UefiAllocator =
+  UefiAllocator::new(&GCD, RUNTIME_SERVICES_CODE, EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE);
 //EfiRuntimeServicesData
-pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, RUNTIME_SERVICES_DATA);
+pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: UefiAllocator =
+  UefiAllocator::new(&GCD, RUNTIME_SERVICES_DATA, EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE);
 //EfiConventionalMemory - no allocator (free memory)
 //EfiUnusableMemory - no allocator (unusable)
 //EfiACPIReclaimMemory
-pub static EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, ACPI_RECLAIM_MEMORY);
+pub static EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR: UefiAllocator =
+  UefiAllocator::new(&GCD, ACPI_RECLAIM_MEMORY, EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE);
 //EfiACPIMemoryNVS
-pub static EFI_ACPI_MEMORY_NVS_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, ACPI_MEMORY_NVS);
+pub static EFI_ACPI_MEMORY_NVS_ALLOCATOR: UefiAllocator =
+  UefiAllocator::new(&GCD, ACPI_MEMORY_NVS, EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE);
 //EFiMemoryMappedIo - no allocator (MMIO)
 //EFiMemoryMappedIOPortSpace - no allocator (MMIO)
 //EfiPalCode - no allocator (no Itanium support)
@@ -202,6 +222,92 @@ extern "efiapi" fn set_mem(buffer: *mut c_void, size: usize, value: u8) {
   }
 }
 
+extern "efiapi" fn get_memory_map(
+  memory_map_size: *mut usize,
+  memory_map: *mut r_efi::system::MemoryDescriptor,
+  map_key: *mut usize,
+  descriptor_size: *mut usize,
+  descriptor_version: *mut u32,
+) -> Status {
+  if memory_map_size.is_null() {
+    return Status::INVALID_PARAMETER;
+  }
+
+  if !descriptor_size.is_null() {
+    unsafe { descriptor_size.write(mem::size_of::<r_efi::system::MemoryDescriptor>()) };
+  }
+
+  if !descriptor_version.is_null() {
+    unsafe { descriptor_version.write(r_efi::system::MEMORY_DESCRIPTOR_VERSION) };
+  }
+
+  //allocate an empty vector with enough space for all the descriptors with some padding (in the event)
+  //that extra descriptors come into being after creation but before usage.
+  let mut descriptors: Vec<MemorySpaceDescriptor> = Vec::with_capacity(GCD.memory_descriptor_count() + 10);
+  GCD.get_memory_descriptors(&mut descriptors).expect("get_memory_descriptors failed.");
+
+  let map_size = unsafe { *memory_map_size };
+
+  let efi_descriptors: Vec<r_efi::system::MemoryDescriptor> = descriptors
+    .iter()
+    .filter_map(|descriptor| {
+      let memory_type = match descriptor.image_handle {
+        RESERVED_MEMORY_ALLOCATOR_HANDLE => RESERVED_MEMORY_TYPE,
+        EFI_LOADER_CODE_ALLOCATOR_HANDLE => LOADER_CODE,
+        EFI_LOADER_DATA_ALLOCATOR_HANDLE => LOADER_DATA,
+        EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE => BOOT_SERVICES_CODE,
+        EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE => BOOT_SERVICES_DATA,
+        EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE => RUNTIME_SERVICES_CODE,
+        EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE => RUNTIME_SERVICES_DATA,
+        EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE => ACPI_RECLAIM_MEMORY,
+        EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE => ACPI_MEMORY_NVS,
+        INVALID_HANDLE if descriptor.memory_type == GcdMemoryType::SystemMemory => CONVENTIONAL_MEMORY,
+        _ if descriptor.memory_type == GcdMemoryType::MemoryMappedIo => MEMORY_MAPPED_IO,
+        _ => return None, //Not a type of memory to go in the EFI system map.
+      };
+
+      let number_of_pages = descriptor.length >> 12;
+      if number_of_pages == 0 {
+        return None; //skip entries for things smaller than a page.
+      }
+      if (descriptor.base_address % 0x1000) != 0 {
+        return None; //skip entries not page aligned.
+      }
+      Some(r_efi::system::MemoryDescriptor {
+        r#type: memory_type,
+        physical_start: descriptor.base_address,
+        virtual_start: descriptor.base_address,
+        number_of_pages: number_of_pages,
+        attribute: descriptor.attributes,
+      })
+    })
+    .collect();
+
+  assert_ne!(efi_descriptors.len(), 0);
+
+  let required_map_size = efi_descriptors.len() * mem::size_of::<r_efi::system::MemoryDescriptor>();
+
+  unsafe { memory_map_size.write(required_map_size) };
+
+  if map_size < required_map_size {
+    return Status::BUFFER_TOO_SMALL;
+  }
+
+  let mut hash = Hasher::new();
+
+  unsafe {
+    slice::from_raw_parts_mut(memory_map, efi_descriptors.len()).copy_from_slice(&efi_descriptors);
+
+    if !map_key.is_null() {
+      let memory_map_as_bytes = slice::from_raw_parts(memory_map as *mut u8, required_map_size);
+      hash.update(memory_map_as_bytes);
+      map_key.write(hash.finalize() as usize);
+    }
+  }
+
+  Status::SUCCESS
+}
+
 pub fn init_memory_support(bs: &mut BootServices) {
   bs.allocate_pages = allocate_pages;
   bs.free_pages = free_pages;
@@ -209,4 +315,5 @@ pub fn init_memory_support(bs: &mut BootServices) {
   bs.free_pool = free_pool;
   bs.copy_mem = copy_mem;
   bs.set_mem = set_mem;
+  bs.get_memory_map = get_memory_map;
 }

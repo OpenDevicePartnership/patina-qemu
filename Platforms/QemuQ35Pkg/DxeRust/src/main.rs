@@ -9,6 +9,12 @@ use r_pi::{
   dxe_services::{GcdIoType, GcdMemoryType, MemorySpaceDescriptor},
   hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
 };
+use uefi_protocol_db_lib::{
+  DXE_CORE_HANDLE, EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE, EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE,
+  EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE, EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE, EFI_LOADER_CODE_ALLOCATOR_HANDLE,
+  EFI_LOADER_DATA_ALLOCATOR_HANDLE, EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE,
+  EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE, RESERVED_MEMORY_ALLOCATOR_HANDLE,
+};
 
 use core::{ffi::c_void, ops::Range, panic::PanicInfo, str::FromStr};
 use dxe_rust::{
@@ -27,7 +33,11 @@ use dxe_rust::{
 };
 use r_efi::{
   efi,
-  system::{MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP},
+  system::{
+    ACPI_MEMORY_NVS, ACPI_RECLAIM_MEMORY, BOOT_SERVICES_CODE, BOOT_SERVICES_DATA, LOADER_CODE, LOADER_DATA, MEMORY_RO,
+    MEMORY_RP, MEMORY_UC, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP, RESERVED_MEMORY_TYPE,
+    RUNTIME_SERVICES_CODE, RUNTIME_SERVICES_DATA,
+  },
 };
 use uefi_gcd_lib::gcd;
 use x86_64::{
@@ -234,12 +244,24 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
         if get_memory_space_descriptor(desc.memory_base_address, &mut descriptor as *mut MemorySpaceDescriptor)
           == efi::Status::SUCCESS
         {
+          let allocator_handle = match desc.memory_type {
+            RESERVED_MEMORY_TYPE => RESERVED_MEMORY_ALLOCATOR_HANDLE,
+            LOADER_CODE => EFI_LOADER_CODE_ALLOCATOR_HANDLE,
+            LOADER_DATA => EFI_LOADER_DATA_ALLOCATOR_HANDLE,
+            BOOT_SERVICES_CODE => EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE,
+            BOOT_SERVICES_DATA => EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE,
+            RUNTIME_SERVICES_CODE => EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE,
+            RUNTIME_SERVICES_DATA => EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE,
+            ACPI_RECLAIM_MEMORY => EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE,
+            ACPI_MEMORY_NVS => EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE,
+            _ => DXE_CORE_HANDLE,
+          };
           let result = GCD.allocate_memory_space(
             gcd::AllocateType::Address(desc.memory_base_address as usize),
             descriptor.memory_type,
             0,
             desc.memory_length as usize,
-            1 as _,
+            allocator_handle,
             None,
           );
           if let Err(_) = result {
@@ -266,7 +288,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
           GcdMemoryType::MemoryMappedIo,
           0,
           *length as usize,
-          1 as _,
+          EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE,
           None,
         );
         if let Err(_) = result {

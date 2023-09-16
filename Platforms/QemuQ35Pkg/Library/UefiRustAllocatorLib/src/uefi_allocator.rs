@@ -62,7 +62,7 @@ struct AllocationInfo {
 /// //initialize the gcd for this example with some memory from the System allocator.
 /// let base = init_gcd(&GCD, 0x400000);
 ///
-/// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA);
+/// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA, 1 as _);
 ///
 /// let mut buffer: *mut c_void = core::ptr::null_mut();
 /// assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);
@@ -80,8 +80,12 @@ impl UefiAllocator {
   /// Creates a new UEFI allocator using the provided `gcd`.
   ///
   /// See [`SpinLockedFixedSizeBlockAllocator::new`]
-  pub const fn new(gcd: &'static SpinLockedGcd, memory_type: r_efi::system::MemoryType) -> Self {
-    UefiAllocator { allocator: SpinLockedFixedSizeBlockAllocator::new(gcd), memory_type: memory_type }
+  pub const fn new(
+    gcd: &'static SpinLockedGcd,
+    memory_type: r_efi::system::MemoryType,
+    allocator_handle: r_efi::efi::Handle,
+  ) -> Self {
+    UefiAllocator { allocator: SpinLockedFixedSizeBlockAllocator::new(gcd, allocator_handle), memory_type: memory_type }
   }
 
   /// Indicates whether the given pointer falls within a memory region managed by this allocator.
@@ -129,7 +133,7 @@ impl UefiAllocator {
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA);
+  /// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA, 1 as _);
   ///
   /// let mut buffer: *mut c_void = core::ptr::null_mut();
   /// ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer));
@@ -194,7 +198,7 @@ impl UefiAllocator {
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA);
+  /// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA, 1 as _);
   ///
   /// let mut buffer: *mut c_void = core::ptr::null_mut();
   /// ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer));
@@ -303,7 +307,7 @@ mod tests {
   fn test_uefi_allocator_new() {
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
     GCD.init(48, 16);
-    let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA);
+    let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA, 1 as _);
     assert_eq!(ua.memory_type, r_efi::system::BOOT_SERVICES_DATA);
   }
 
@@ -314,7 +318,7 @@ mod tests {
 
     let base = init_gcd(&GCD, 0x400000);
 
-    let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA);
+    let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA, 1 as _);
 
     let mut buffer: *mut c_void = core::ptr::null_mut();
     assert_eq!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)), r_efi::efi::Status::SUCCESS);
@@ -344,7 +348,7 @@ mod tests {
 
     let base = init_gcd(&GCD, 0x400000);
 
-    let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA);
+    let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA, 1 as _);
 
     let mut buffer: *mut c_void = core::ptr::null_mut();
     assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);

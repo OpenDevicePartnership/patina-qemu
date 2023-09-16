@@ -6,10 +6,11 @@ use core::ffi::c_void;
 use r_efi::{efi, system::TPL_CALLBACK};
 use r_pi::fw_fs::{ffs, FfsFileRawType, FfsSectionType, FirmwareVolume, FirmwareVolumeBlockProtocol};
 use uefi_depex_lib::{Depex, Opcode};
+use uefi_protocol_db_lib::DXE_CORE_HANDLE;
 
 use crate::{
   events::{raise_tpl, restore_tpl, EVENT_DB},
-  image::{core_load_image, get_dxe_core_handle, start_image},
+  image::{core_load_image, start_image},
   println,
   protocols::PROTOCOL_DB,
 };
@@ -167,8 +168,7 @@ impl DispatcherContext {
       });
 
       if let Some(pe32_data) = pe32_section {
-        let image_load_result =
-          core_load_image(get_dxe_core_handle(), candidate.device_path, Some(pe32_data.as_slice()));
+        let image_load_result = core_load_image(DXE_CORE_HANDLE, candidate.device_path, Some(pe32_data.as_slice()));
         if let Ok(image_handle) = image_load_result {
           dispatch_attempted = true;
           let status = start_image(image_handle, core::ptr::null_mut(), core::ptr::null_mut());

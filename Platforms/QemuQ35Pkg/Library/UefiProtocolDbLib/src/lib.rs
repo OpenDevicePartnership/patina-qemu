@@ -38,10 +38,27 @@ use alloc::{
   vec::Vec,
 };
 use core::{cmp::Ordering, ffi::c_void};
-use r_efi::system::{
-  OPEN_PROTOCOL_BY_CHILD_CONTROLLER, OPEN_PROTOCOL_BY_DRIVER, OPEN_PROTOCOL_BY_HANDLE_PROTOCOL,
-  OPEN_PROTOCOL_EXCLUSIVE, OPEN_PROTOCOL_GET_PROTOCOL, OPEN_PROTOCOL_TEST_PROTOCOL,
+use r_efi::{
+  efi,
+  system::{
+    OPEN_PROTOCOL_BY_CHILD_CONTROLLER, OPEN_PROTOCOL_BY_DRIVER, OPEN_PROTOCOL_BY_HANDLE_PROTOCOL,
+    OPEN_PROTOCOL_EXCLUSIVE, OPEN_PROTOCOL_GET_PROTOCOL, OPEN_PROTOCOL_TEST_PROTOCOL,
+  },
 };
+
+//private UUID used to create the "well-known handles"
+const WELL_KNOWN_HANDLE_PROTOCOL_GUID: uuid::Uuid = uuid::Uuid::from_u128(0xfced7c96356e48cba9a9e089b2ddf49b);
+pub const INVALID_HANDLE: efi::Handle = 0 as efi::Handle;
+pub const DXE_CORE_HANDLE: efi::Handle = 1 as efi::Handle;
+pub const RESERVED_MEMORY_ALLOCATOR_HANDLE: efi::Handle = 2 as efi::Handle;
+pub const EFI_LOADER_CODE_ALLOCATOR_HANDLE: efi::Handle = 3 as efi::Handle;
+pub const EFI_LOADER_DATA_ALLOCATOR_HANDLE: efi::Handle = 4 as efi::Handle;
+pub const EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE: efi::Handle = 5 as efi::Handle;
+pub const EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE: efi::Handle = 6 as efi::Handle;
+pub const EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE: efi::Handle = 7 as efi::Handle;
+pub const EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE: efi::Handle = 8 as efi::Handle;
+pub const EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE: efi::Handle = 9 as efi::Handle;
+pub const EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE: efi::Handle = 10 as efi::Handle;
 
 /// This structure is used to track open protocol information on a handle.
 ///
@@ -616,6 +633,31 @@ impl SpinLockedProtocolDb {
 
   fn lock(&self) -> spin::MutexGuard<ProtocolDb> {
     self.inner.lock()
+  }
+
+  pub fn initialize_well_known_handles(&self) {
+    let well_known_handle_guid: efi::Guid =
+      unsafe { core::mem::transmute(*WELL_KNOWN_HANDLE_PROTOCOL_GUID.as_bytes()) };
+
+    let well_known_handles = &[
+      DXE_CORE_HANDLE,
+      RESERVED_MEMORY_ALLOCATOR_HANDLE,
+      EFI_LOADER_CODE_ALLOCATOR_HANDLE,
+      EFI_LOADER_DATA_ALLOCATOR_HANDLE,
+      EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE,
+      EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE,
+      EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE,
+      EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE,
+      EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE,
+      EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE,
+    ];
+
+    for target_handle in well_known_handles.iter() {
+      let (handle, _) = self
+        .install_protocol_interface(None, well_known_handle_guid, core::ptr::null_mut())
+        .expect("failed to install well-known handle");
+      assert_eq!(handle, *target_handle);
+    }
   }
 
   /// Installs a protocol interface on the given handle.

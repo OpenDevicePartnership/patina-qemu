@@ -25,7 +25,7 @@ fn allocate_deallocate_test() {
   // Allocate some space on the heap with the global allocator (std) to be used by expand().
   init_gcd(&GCD, 0x400000);
 
-  let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD);
+  let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
 
   let layout = Layout::from_size_align(0x8, 0x8).unwrap();
   let allocation = fsb.allocate(layout).unwrap().as_non_null_ptr();
