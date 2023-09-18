@@ -27,7 +27,7 @@ use dxe_rust::{
   fv::init_fv_support,
   image::init_image_support,
   misc_boot_services::init_misc_boot_services_support,
-  physical_memory, println,
+  physical_memory,
   protocols::{init_protocol_support, PROTOCOL_DB},
   systemtables::{init_system_table, SYSTEM_TABLE},
   GCD,
@@ -45,6 +45,8 @@ use x86_64::{
   align_down, align_up,
   structures::paging::{page_table, PageTableFlags},
 };
+
+use serial_print_dxe::println;
 
 #[cfg_attr(target_os = "uefi", export_name = "efi_main")]
 pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {

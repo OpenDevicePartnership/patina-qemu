@@ -5,13 +5,13 @@ use alloc::{
 use core::ffi::c_void;
 use r_efi::{efi, system::TPL_CALLBACK};
 use r_pi::fw_fs::{ffs, FfsFileRawType, FfsSectionType, FirmwareVolume, FirmwareVolumeBlockProtocol};
+use serial_print_dxe::println;
 use uefi_depex_lib::{Depex, Opcode};
 use uefi_protocol_db_lib::DXE_CORE_HANDLE;
 
 use crate::{
   events::{raise_tpl, restore_tpl, EVENT_DB},
   image::{core_load_image, start_image},
-  println,
   protocols::PROTOCOL_DB,
 };
 

@@ -7,7 +7,7 @@ use x86_64::{
   VirtAddr,
 };
 
-use crate::println;
+use serial_print_dxe::println;
 
 pub const DOUBLE_FAULT_IST_INDEX: u16 = 0;
 

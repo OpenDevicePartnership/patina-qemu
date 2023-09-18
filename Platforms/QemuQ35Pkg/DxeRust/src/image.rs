@@ -13,10 +13,11 @@ use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 
 use crate::{
   allocator::{EFI_BOOT_SERVICES_CODE_ALLOCATOR, EFI_LOADER_CODE_ALLOCATOR, EFI_RUNTIME_SERVICES_CODE_ALLOCATOR},
-  println,
   protocols::{core_install_protocol_interface, core_locate_device_path, PROTOCOL_DB},
   systemtables::EfiSystemTable,
 };
+
+use serial_print_dxe::println;
 
 use corosensei::{
   stack::{Stack, StackPointer, MIN_STACK_SIZE, STACK_ALIGNMENT},

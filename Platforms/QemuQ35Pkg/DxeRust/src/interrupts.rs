@@ -1,5 +1,6 @@
-use crate::{gdt, hlt_loop, println};
+use crate::{gdt, hlt_loop};
 use lazy_static::lazy_static;
+use serial_print_dxe::println;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 pub const PIC_1_OFFSET: u8 = 32;

@@ -8,8 +8,9 @@ use uefi_protocol_db_lib::SpinLockedProtocolDb;
 use crate::{
   allocator::allocate_pool,
   events::{signal_event, EVENT_DB},
-  println,
 };
+
+use serial_print_dxe::println;
 
 pub static PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 

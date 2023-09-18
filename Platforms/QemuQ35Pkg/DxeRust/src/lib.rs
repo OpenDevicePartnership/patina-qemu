@@ -22,7 +22,6 @@ pub mod interrupts;
 pub mod misc_boot_services;
 pub mod physical_memory;
 pub mod protocols;
-pub mod serial;
 pub mod systemtables;
 pub mod utility;
 
@@ -55,16 +54,4 @@ pub fn hlt_loop() -> ! {
   loop {
     x86_64::instructions::hlt();
   }
-}
-
-#[macro_export]
-macro_rules! println {
-    ($fmt:expr) => ($crate::serial_println!($fmt));
-    ($fmt:expr, $($arg:tt)*) => ($crate::serial_println!($fmt, $($arg)*));
-}
-
-#[macro_export]
-macro_rules! print {
-    ($fmt:expr) => ($crate::serial_print!($fmt));
-    ($fmt:expr, $($arg:tt)*) => ($crate::serial_print!($fmt, $($arg)*));
 }

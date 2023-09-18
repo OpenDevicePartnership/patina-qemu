@@ -1,3 +1,13 @@
+//! x86 serial port
+//!
+//! Implements an x86_64 serial port instance. Used for debug prints in the QemuQ35Pkg.
+//!
+//! ## License
+//!
+//! Copyright (C) Microsoft Corporation. All rights reserved.
+//!
+//! SPDX-License-Identifier: BSD-2-Clause-Patent
+//!
 use lazy_static::lazy_static;
 use spin::Mutex;
 use uart_16550::SerialPort;
@@ -10,6 +20,7 @@ lazy_static! {
   };
 }
 
+#[cfg(not(test))]
 #[doc(hidden)]
 pub fn _print(args: ::core::fmt::Arguments) {
   use core::fmt::Write;
@@ -20,19 +31,12 @@ pub fn _print(args: ::core::fmt::Arguments) {
   });
 }
 
-/// Prints to the host through the serial interface.
-#[macro_export]
-macro_rules! serial_print {
-    ($($arg:tt)*) => {
-        $crate::serial::_print(format_args!($($arg)*))
-    };
-}
+#[cfg(test)]
+pub fn _print(args: ::core::fmt::Arguments) {
+  extern crate alloc;
+  use alloc::vec::Vec;
 
-/// Prints to the host through the serial interface, appending a newline.
-#[macro_export]
-macro_rules! serial_println {
-    () => ($crate::serial_print!("\n"));
-    ($fmt:expr) => ($crate::serial_print!(concat!($fmt, "\n")));
-    ($fmt:expr, $($arg:tt)*) => ($crate::serial_print!(
-        concat!($fmt, "\n"), $($arg)*));
+  let mut vec = Vec::new();
+  vec.push(args.as_str());
+  assert_eq!(vec[0], args.as_str())
 }

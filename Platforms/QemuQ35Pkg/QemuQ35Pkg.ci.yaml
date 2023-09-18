@@ -146,7 +146,7 @@
         "CoverageOverrides": {
             "DxeRust": 0.0,
             "UefiRustAllocatorLib": 0.65,
-            "UefiGcdLib": 0.4
+            "UefiGcdLib": 0.4,
         }
     }
 }

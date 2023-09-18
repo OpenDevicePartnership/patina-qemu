@@ -12,6 +12,11 @@ members = [
 
 # Add packages that generate libraries here
 [workspace.dependencies]
+RustAdvancedLoggerDxe = {path = "Common/MU/AdvLoggerPkg/Crates/RustAdvancedLoggerDxe"}
+RustBootServicesAllocatorDxe = {path = "Common/MU/MsCorePkg/Crates/RustBootServicesAllocatorDxe"}
+
+SerialPrintDxe = {path = "Crates/SerialPrintDxe"}
+
 DxeRust = {path = "Platforms/QemuQ35Pkg/DxeRust"}
 UefiDepexLib = {path = "Platforms/QemuQ35Pkg/Library/UefiDepexLib"}
 UefiDevicePathLib = {path = "Platforms/QemuQ35Pkg/Library/UefiDevicePathLib"}
@@ -19,8 +24,6 @@ UefiEventLib = {path = "Platforms/QemuQ35Pkg/Library/UefiEventLib"}
 UefiPe32Lib = {path = "Platforms/QemuQ35Pkg/Library/UefiPe32Lib"}
 UefiProtocolDbLib = {path = "Platforms/QemuQ35Pkg/Library/UefiProtocolDbLib"}
 UefiRustAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/UefiRustAllocatorLib"}
-RustAdvancedLoggerDxe = {path = "Common/MU/AdvLoggerPkg/Crates/RustAdvancedLoggerDxe"}
-RustBootServicesAllocatorDxe = {path = "Common/MU/MsCorePkg/Crates/RustBootServicesAllocatorDxe"}
 UefiGcdLib = {path = "Platforms/QemuQ35Pkg/Library/UefiGcdLib"}
 
 corosensei = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/corosensei_fork", rev = "b18e710605894b547da505c43d20feae52685ab3", default-features = false }
