@@ -216,3 +216,12 @@ pub fn core_dispatcher() {
     }
   }
 }
+
+pub fn display_discovered_not_dispatched() {
+  for driver in DISPATCHER_CONTEXT.scheduled_driver_base_addresses.lock().iter() {
+    if !driver.execution_attempted {
+      let file_name = uuid::Uuid::from_bytes_le(*driver.file.file_name().as_bytes());
+      println!("Driver {:?} found but not dispatched.", file_name);
+    }
+  }
+}

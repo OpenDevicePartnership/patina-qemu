@@ -15,11 +15,12 @@ use uefi_protocol_db_lib::{
   EFI_LOADER_DATA_ALLOCATOR_HANDLE, EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE,
   EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE, RESERVED_MEMORY_ALLOCATOR_HANDLE,
 };
+use uuid::uuid;
 
 use core::{ffi::c_void, ops::Range, panic::PanicInfo, str::FromStr};
 use dxe_rust::{
-  allocator::{init_memory_support, ALL_ALLOCATORS},
-  dispatcher::{core_dispatcher, init_dispatcher},
+  allocator::init_memory_support,
+  dispatcher::{core_dispatcher, display_discovered_not_dispatched, init_dispatcher},
   driver_services::init_driver_services,
   dxe_services::{get_memory_space_descriptor, init_dxe_services},
   events::init_events_support,
@@ -27,7 +28,7 @@ use dxe_rust::{
   image::init_image_support,
   misc_boot_services::init_misc_boot_services_support,
   physical_memory, println,
-  protocols::init_protocol_support,
+  protocols::{init_protocol_support, PROTOCOL_DB},
   systemtables::{init_system_table, SYSTEM_TABLE},
   GCD,
 };
@@ -336,11 +337,11 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
 
   core_dispatcher();
 
-  for allocator in ALL_ALLOCATORS {
-    println!("{}", allocator);
-  }
+  core_display_missing_arch_protocols();
 
-  println!("It did not crash!");
+  display_discovered_not_dispatched();
+
+  call_bds();
 
   // Call exit_qemu, which will shutdown qemu if sa-debug-exit,iobase=0xf4,iosize=0x04 is set
   // Else it will hit hlt_loop and wait.
@@ -360,6 +361,47 @@ fn remove_range_overlap<T: PartialOrd + Copy>(a: &Range<T>, b: &Range<T>) -> [Op
   } else {
     // No overlap
     [Some(a.start..a.end), None]
+  }
+}
+
+const ARCH_PROTOCOLS: &[(uuid::Uuid, &str)] = &[
+  (uuid!("a46423e3-4617-49f1-b9ff-d1bfa9115839"), "Security"),
+  (uuid!("26baccb1-6f42-11d4-bce7-0080c73c8881"), "Cpu"),
+  (uuid!("26baccb2-6f42-11d4-bce7-0080c73c8881"), "Metronome"),
+  (uuid!("26baccb3-6f42-11d4-bce7-0080c73c8881"), "Timer"),
+  (uuid!("665e3ff6-46cc-11d4-9a38-0090273fc14d"), "Bds"),
+  (uuid!("665e3ff5-46cc-11d4-9a38-0090273fc14d"), "Watchdog"),
+  (uuid!("b7dfb4e1-052f-449f-87be-9818fc91b733"), "Runtime"),
+  (uuid!("1e5668e2-8481-11d4-bcf1-0080c73c8881"), "Variable"),
+  (uuid!("6441f818-6362-4e44-b570-7dba31dd2453"), "Variable Write"),
+  (uuid!("5053697e-2cbc-4819-90d9-0580deee5754"), "Capsule"),
+  (uuid!("1da97072-bddc-4b30-99f1-72a0b56fff2a"), "Monotonic Counter"),
+  (uuid!("27cfac88-46cc-11d4-9a38-0090273fc14d"), "Reset"),
+  (uuid!("27cfac87-46cc-11d4-9a38-0090273fc14d"), "Real Time Clock"),
+];
+
+fn core_display_missing_arch_protocols() {
+  for (uuid, name) in ARCH_PROTOCOLS {
+    let guid: efi::Guid = unsafe { core::mem::transmute(uuid.to_bytes_le()) };
+    if PROTOCOL_DB.locate_protocol(guid).is_err() {
+      println!("Missing architectural protocol: {:?}, {:?}", uuid, name);
+    }
+  }
+}
+
+type BdsEntry = extern "efiapi" fn(*mut BdsProtocol);
+#[repr(C)]
+struct BdsProtocol {
+  entry: BdsEntry,
+}
+fn call_bds() {
+  let bds_guid: efi::Guid =
+    unsafe { core::mem::transmute(uuid!("665e3ff6-46cc-11d4-9a38-0090273fc14d").to_bytes_le()) };
+  if let Ok(protocol) = PROTOCOL_DB.locate_protocol(bds_guid) {
+    let bds = protocol as *mut BdsProtocol;
+    unsafe {
+      ((*bds).entry)(bds);
+    }
   }
 }
 
