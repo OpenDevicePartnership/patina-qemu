@@ -4,28 +4,21 @@
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
-import os
-import logging
-import io
-import shutil
-import glob
-import time
-import xml.etree.ElementTree
-import tempfile
-import uuid
-import string
 import datetime
+import logging
+import os
+import uuid
+from io import StringIO
+from pathlib import Path
 
 from edk2toolext.environment import shell_environment
 from edk2toolext.environment.uefi_build import UefiBuilder
 from edk2toolext.invocables.edk2_platform_build import BuildSettingsManager
-from edk2toolext.invocables.edk2_setup import SetupSettingsManager, RequiredSubmodule
-from edk2toolext.invocables.edk2_update import UpdateSettingsManager
 from edk2toolext.invocables.edk2_pr_eval import PrEvalSettingsManager
+from edk2toolext.invocables.edk2_setup import (RequiredSubmodule,
+                                               SetupSettingsManager)
+from edk2toolext.invocables.edk2_update import UpdateSettingsManager
 from edk2toollib.utility_functions import RunCmd
-from io import StringIO
-from pathlib import Path
-from io import StringIO
 
 # Declare test whose failure will not return a non-zero exit code
 FAILURE_EXEMPT_TESTS = {
@@ -156,7 +149,7 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
     # ####################################################################################### #
     #                         Actual Configuration for Platform Build                         #
     # ####################################################################################### #
-class PlatformBuilder( UefiBuilder, BuildSettingsManager):
+class PlatformBuilder(UefiBuilder, BuildSettingsManager):
     def __init__(self):
         UefiBuilder.__init__(self)
 
@@ -214,13 +207,22 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
         return "QemuSbsaPkg"
 
     def GetLoggingLevel(self, loggerType):
-        ''' Get the logging level for a given type
-        base == lowest logging level supported
-        con  == Screen logging
-        txt  == plain text file logging
-        md   == markdown file logging
-        '''
-        return logging.DEBUG
+        """Get the logging level depending on logger type.
+
+        Args:
+            loggerType (str): type of logger being logged to
+
+        Returns:
+            (Logging.Level): The logging level
+
+        !!! note "loggerType possible values"
+            "base": lowest logging level supported
+
+            "con": logs to screen
+
+            "txt": logs to plain text file
+        """
+        return logging.INFO
         return super().GetLoggingLevel(loggerType)
 
     def SetPlatformEnv(self):
@@ -229,23 +231,22 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
         self.env.SetValue("ACTIVE_PLATFORM", "QemuSbsaPkg/QemuSbsaPkg.dsc", "Platform Hardcoded")
         self.env.SetValue("TARGET_ARCH", "AARCH64", "Platform Hardcoded")
         self.env.SetValue("TOOL_CHAIN_TAG", "GCC5", "set default to gcc5")
-        # self.env.SetValue("EMPTY_DRIVE", "FALSE", "Default to false")
-        # self.env.SetValue("RUN_TESTS", "FALSE", "Default to false")
+        self.env.SetValue("EMPTY_DRIVE", "FALSE", "Default to false")
+        self.env.SetValue("RUN_TESTS", "FALSE", "Default to false")
         self.env.SetValue("QEMU_HEADLESS", "FALSE", "Default to false")
         self.env.SetValue("QEMU_PLATFORM", "qemu_sbsa", "Platform Hardcoded")
-        # self.env.SetValue("SHUTDOWN_AFTER_RUN", "FALSE", "Default to false")
+        self.env.SetValue("SHUTDOWN_AFTER_RUN", "FALSE", "Default to false")
         # needed to make FV size build report happy
-        # self.env.SetValue("BLD_*_BUILDID_STRING", "Unknown", "Default")
-        # # Default turn on build reporting.
+        self.env.SetValue("BLD_*_BUILDID_STRING", "Unknown", "Default")
+        # Default turn on build reporting.
         self.env.SetValue("BUILDREPORTING", "TRUE", "Enabling build report")
-        self.env.SetValue("BLD_*_MEMORY_PROTECTION", "TRUE", "Default")
         self.env.SetValue("BUILDREPORT_TYPES", "PCD DEPEX FLASH BUILD_FLAGS LIBRARY FIXED_ADDRESS HASH", "Setting build report types")
         self.env.SetValue("ARM_TFA_PATH", os.path.join (self.GetWorkspaceRoot (), "Silicon/Arm/TFA"), "Platform hardcoded")
         self.env.SetValue("BLD_*_QEMU_CORE_NUM", "4", "Default")
+        self.env.SetValue("BLD_*_MEMORY_PROTECTION", "TRUE", "Default")
         # Include the MFCI test cert by default, override on the commandline with "BLD_*_SHIP_MODE=TRUE" if you want the retail MFCI cert
         self.env.SetValue("BLD_*_SHIP_MODE", "FALSE", "Default")
-
-        self.env.SetValue("CONF_AUTOGEN_INCLUDE_PATH",self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuSbsaPkg", "Include"), "Platform Hardcoded")
+        self.env.SetValue("CONF_AUTOGEN_INCLUDE_PATH", self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuSbsaPkg", "Include"), "Platform Defined")
         self.env.SetValue("MU_SCHEMA_DIR", self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuSbsaPkg", "CfgData"), "Platform Defined")
         self.env.SetValue("MU_SCHEMA_FILE_NAME", "QemuSbsaPkgCfgData.xml", "Platform Hardcoded")
 
@@ -356,7 +357,6 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
         return
 
     def FlashRomImage(self):
-        #Make virtual drive - Allow caller to override path otherwise use default
         run_tests = (self.env.GetValue("RUN_TESTS", "FALSE").upper() == "TRUE")
         output_base = self.env.GetValue("BUILD_OUTPUT_BASE")
         shutdown_after_run = (self.env.GetValue("SHUTDOWN_AFTER_RUN", "FALSE").upper() == "TRUE")
@@ -443,9 +443,10 @@ class PlatformBuilder( UefiBuilder, BuildSettingsManager):
 if __name__ == "__main__":
     import argparse
     import sys
-    from edk2toolext.invocables.edk2_update import Edk2Update
-    from edk2toolext.invocables.edk2_setup import Edk2PlatformSetup
+
     from edk2toolext.invocables.edk2_platform_build import Edk2PlatformBuild
+    from edk2toolext.invocables.edk2_setup import Edk2PlatformSetup
+    from edk2toolext.invocables.edk2_update import Edk2Update
     print("Invoking Stuart")
     print("     ) _     _")
     print("    ( (^)-~-(^)")
