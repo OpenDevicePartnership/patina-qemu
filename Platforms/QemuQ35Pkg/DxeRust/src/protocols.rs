@@ -3,7 +3,7 @@ use core::{ffi::c_void, mem::size_of};
 use alloc::{slice, vec, vec::Vec};
 use r_efi::system::{BootServices, OpenProtocolInformationEntry};
 use uefi_device_path_lib::remaining_device_path;
-use uefi_protocol_db_lib::SpinLockedProtocolDb;
+use uefi_protocol_db_lib::{SpinLockedProtocolDb, DXE_CORE_HANDLE};
 
 use crate::{
   allocator::allocate_pool,
@@ -198,7 +198,7 @@ pub extern "efiapi" fn handle_protocol(
     handle,
     protocol,
     interface,
-    core::ptr::null_mut(),
+    DXE_CORE_HANDLE,
     core::ptr::null_mut(),
     r_efi::efi::OPEN_PROTOCOL_BY_HANDLE_PROTOCOL,
   )
@@ -229,7 +229,9 @@ pub extern "efiapi" fn open_protocol(
     match PROTOCOL_DB.add_protocol_usage(handle, unsafe { *protocol }, agent_handle, controller_handle, attributes) {
       Err(r_efi::efi::Status::ALREADY_STARTED) => r_efi::efi::Status::ALREADY_STARTED,
       Err(r_efi::efi::Status::UNSUPPORTED) => {
-        unsafe { *interface = core::ptr::null_mut() };
+        if attributes != r_efi::efi::OPEN_PROTOCOL_TEST_PROTOCOL {
+          unsafe { interface.write(core::ptr::null_mut()) };
+        }
         return r_efi::efi::Status::UNSUPPORTED;
       }
       Err(r_efi::efi::Status::ACCESS_DENIED) => {
@@ -410,6 +412,13 @@ pub extern "efiapi" fn locate_handle_buffer(
     return r_efi::efi::Status::INVALID_PARAMETER;
   }
 
+  //EDK2 C reference code unconditionally sets no_handles and buffer to default values regardless of success or failure
+  //of the function, and some callers expect this behavior (and don't check return status before using no_handles).
+  unsafe {
+    no_handles.write(0);
+    buffer.write(core::ptr::null_mut());
+  }
+
   let handles = match search_type {
     r_efi::efi::ALL_HANDLES => PROTOCOL_DB.locate_handles(None),
     r_efi::efi::BY_REGISTER_NOTIFY => {
@@ -430,27 +439,28 @@ pub extern "efiapi" fn locate_handle_buffer(
     }
     _ => return r_efi::efi::Status::INVALID_PARAMETER,
   };
-
-  let mut handles = match handles {
+  let handles = match handles {
     Err(err) => return err,
     Ok(handles) => handles,
   };
 
-  handles.shrink_to_fit();
+  if handles.len() == 0 {
+    r_efi::efi::Status::NOT_FOUND
+  } else {
+    //caller is supposed to free the handle buffer using free pool, so we need to allocate it using allocate pool.
+    let buffer_size = handles.len() * size_of::<r_efi::efi::Handle>();
+    match allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, buffer_size, buffer as *mut *mut c_void) {
+      r_efi::efi::Status::SUCCESS => (),
+      err => return err,
+    };
 
-  //caller is supposed to free the handle buffer using free pool, so we need to allocate it using allocate pool.
-  let buffer_size = handles.len() * size_of::<r_efi::efi::Handle>();
-  match allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, buffer_size, buffer as *mut *mut c_void) {
-    r_efi::efi::Status::SUCCESS => (),
-    err => return err,
-  };
-
-  //allocation succeeded, so set the entry_count for caller and copy the list into the output buffer.
-  unsafe {
-    *no_handles = handles.len();
-    slice::from_raw_parts_mut(*buffer, handles.len()).copy_from_slice(&handles);
+    //allocation succeeded, so set the entry_count for caller and copy the list into the output buffer.
+    unsafe {
+      *no_handles = handles.len();
+      slice::from_raw_parts_mut(*buffer, handles.len()).copy_from_slice(&handles);
+    }
+    r_efi::efi::Status::SUCCESS
   }
-  r_efi::efi::Status::SUCCESS
 }
 
 pub extern "efiapi" fn locate_protocol(
@@ -463,14 +473,18 @@ pub extern "efiapi" fn locate_protocol(
   }
 
   if !registration.is_null() {
-    todo!("requires notify support");
+    if let Some(handle) = PROTOCOL_DB.next_handle_for_registration(registration) {
+      let iface = PROTOCOL_DB
+        .get_interface_for_handle(handle, unsafe { *protocol })
+        .expect("Protocol should exist on handle if it is returned for registration key.");
+      unsafe { interface.write(iface) };
+    }
+  } else {
+    match PROTOCOL_DB.locate_protocol(unsafe { *protocol }) {
+      Err(err) => return err,
+      Ok(iface) => unsafe { interface.write(iface) },
+    }
   }
-
-  match PROTOCOL_DB.locate_protocol(unsafe { *protocol }) {
-    Err(err) => return err,
-    Ok(iface) => unsafe { *interface = iface },
-  }
-
   r_efi::efi::Status::SUCCESS
 }
 
