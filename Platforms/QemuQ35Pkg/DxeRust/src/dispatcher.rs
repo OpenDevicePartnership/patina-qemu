@@ -62,6 +62,7 @@ struct DispatcherContext {
   discovered_fv_info: spin::Mutex<BTreeSet<FvInfo>>, //anything interacting with this has to run at TPL_CALLBACK.
   processed_fvs: spin::Mutex<BTreeSet<efi::Handle>>, //anything interacting with this has to run at TPL_CALLBACK.
   scheduled_driver_base_addresses: spin::Mutex<VecDeque<ScheduledDriver>>, //only used in dispatch loop, should not be touched from anywhere else.
+  dispatcher_executing: spin::Mutex<bool>,
 }
 
 impl DispatcherContext {
@@ -70,6 +71,7 @@ impl DispatcherContext {
       discovered_fv_info: spin::Mutex::new(BTreeSet::new()),
       processed_fvs: spin::Mutex::new(BTreeSet::new()),
       scheduled_driver_base_addresses: spin::Mutex::new(VecDeque::new()),
+      dispatcher_executing: spin::Mutex::new(false),
     }
   }
 
@@ -208,12 +210,26 @@ pub fn init_dispatcher() {
     .expect("Failed to register protocol notify on fv protocol.");
 }
 
-pub fn core_dispatcher() {
+pub fn core_dispatcher() -> Result<(), efi::Status> {
+  let mut dispatcher_executing = DISPATCHER_CONTEXT.dispatcher_executing.lock();
+  if *dispatcher_executing {
+    return Err(efi::Status::ALREADY_STARTED);
+  }
+  *dispatcher_executing = true;
+  drop(dispatcher_executing); //release the lock
+
+  let mut anything_dispatched = false;
   loop {
     let something_dispatched = DISPATCHER_CONTEXT.dispatch();
     if !something_dispatched {
       break;
     }
+    anything_dispatched = true;
+  }
+  if !anything_dispatched {
+    Err(efi::Status::NOT_FOUND)
+  } else {
+    Ok(())
   }
 }
 

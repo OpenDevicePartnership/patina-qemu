@@ -338,7 +338,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     .unwrap();
   }
 
-  core_dispatcher();
+  core_dispatcher().expect("initial dispatch failed.");
 
   core_display_missing_arch_protocols();
 

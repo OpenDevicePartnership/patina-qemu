@@ -17,6 +17,7 @@ use r_pi::dxe_services::{
 
 use crate::{
   allocator::{allocate_pool, EFI_RUNTIME_SERVICES_DATA_ALLOCATOR},
+  dispatcher::core_dispatcher,
   misc_boot_services,
   systemtables::EfiSystemTable,
   GCD,
@@ -328,8 +329,10 @@ extern "efiapi" fn get_io_space_map(
 }
 
 extern "efiapi" fn dispatch() -> Status {
-  todo!();
-  //Status::UNSUPPORTED
+  match core_dispatcher() {
+    Err(err) => return err,
+    Ok(()) => return efi::Status::SUCCESS,
+  }
 }
 
 extern "efiapi" fn schedule(_firmware_volume_handle: Handle, _file_name: *const Guid) -> Status {
