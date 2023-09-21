@@ -6,6 +6,7 @@
 extern crate alloc;
 
 use r_pi::{
+  bds,
   dxe_services::{GcdIoType, GcdMemoryType, MemorySpaceDescriptor},
   hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
 };
@@ -391,16 +392,9 @@ fn core_display_missing_arch_protocols() {
   }
 }
 
-type BdsEntry = extern "efiapi" fn(*mut BdsProtocol);
-#[repr(C)]
-struct BdsProtocol {
-  entry: BdsEntry,
-}
 fn call_bds() {
-  let bds_guid: efi::Guid =
-    unsafe { core::mem::transmute(uuid!("665e3ff6-46cc-11d4-9a38-0090273fc14d").to_bytes_le()) };
-  if let Ok(protocol) = PROTOCOL_DB.locate_protocol(bds_guid) {
-    let bds = protocol as *mut BdsProtocol;
+  if let Ok(protocol) = PROTOCOL_DB.locate_protocol(bds::PROTOCOL) {
+    let bds = protocol as *mut bds::Protocol;
     unsafe {
       ((*bds).entry)(bds);
     }
