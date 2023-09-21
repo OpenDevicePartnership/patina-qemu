@@ -550,18 +550,18 @@ INF  MsCorePkg/AcpiRGRT/AcpiRgrt.inf
 !endif
 
 # PRM Configuration Driver
-INF PrmPkg/PrmConfigDxe/PrmConfigDxe.inf
+#INF PrmPkg/PrmConfigDxe/PrmConfigDxe.inf
 
 # PRM Sample Modules
-INF PrmPkg/Samples/PrmSampleAcpiParameterBufferModule/PrmSampleAcpiParameterBufferModule.inf
-INF PrmPkg/Samples/PrmSampleHardwareAccessModule/PrmSampleHardwareAccessModule.inf
-INF PrmPkg/Samples/PrmSampleContextBufferModule/PrmSampleContextBufferModule.inf
+#INF PrmPkg/Samples/PrmSampleAcpiParameterBufferModule/PrmSampleAcpiParameterBufferModule.inf
+#INF PrmPkg/Samples/PrmSampleHardwareAccessModule/PrmSampleHardwareAccessModule.inf
+#INF PrmPkg/Samples/PrmSampleContextBufferModule/PrmSampleContextBufferModule.inf
 
 # PRM Module Loader Driver
-INF PrmPkg/PrmLoaderDxe/PrmLoaderDxe.inf
+#INF PrmPkg/PrmLoaderDxe/PrmLoaderDxe.inf
 
 # PRM SSDT Installation Driver
-INF PrmPkg/PrmSsdtInstallDxe/PrmSsdtInstallDxe.inf
+#INF PrmPkg/PrmSsdtInstallDxe/PrmSsdtInstallDxe.inf
 
 FILE FREEFORM = PCD(gDfciPkgTokenSpaceGuid.PcdDfciTimerFile) {
     SECTION RAW = DfciPkg/Include/Resources/DfciWorking.bmp
