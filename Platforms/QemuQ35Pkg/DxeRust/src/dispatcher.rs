@@ -158,9 +158,23 @@ impl DispatcherContext {
       }
     }
 
-    for candidate in self.scheduled_driver_base_addresses.lock().iter_mut().filter(|x| x.execution_attempted == false) {
+    //collect a copy of the scheduled queue here so that we don't hold the lock while running the image.
+    let candidates: Vec<ScheduledDriver> = self
+      .scheduled_driver_base_addresses
+      .lock()
+      .iter_mut()
+      .filter_map(|x| {
+        if x.execution_attempted == false {
+          x.execution_attempted = true;
+          Some(x.clone())
+        } else {
+          None
+        }
+      })
+      .collect();
+
+    for candidate in candidates {
       println!("Evaluating candidate: {:?}", uuid::Uuid::from_bytes_le(*(candidate.file.file_name().as_bytes())));
-      candidate.execution_attempted = true;
 
       let pe32_section = candidate.file.ffs_sections().find_map(|x| match x.section_type() {
         Some(FfsSectionType::Pe32) => Some(x.section_data().to_vec()),

@@ -1,7 +1,7 @@
 use core::{
   convert::TryFrom,
   ffi::c_void,
-  sync::atomic::{AtomicU64, AtomicUsize, Ordering},
+  sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
 };
 
 use r_efi::system::{BootServices, EVT_NOTIFY_SIGNAL, TPL_APPLICATION, TPL_CALLBACK, TPL_HIGH_LEVEL};
@@ -15,6 +15,7 @@ pub static EVENT_DB: SpinLockedEventDb = SpinLockedEventDb::new();
 
 static CURRENT_TPL: AtomicUsize = AtomicUsize::new(TPL_APPLICATION);
 static SYSTEM_TIME: AtomicU64 = AtomicU64::new(0);
+static EVENT_NOTIFIES_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
 pub extern "efiapi" fn create_event(
   event_type: u32,
@@ -211,22 +212,26 @@ pub extern "efiapi" fn restore_tpl(new_tpl: r_efi::efi::Tpl) {
   }
 
   //todo!("deal with interrupts")
+  if (new_tpl < prev_tpl)
+    && EVENT_NOTIFIES_IN_PROGRESS.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok()
+  {
+    //dispatch all events higher than current TPL in TPL order.
+    for event in EVENT_DB.event_notification_iter(new_tpl) {
+      CURRENT_TPL.store(event.notify_tpl, Ordering::SeqCst);
+      let notify_context = match event.notify_context {
+        Some(context) => context,
+        None => core::ptr::null_mut(),
+      };
 
-  //dispatch all events higher than current TPL in TPL order.
-  for event in EVENT_DB.event_notification_iter(new_tpl) {
-    CURRENT_TPL.store(event.notify_tpl, Ordering::SeqCst);
-    let notify_context = match event.notify_context {
-      Some(context) => context,
-      None => core::ptr::null_mut(),
-    };
-
-    //Caution: this is calling function pointer supplied by code outside DxeRust.
-    //The notify_function is not "unsafe" per the signature, even though it's
-    //supplied by code outside the dxe_rust module. If it were marked 'unsafe'
-    //then other Rust modules executing under DxeRust would need to mark all event
-    //callbacks as "unsafe", and the r_efi definition for EventNotify would need to
-    //change.
-    (event.notify_function)(event.event, notify_context);
+      //Caution: this is calling function pointer supplied by code outside DxeRust.
+      //The notify_function is not "unsafe" per the signature, even though it's
+      //supplied by code outside the dxe_rust module. If it were marked 'unsafe'
+      //then other Rust modules executing under DxeRust would need to mark all event
+      //callbacks as "unsafe", and the r_efi definition for EventNotify would need to
+      //change.
+      (event.notify_function)(event.event, notify_context);
+    }
+    EVENT_NOTIFIES_IN_PROGRESS.store(false, Ordering::Release);
   }
 
   CURRENT_TPL.store(new_tpl, Ordering::SeqCst);
