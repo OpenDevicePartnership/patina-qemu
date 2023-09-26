@@ -8,6 +8,7 @@ members = [
     "Platforms/QemuQ35Pkg/DxeRust",
     "Platforms/QemuQ35Pkg/RustDriverDxe",
     "Common/MU/MsCorePkg/HelloWorldRustDxe",
+    "Crates/TplLock"
 ]
 
 # Add packages that generate libraries here
@@ -16,6 +17,7 @@ RustAdvancedLoggerDxe = {path = "Common/MU/AdvLoggerPkg/Crates/RustAdvancedLogge
 RustBootServicesAllocatorDxe = {path = "Common/MU/MsCorePkg/Crates/RustBootServicesAllocatorDxe"}
 
 SerialPrintDxe = {path = "Crates/SerialPrintDxe"}
+TplLock = {path = "Crates/TplLock"}
 
 DxeRust = {path = "Platforms/QemuQ35Pkg/DxeRust"}
 UefiDepexLib = {path = "Platforms/QemuQ35Pkg/Library/UefiDepexLib"}
