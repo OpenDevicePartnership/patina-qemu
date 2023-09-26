@@ -20,6 +20,7 @@ use core::{
   ptr::{self, slice_from_raw_parts_mut, NonNull},
 };
 use linked_list_allocator::{align_down, align_up};
+use r_efi::system;
 use r_pi::dxe_services::GcdMemoryType;
 use uefi_gcd_lib::gcd::SpinLockedGcd;
 
@@ -709,14 +710,20 @@ impl Display for FixedSizeBlockAllocator {
 /// ```
 ///
 pub struct SpinLockedFixedSizeBlockAllocator {
-  inner: spin::Mutex<FixedSizeBlockAllocator>,
+  inner: tpl_lock::TplMutex<FixedSizeBlockAllocator>,
 }
 
 impl SpinLockedFixedSizeBlockAllocator {
   /// Creates a new empty FixedSizeBlockAllocator that will request memory from `gcd` as needed to satisfy
   /// requests.
   pub const fn new(gcd: &'static SpinLockedGcd, allocator_handle: r_efi::efi::Handle) -> Self {
-    SpinLockedFixedSizeBlockAllocator { inner: spin::Mutex::new(FixedSizeBlockAllocator::new(gcd, allocator_handle)) }
+    SpinLockedFixedSizeBlockAllocator {
+      inner: tpl_lock::TplMutex::new(
+        system::TPL_HIGH_LEVEL,
+        FixedSizeBlockAllocator::new(gcd, allocator_handle),
+        "FsbLock",
+      ),
+    }
   }
 
   /// Locks the allocator
@@ -772,7 +779,7 @@ impl SpinLockedFixedSizeBlockAllocator {
   ///
   /// ```
   ///
-  pub fn lock(&self) -> spin::MutexGuard<FixedSizeBlockAllocator> {
+  pub fn lock(&self) -> tpl_lock::TplGuard<FixedSizeBlockAllocator> {
     self.inner.lock()
   }
 

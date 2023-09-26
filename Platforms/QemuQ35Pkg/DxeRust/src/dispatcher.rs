@@ -3,14 +3,14 @@ use alloc::{
   vec::Vec,
 };
 use core::ffi::c_void;
-use r_efi::{efi, system::TPL_CALLBACK};
+use r_efi::{efi, system};
 use r_pi::fw_fs::{ffs, FfsFileRawType, FfsSectionType, FirmwareVolume, FirmwareVolumeBlockProtocol};
 use serial_print_dxe::println;
 use uefi_depex_lib::{Depex, Opcode};
 use uefi_protocol_db_lib::DXE_CORE_HANDLE;
 
 use crate::{
-  events::{raise_tpl, restore_tpl, EVENT_DB},
+  events::EVENT_DB,
   image::{core_load_image, start_image},
   protocols::PROTOCOL_DB,
 };
@@ -43,7 +43,7 @@ const DEFAULT_DEPEX: &[Opcode] = &[
   Opcode::End,
 ];
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ScheduledDriver {
   file: ffs::File,
   device_path: *mut efi::protocols::device_path::Protocol,
@@ -59,19 +59,19 @@ struct FvInfo {
 
 #[derive(Debug)]
 struct DispatcherContext {
-  discovered_fv_info: spin::Mutex<BTreeSet<FvInfo>>, //anything interacting with this has to run at TPL_CALLBACK.
-  processed_fvs: spin::Mutex<BTreeSet<efi::Handle>>, //anything interacting with this has to run at TPL_CALLBACK.
-  scheduled_driver_base_addresses: spin::Mutex<VecDeque<ScheduledDriver>>, //only used in dispatch loop, should not be touched from anywhere else.
-  dispatcher_executing: spin::Mutex<bool>,
+  discovered_fv_info: tpl_lock::TplMutex<BTreeSet<FvInfo>>,
+  processed_fvs: tpl_lock::TplMutex<BTreeSet<efi::Handle>>,
+  scheduled_driver_base_addresses: tpl_lock::TplMutex<VecDeque<ScheduledDriver>>, //only used in dispatch loop, should not be touched from anywhere else.
+  dispatcher_executing: tpl_lock::TplMutex<bool>,
 }
 
 impl DispatcherContext {
   const fn new() -> Self {
     Self {
-      discovered_fv_info: spin::Mutex::new(BTreeSet::new()),
-      processed_fvs: spin::Mutex::new(BTreeSet::new()),
-      scheduled_driver_base_addresses: spin::Mutex::new(VecDeque::new()),
-      dispatcher_executing: spin::Mutex::new(false),
+      discovered_fv_info: tpl_lock::TplMutex::new(system::TPL_NOTIFY, BTreeSet::new(), "DispDiscFvLock"),
+      processed_fvs: tpl_lock::TplMutex::new(system::TPL_NOTIFY, BTreeSet::new(), "DispProcFvLock"),
+      scheduled_driver_base_addresses: tpl_lock::TplMutex::new(system::TPL_NOTIFY, VecDeque::new(), "DispScheduleLock"),
+      dispatcher_executing: tpl_lock::TplMutex::new(system::TPL_NOTIFY, false, "DispExecutingLock"),
     }
   }
 
@@ -132,9 +132,7 @@ impl DispatcherContext {
 
   fn dispatch(&self) -> bool {
     let mut dispatch_attempted = false;
-    let old_tpl = raise_tpl(TPL_CALLBACK);
     let discovered_fv_info: Vec<FvInfo> = self.discovered_fv_info.lock().clone().into_iter().collect();
-    restore_tpl(old_tpl);
 
     for fv_info in discovered_fv_info {
       let fv_base_address = fv_info.base_address;

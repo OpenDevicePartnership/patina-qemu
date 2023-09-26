@@ -23,7 +23,6 @@ pub mod misc_boot_services;
 pub mod physical_memory;
 pub mod protocols;
 pub mod systemtables;
-pub mod utility;
 
 pub static GCD: SpinLockedGcd = SpinLockedGcd::new();
 

@@ -6,12 +6,13 @@ use alloc::{alloc::Allocator, boxed::Box};
 use r_efi::{
   efi::{Boolean, Char16, Event, Guid, Handle, PhysicalAddress, Status, Tpl},
   protocols::{device_path, simple_text_input, simple_text_output},
-  system::{BootServices, RuntimeServices, SystemTable, TableHeader},
+  system::{self, BootServices, RuntimeServices, SystemTable, TableHeader},
 };
 
 use crate::allocator::EFI_RUNTIME_SERVICES_DATA_ALLOCATOR;
 
-pub static SYSTEM_TABLE: spin::Mutex<Option<EfiSystemTable>> = spin::Mutex::new(None);
+pub static SYSTEM_TABLE: tpl_lock::TplMutex<Option<EfiSystemTable>> =
+  tpl_lock::TplMutex::new(system::TPL_NOTIFY, None, "StLock");
 
 pub struct EfiRuntimeServicesTable {
   runtime_services: Box<RuntimeServices, &'static dyn Allocator>,

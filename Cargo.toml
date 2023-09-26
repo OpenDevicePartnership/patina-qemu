@@ -8,7 +8,6 @@ members = [
     "Platforms/QemuQ35Pkg/DxeRust",
     "Platforms/QemuQ35Pkg/RustDriverDxe",
     "Common/MU/MsCorePkg/HelloWorldRustDxe",
-    "Crates/TplLock"
 ]
 
 # Add packages that generate libraries here

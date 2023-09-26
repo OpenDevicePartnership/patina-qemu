@@ -13,4 +13,4 @@ UefiGcdLib = {workspace=true}
 linked_list_allocator = {workspace=true}
 r-efi = {workspace=true}
 r-pi = {workspace=true}
-spin = {workspace=true}
+TplLock = {workspace=true}

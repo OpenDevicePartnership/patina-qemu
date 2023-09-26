@@ -36,9 +36,9 @@ use dxe_rust::{
 use r_efi::{
   efi,
   system::{
-    ACPI_MEMORY_NVS, ACPI_RECLAIM_MEMORY, BOOT_SERVICES_CODE, BOOT_SERVICES_DATA, LOADER_CODE, LOADER_DATA, MEMORY_RO,
-    MEMORY_RP, MEMORY_UC, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP, RESERVED_MEMORY_TYPE,
-    RUNTIME_SERVICES_CODE, RUNTIME_SERVICES_DATA,
+    BootServices, ACPI_MEMORY_NVS, ACPI_RECLAIM_MEMORY, BOOT_SERVICES_CODE, BOOT_SERVICES_DATA, LOADER_CODE,
+    LOADER_DATA, MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP,
+    RESERVED_MEMORY_TYPE, RUNTIME_SERVICES_CODE, RUNTIME_SERVICES_DATA,
   },
 };
 use uefi_gcd_lib::gcd;
@@ -103,7 +103,6 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
         MEMORY_UC | MEMORY_WC | MEMORY_WT | MEMORY_WB | MEMORY_WP | MEMORY_RP | MEMORY_XP | MEMORY_RO,
       )
       .expect("Failed to add initial region to GCD.");
-
     // Mark the first page of memory as non-existent
     GCD
       .add_memory_space(GcdMemoryType::Reserved, 0, 0x1000, 0)
@@ -329,7 +328,6 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     // Install HobList configuration table
     let hob_list_guid = uuid::Uuid::from_str("7739F24C-93D7-11D4-9A3A-0090273FC14D").unwrap();
     let hob_list_guid: efi::Guid = unsafe { *(hob_list_guid.to_bytes_le().as_ptr() as *const efi::Guid) };
-
     dxe_rust::misc_boot_services::core_install_configuration_table(
       hob_list_guid,
       unsafe { (physical_hob_list as *mut c_void).as_mut() },
@@ -337,6 +335,11 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     )
     .unwrap();
   }
+
+  let st = SYSTEM_TABLE.lock();
+  let bs = st.as_ref().unwrap().boot_services() as *mut BootServices;
+  drop(st);
+  tpl_lock::init_boot_services(bs);
 
   core_dispatcher().expect("initial dispatch failed.");
 

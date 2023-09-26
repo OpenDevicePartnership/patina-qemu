@@ -14,7 +14,7 @@ use r_pi::{
   hob::{Hob, HobList},
 };
 
-use r_efi::protocols::device_path;
+use r_efi::{protocols::device_path, system};
 
 use crate::{allocator::allocate_pool, protocols::core_install_protocol_interface};
 
@@ -41,8 +41,8 @@ struct PrivateGlobalData {
 unsafe impl Sync for PrivateGlobalData {}
 unsafe impl Send for PrivateGlobalData {}
 
-static PRIVATE_FV_DATA: spin::Mutex<PrivateGlobalData> =
-  spin::Mutex::new(PrivateGlobalData { fv_information: BTreeMap::new() });
+static PRIVATE_FV_DATA: tpl_lock::TplMutex<PrivateGlobalData> =
+  tpl_lock::TplMutex::new(system::TPL_NOTIFY, PrivateGlobalData { fv_information: BTreeMap::new() }, "FvLock");
 
 // FVB Protocol Functions
 extern "efiapi" fn fvb_get_attributes(

@@ -3,7 +3,7 @@ use core::{mem, ptr};
 use alloc::{boxed::Box, slice, vec, vec::Vec};
 use r_efi::{
   efi::Handle,
-  system::{MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_UCE, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP},
+  system::{self, MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_UCE, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP},
 };
 use r_pi::{
   dxe_services::{GcdIoType, GcdMemoryType, IoSpaceDescriptor, MemorySpaceDescriptor},
@@ -1025,8 +1025,8 @@ impl From<io_block::Error> for InternalError {
 /// Implements a spin locked GCD  suitable for use as a static global.
 #[derive(Debug)]
 pub struct SpinLockedGcd {
-  memory: spin::Mutex<GCD>,
-  io: spin::Mutex<IoGCD>,
+  memory: tpl_lock::TplMutex<GCD>,
+  io: tpl_lock::TplMutex<IoGCD>,
 }
 
 impl SpinLockedGcd {
@@ -1034,8 +1034,12 @@ impl SpinLockedGcd {
   /// [`Error::NotInitialized`]
   pub const fn new() -> Self {
     Self {
-      memory: spin::Mutex::new(GCD { maximum_address: 0, memory_blocks: None }),
-      io: spin::Mutex::new(IoGCD { maximum_address: 0, io_blocks: None }),
+      memory: tpl_lock::TplMutex::new(
+        system::TPL_HIGH_LEVEL,
+        GCD { maximum_address: 0, memory_blocks: None },
+        "GcdMemLock",
+      ),
+      io: tpl_lock::TplMutex::new(system::TPL_HIGH_LEVEL, IoGCD { maximum_address: 0, io_blocks: None }, "GcdIoLock"),
     }
   }
 

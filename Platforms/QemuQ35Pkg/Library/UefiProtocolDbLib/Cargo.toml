@@ -11,6 +11,7 @@ path = "src/lib.rs"
 [dependencies]
 r-efi = {workspace=true}
 spin = {workspace=true}
+TplLock = {workspace=true}
 
 [dependencies.uuid]
 default-features = false

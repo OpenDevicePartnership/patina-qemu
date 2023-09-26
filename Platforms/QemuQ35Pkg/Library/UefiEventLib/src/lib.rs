@@ -40,8 +40,8 @@ use alloc::{
 };
 use core::{cmp::Ordering, ffi::c_void, fmt};
 use r_efi::system::{
-  EVT_NOTIFY_SIGNAL, EVT_NOTIFY_WAIT, EVT_SIGNAL_EXIT_BOOT_SERVICES, EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE, EVT_TIMER,
-  TPL_APPLICATION, TPL_HIGH_LEVEL,
+  self, EVT_NOTIFY_SIGNAL, EVT_NOTIFY_WAIT, EVT_SIGNAL_EXIT_BOOT_SERVICES, EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE,
+  EVT_TIMER, TPL_APPLICATION, TPL_HIGH_LEVEL,
 };
 
 /// Defines the supported UEFI event types
@@ -538,16 +538,16 @@ impl Iterator for EventNotificationIterator {
 ///
 ///
 pub struct SpinLockedEventDb {
-  inner: spin::Mutex<EventDb>,
+  inner: tpl_lock::TplMutex<EventDb>,
 }
 
 impl SpinLockedEventDb {
   /// Creates a new instance of EventDb.
   pub const fn new() -> Self {
-    SpinLockedEventDb { inner: spin::Mutex::new(EventDb::new()) }
+    SpinLockedEventDb { inner: tpl_lock::TplMutex::new(system::TPL_HIGH_LEVEL, EventDb::new(), "EventLock") }
   }
 
-  fn lock(&self) -> spin::MutexGuard<EventDb> {
+  fn lock(&self) -> tpl_lock::TplGuard<EventDb> {
     self.inner.lock()
   }
 

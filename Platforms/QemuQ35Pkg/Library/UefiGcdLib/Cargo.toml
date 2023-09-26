@@ -11,4 +11,4 @@ path = "src/lib.rs"
 [dependencies]
 r-efi = {workspace=true}
 r-pi = {workspace=true}
-spin = {workspace=true}
+TplLock = {workspace=true}

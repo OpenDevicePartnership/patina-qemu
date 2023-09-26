@@ -41,7 +41,7 @@ use core::{cmp::Ordering, ffi::c_void};
 use r_efi::{
   efi,
   system::{
-    OPEN_PROTOCOL_BY_CHILD_CONTROLLER, OPEN_PROTOCOL_BY_DRIVER, OPEN_PROTOCOL_BY_HANDLE_PROTOCOL,
+    self, OPEN_PROTOCOL_BY_CHILD_CONTROLLER, OPEN_PROTOCOL_BY_DRIVER, OPEN_PROTOCOL_BY_HANDLE_PROTOCOL,
     OPEN_PROTOCOL_EXCLUSIVE, OPEN_PROTOCOL_GET_PROTOCOL, OPEN_PROTOCOL_TEST_PROTOCOL,
   },
 };
@@ -622,16 +622,16 @@ impl ProtocolDb {
 /// ```
 ///
 pub struct SpinLockedProtocolDb {
-  inner: spin::Mutex<ProtocolDb>,
+  inner: tpl_lock::TplMutex<ProtocolDb>,
 }
 
 impl SpinLockedProtocolDb {
   /// Creates a new instance of SpinLockedProtocolDb.
   pub const fn new() -> Self {
-    SpinLockedProtocolDb { inner: spin::Mutex::new(ProtocolDb::new()) }
+    SpinLockedProtocolDb { inner: tpl_lock::TplMutex::new(system::TPL_NOTIFY, ProtocolDb::new(), "ProtocolLock") }
   }
 
-  fn lock(&self) -> spin::MutexGuard<ProtocolDb> {
+  fn lock(&self) -> tpl_lock::TplGuard<ProtocolDb> {
     self.inner.lock()
   }
 

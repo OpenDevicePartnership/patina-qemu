@@ -7,6 +7,7 @@ use core::{
 };
 
 use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, string::String, vec::Vec};
+use r_efi::system;
 use r_pi::hob::{Hob, HobList};
 use uefi_protocol_db_lib::DXE_CORE_HANDLE;
 use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
@@ -164,7 +165,8 @@ impl DxeCoreGlobalImageData {
 unsafe impl Sync for DxeCoreGlobalImageData {}
 unsafe impl Send for DxeCoreGlobalImageData {}
 
-static PRIVATE_IMAGE_DATA: spin::Mutex<DxeCoreGlobalImageData> = spin::Mutex::new(DxeCoreGlobalImageData::new());
+static PRIVATE_IMAGE_DATA: tpl_lock::TplMutex<DxeCoreGlobalImageData> =
+  tpl_lock::TplMutex::new(system::TPL_NOTIFY, DxeCoreGlobalImageData::new(), "ImageLock");
 
 // helper routine that returns an empty loaded_image::Protocol struct.
 fn empty_image_info() -> r_efi::efi::protocols::loaded_image::Protocol {
