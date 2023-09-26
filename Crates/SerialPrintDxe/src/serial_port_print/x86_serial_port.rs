@@ -27,7 +27,10 @@ pub fn _print(args: ::core::fmt::Arguments) {
   use x86_64::instructions::interrupts;
 
   interrupts::without_interrupts(|| {
-    SERIAL1.lock().write_fmt(args).expect("Printing to serial failed");
+    let serial_lock = SERIAL1.try_lock();
+    if let Some(mut serial) = serial_lock {
+      serial.write_fmt(args).expect("Printing to serial failed");
+    }
   });
 }
 
