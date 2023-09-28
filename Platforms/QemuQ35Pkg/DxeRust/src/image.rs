@@ -32,6 +32,13 @@ pub const EFI_IMAGE_SUBSYSTEM_EFI_APPLICATION: u16 = 10;
 pub const EFI_IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER: u16 = 11;
 pub const EFI_IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER: u16 = 12;
 
+// Temporarily define this here until it is moved to r-efi.
+pub(crate) mod hii_package_list {
+  /// UEFI Specification, Release 2.10, Section 7.4.1 - EFI_BOOT_SERVICES.LoadImage() - Related Definitions
+  pub(crate) const PROTOCOL_GUID: r_efi::efi::Guid =
+    r_efi::efi::Guid::from_fields(0x6a1ee763, 0xd47a, 0x43b4, 0xaa, 0xbe, &[0xef, 0x1d, 0xe2, 0xab, 0x56, 0xfc]);
+}
+
 const ENTRY_POINT_STACK_SIZE: usize = 0x100000;
 
 // dummy function used to initialize PrivateImageData.entry_point.
