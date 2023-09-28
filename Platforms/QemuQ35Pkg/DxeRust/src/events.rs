@@ -1,12 +1,17 @@
 use core::{
   convert::TryFrom,
   ffi::c_void,
-  sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering},
+  sync::atomic::{AtomicBool, AtomicPtr, AtomicU64, AtomicUsize, Ordering},
 };
+
+use alloc::vec;
 
 use r_efi::system::{BootServices, EVT_NOTIFY_SIGNAL, TPL_APPLICATION, TPL_CALLBACK, TPL_HIGH_LEVEL};
 
-use r_pi::timer::{TimerArchProtocol, TIMER_ARCH_PROTOCOL_GUID};
+use r_pi::{
+  cpu_arch,
+  timer::{TimerArchProtocol, TIMER_ARCH_PROTOCOL_GUID},
+};
 use uefi_event_lib::{SpinLockedEventDb, TimerDelay};
 
 use crate::protocols::PROTOCOL_DB;
@@ -15,6 +20,7 @@ pub static EVENT_DB: SpinLockedEventDb = SpinLockedEventDb::new();
 
 static CURRENT_TPL: AtomicUsize = AtomicUsize::new(TPL_APPLICATION);
 static SYSTEM_TIME: AtomicU64 = AtomicU64::new(0);
+static CPU_ARCH_PTR: AtomicPtr<cpu_arch::Protocol> = AtomicPtr::new(core::ptr::null_mut());
 static EVENT_NOTIFIES_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
 pub extern "efiapi" fn create_event(
@@ -197,26 +203,54 @@ pub extern "efiapi" fn set_timer(
 }
 
 pub extern "efiapi" fn raise_tpl(new_tpl: r_efi::efi::Tpl) -> r_efi::efi::Tpl {
+  assert!(new_tpl <= TPL_HIGH_LEVEL, "Invalid attempt to raise TPL above TPL_HIGH_LEVEL");
+
   let prev_tpl = CURRENT_TPL.fetch_max(new_tpl, Ordering::SeqCst);
-  if new_tpl < prev_tpl {
-    panic!("Invalid attempt to raise TPL to lower value. New TPL: {:#x?}, Prev TPL: {:#x?}", new_tpl, prev_tpl);
+
+  assert!(
+    new_tpl >= prev_tpl,
+    "Invalid attempt to raise TPL to lower value. New TPL: {:#x?}, Prev TPL: {:#x?}",
+    new_tpl,
+    prev_tpl
+  );
+
+  if (new_tpl == TPL_HIGH_LEVEL) && (prev_tpl < TPL_HIGH_LEVEL) {
+    set_interrupt_state(false);
   }
-  //todo!("deal with interrupts")
   prev_tpl
 }
 
 pub extern "efiapi" fn restore_tpl(new_tpl: r_efi::efi::Tpl) {
   let prev_tpl = CURRENT_TPL.fetch_min(new_tpl, Ordering::SeqCst);
-  if new_tpl > prev_tpl {
-    panic!("Invalid attempt to lower TPL to lower value. New TPL: {:#x?}, Prev TPL: {:#x?}", new_tpl, prev_tpl);
-  }
 
-  //todo!("deal with interrupts")
-  if (new_tpl < prev_tpl)
-    && EVENT_NOTIFIES_IN_PROGRESS.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok()
-  {
-    //dispatch all events higher than current TPL in TPL order.
-    for event in EVENT_DB.event_notification_iter(new_tpl) {
+  assert!(
+    new_tpl <= prev_tpl,
+    "Invalid attempt to restore TPL to higher value. New TPL: {:#x?}, Prev TPL: {:#x?}",
+    new_tpl,
+    prev_tpl
+  );
+
+  if new_tpl < prev_tpl {
+    // Care must be taken to deal with re-entrant "restore_tpl" cases. For example, the event_notification_iter created
+    // here requires taking the lock on EVENT_DB to iterate. The release of that lock will call restore_tpl.
+    // To avoid infinite recursion, this logic uses EVENT_NOTIFIES_IN_PROGRESS to ensure that only one instance of
+    // restore_tpl is accessing the locked EVENT_DB. restore_tpl calls that occur while the event notification iter is
+    // in use will get back an empty vector of event notifications and will simply restore the TPL and exit.
+    let events = match EVENT_NOTIFIES_IN_PROGRESS.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed) {
+      Ok(_) => {
+        let events = EVENT_DB.event_notification_iter(new_tpl).collect();
+        EVENT_NOTIFIES_IN_PROGRESS.store(false, Ordering::Release);
+        events
+      }
+      Err(_) => vec![],
+    };
+
+    for event in events {
+      if event.notify_tpl < TPL_HIGH_LEVEL {
+        set_interrupt_state(true);
+      } else {
+        set_interrupt_state(false);
+      }
       CURRENT_TPL.store(event.notify_tpl, Ordering::SeqCst);
       let notify_context = match event.notify_context {
         Some(context) => context,
@@ -231,9 +265,11 @@ pub extern "efiapi" fn restore_tpl(new_tpl: r_efi::efi::Tpl) {
       //change.
       (event.notify_function)(event.event, notify_context);
     }
-    EVENT_NOTIFIES_IN_PROGRESS.store(false, Ordering::Release);
   }
 
+  if new_tpl < TPL_HIGH_LEVEL {
+    set_interrupt_state(true);
+  }
   CURRENT_TPL.store(new_tpl, Ordering::SeqCst);
 }
 
@@ -243,6 +279,20 @@ extern "efiapi" fn timer_tick(time: u64) {
   let current_time = SYSTEM_TIME.load(Ordering::SeqCst);
   EVENT_DB.timer_tick(current_time);
   restore_tpl(old_tpl); //implicitly dispatches timer notifies if any.
+}
+
+fn set_interrupt_state(enable: bool) {
+  let cpu_arch_ptr = CPU_ARCH_PTR.load(Ordering::SeqCst);
+  if let Some(cpu_arch) = unsafe { cpu_arch_ptr.as_mut() } {
+    match enable {
+      true => {
+        (cpu_arch.enable_interrupt)(cpu_arch_ptr);
+      }
+      false => {
+        (cpu_arch.disable_interrupt)(cpu_arch_ptr);
+      }
+    };
+  }
 }
 
 extern "efiapi" fn timer_available_callback(event: r_efi::efi::Event, _context: *mut c_void) {
@@ -257,6 +307,16 @@ extern "efiapi" fn timer_available_callback(event: r_efi::efi::Event, _context: 
   }
 }
 
+extern "efiapi" fn cpu_arch_available(event: r_efi::efi::Event, _context: *mut c_void) {
+  match PROTOCOL_DB.locate_protocol(cpu_arch::PROTOCOL) {
+    Ok(cpu_arch_ptr) => {
+      CPU_ARCH_PTR.store(cpu_arch_ptr as *mut cpu_arch::Protocol, Ordering::SeqCst);
+      EVENT_DB.close_event(event).unwrap();
+    }
+    Err(err) => panic!("Unable to cpu arch: {:?}", err),
+  }
+}
+
 pub fn init_events_support(bs: &mut BootServices) {
   bs.create_event = create_event;
   bs.create_event_ex = create_event_ex;
@@ -267,6 +327,15 @@ pub fn init_events_support(bs: &mut BootServices) {
   bs.set_timer = set_timer;
   bs.raise_tpl = raise_tpl;
   bs.restore_tpl = restore_tpl;
+
+  //set up call back for cpu arch protocol installation.
+  let event = EVENT_DB
+    .create_event(EVT_NOTIFY_SIGNAL, TPL_CALLBACK, Some(cpu_arch_available), None, None)
+    .expect("Failed to create timer available callback.");
+
+  PROTOCOL_DB
+    .register_protocol_notify(cpu_arch::PROTOCOL, event)
+    .expect("Failed to register protocol notify on timer arch callback.");
 
   //set up call back for timer arch protocol installation.
   let event = EVENT_DB
