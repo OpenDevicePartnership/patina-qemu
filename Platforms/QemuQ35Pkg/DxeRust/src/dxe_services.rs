@@ -3,25 +3,35 @@ use core::{
   ffi::c_void,
   mem,
   slice::{self, from_raw_parts},
+  sync::atomic::{AtomicPtr, Ordering},
 };
 use uefi_gcd_lib::gcd;
 
 use r_efi::{
   efi::{self, Guid, Handle, PhysicalAddress, Status},
-  system::{TableHeader, BOOT_SERVICES_REVISION, BOOT_SERVICES_SIGNATURE},
+  system::{self, TableHeader, BOOT_SERVICES_REVISION, BOOT_SERVICES_SIGNATURE, EVT_NOTIFY_SIGNAL, TPL_CALLBACK},
 };
-use r_pi::dxe_services::{
-  DxeServicesTable, GcdAllocateType, GcdIoType, GcdMemoryType, IoSpaceDescriptor, MemorySpaceDescriptor,
-  DEX_SERVICES_TABLE_GUID,
+use r_pi::{
+  cpu_arch,
+  dxe_services::{
+    DxeServicesTable, GcdAllocateType, GcdIoType, GcdMemoryType, IoSpaceDescriptor, MemorySpaceDescriptor,
+    DEX_SERVICES_TABLE_GUID,
+  },
 };
+
+use serial_print_dxe::println;
 
 use crate::{
   allocator::{allocate_pool, EFI_RUNTIME_SERVICES_DATA_ALLOCATOR},
   dispatcher::core_dispatcher,
+  events::EVENT_DB,
   misc_boot_services,
+  protocols::PROTOCOL_DB,
   systemtables::EfiSystemTable,
   GCD,
 };
+
+static CPU_ARCH_PTR: AtomicPtr<cpu_arch::Protocol> = AtomicPtr::new(core::ptr::null_mut());
 
 fn result_to_efi_status(err: gcd::Error) -> efi::Status {
   match err {
@@ -147,10 +157,16 @@ pub extern "efiapi" fn get_memory_space_descriptor(
 
 extern "efiapi" fn set_memory_space_attributes(base_address: PhysicalAddress, length: u64, attributes: u64) -> Status {
   let result = GCD.set_memory_space_attributes(base_address as usize, length as usize, attributes);
-  match result {
-    Ok(_) => Status::SUCCESS,
-    Err(err) => result_to_efi_status(err),
+  if let Err(err) = result {
+    return result_to_efi_status(err);
   }
+
+  let result = cpu_set_memory_space_attributes(base_address, length, attributes);
+  if let Err(err) = result {
+    return err;
+  }
+
+  efi::Status::SUCCESS
 }
 
 extern "efiapi" fn set_memory_space_capabilities(
@@ -159,10 +175,16 @@ extern "efiapi" fn set_memory_space_capabilities(
   capabilities: u64,
 ) -> Status {
   let result = GCD.set_memory_space_capabilities(base_address as usize, length as usize, capabilities);
-  match result {
-    Ok(_) => Status::SUCCESS,
-    Err(err) => result_to_efi_status(err),
+  if let Err(err) = result {
+    return result_to_efi_status(err);
   }
+
+  let result = cpu_set_memory_space_attributes(base_address, length, capabilities & !system::MEMORY_RUNTIME);
+  if let Err(err) = result {
+    return err;
+  }
+
+  efi::Status::SUCCESS
 }
 
 extern "efiapi" fn get_memory_space_map(
@@ -354,6 +376,44 @@ extern "efiapi" fn process_firmware_volume(
   //Status::UNSUPPORTED
 }
 
+// This routine passes attribute changes into the CPU architectural protocol so that the CPU attribute states for memory
+// are consistent with the GCD view. If the CPU arch protocol is not available yet, then this routine does nothing.
+fn cpu_set_memory_space_attributes(
+  base_address: PhysicalAddress,
+  length: u64,
+  attributes: u64,
+) -> Result<(), efi::Status> {
+  //Note: matches EDK C reference behavior, but caller really should pass all intended attributes rather than assuming behavior.
+  if attributes == 0 {
+    return Ok(());
+  }
+
+  let cpu_arch_ptr = CPU_ARCH_PTR.load(Ordering::SeqCst);
+  if let Some(cpu_arch) = unsafe { cpu_arch_ptr.as_mut() } {
+    let status = (cpu_arch.set_memory_attributes)(cpu_arch_ptr, base_address, length, attributes);
+    if status.is_error() {
+      println!(
+        "Warning: cpu_arch.set_memory_attributes({:x?},{:x?},{:x?}) returned: {:x?}",
+        base_address, length, attributes, status
+      );
+      return Err(status);
+    }
+  }
+  Ok(())
+}
+
+//This call back is invoked when the CPU Architectural protocol is installed. It updates the global atomic CPU_ARCH_PTR
+//to point to the CPU architectural protocol interface.
+extern "efiapi" fn cpu_arch_available(event: r_efi::efi::Event, _context: *mut c_void) {
+  match PROTOCOL_DB.locate_protocol(cpu_arch::PROTOCOL) {
+    Ok(cpu_arch_ptr) => {
+      CPU_ARCH_PTR.store(cpu_arch_ptr as *mut cpu_arch::Protocol, Ordering::SeqCst);
+      EVENT_DB.close_event(event).unwrap();
+    }
+    Err(err) => panic!("Unable to locate timer arch: {:?}", err),
+  }
+}
+
 pub fn init_dxe_services(system_table: &mut EfiSystemTable) {
   let mut dxe_system_table = DxeServicesTable {
     header: TableHeader {
@@ -394,4 +454,13 @@ pub fn init_dxe_services(system_table: &mut EfiSystemTable) {
     unsafe { (Box::into_raw(dxe_system_table) as *mut c_void).as_mut() },
     system_table,
   );
+
+  //set up call back for cpu arch protocol installation.
+  let event = EVENT_DB
+    .create_event(EVT_NOTIFY_SIGNAL, TPL_CALLBACK, Some(cpu_arch_available), None, None)
+    .expect("Failed to create timer available callback.");
+
+  PROTOCOL_DB
+    .register_protocol_notify(cpu_arch::PROTOCOL, event)
+    .expect("Failed to register protocol notify on timer arch callback.");
 }
