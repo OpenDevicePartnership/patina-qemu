@@ -35,11 +35,14 @@
 
 extern crate alloc;
 
+pub mod resource_directory;
+
 use alloc::{
   string::{String, ToString},
   vec::Vec,
 };
-use goblin;
+use goblin::{self, error::Error as GoblinError};
+use resource_directory::{DataEntry, Directory, DirectoryEntry, DirectoryString};
 use scroll::Pread;
 
 /// Type for describing errors that result from working with PE32 images.
@@ -48,7 +51,7 @@ pub enum Pe32Error {
   /// Goblin failed to parse the PE32 image.
   ///
   /// See the enclosed goblin error for a reason why the parsing failed.
-  ParseError(goblin::error::Error),
+  ParseError(GoblinError),
   /// The parsed PE32 image does not contain an Optional Header.
   NoOptionalHeader,
   /// Failed to load the PE32 image into the provided memory buffer.
@@ -349,6 +352,160 @@ pub fn pe32_relocate_image(destination: usize, image: &mut [u8]) -> Result<(), P
   Ok(())
 }
 
+/// Attempts to load the HII resource section data for a given PE32 image.
+///
+/// Extracts the HII resource section data from the provided image, returning None
+/// if the image does not contain the HII resource section.
+///
+/// ## Errors
+///
+/// Returns [`ParseError`](Pe32Error::ParseError) if the an error is encountered parsing the PE32 image.
+///
+/// ## Examples
+///
+/// ```
+/// extern crate std;
+///
+/// use std::{fs::File, io::Read};
+/// use uefi_pe32_lib::pe32_load_resource_section;
+///
+/// let mut test_file: File = File::open(concat!(env!("CARGO_MANIFEST_DIR"), "/resources/test/", "test_image_hii.pe32"))
+///   .expect("failed to open test file.");
+///
+/// let mut buffer = Vec::new();
+///
+/// test_file.read_to_end(&mut buffer).expect("failed to read test file");
+///
+/// let result = pe32_load_resource_section(&buffer).unwrap();
+/// let result_data = result.unwrap();
+/// ```
+pub fn pe32_load_resource_section(image: &[u8]) -> Result<Option<&[u8]>, Pe32Error> {
+  let pe = goblin::pe::PE::parse(&image).map_err(|e| Pe32Error::ParseError(e))?;
+
+  for section in &pe.sections {
+    if let Ok(name) = core::str::from_utf8(&section.name) {
+      if name.trim_end_matches('\0') == ".rsrc" {
+        let mut size = section.virtual_size;
+        if size == 0 || size > section.size_of_raw_data {
+          size = section.size_of_raw_data;
+        }
+
+        let start = section.pointer_to_raw_data as usize;
+        let end = match section.pointer_to_raw_data.checked_add(size) {
+          Some(offset) => offset as usize,
+          None => {
+            return Err(Pe32Error::ParseError(GoblinError::Malformed(String::from(
+              "HII resource section size is invalid",
+            ))))
+          }
+        };
+        let resource_section =
+          image.get(start..end).ok_or(Pe32Error::ParseError(GoblinError::BufferTooShort(end - start, "bytes")))?;
+        let mut directory: Directory =
+          resource_section.pread(0).map_err(|e| Pe32Error::ParseError(GoblinError::Scroll(e)))?;
+
+        let mut offset = directory.size_in_bytes();
+        let resource_directory_offset = offset;
+
+        if offset > size as usize {
+          return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(offset as usize, "bytes")));
+        }
+
+        let mut directory_entry: DirectoryEntry = resource_section
+          .pread(core::mem::size_of::<Directory>())
+          .map_err(|e| Pe32Error::ParseError(GoblinError::Scroll(e)))?;
+
+        for _ in 0..directory.number_of_named_entries {
+          if directory_entry.name_is_string() {
+            if directory_entry.name_offset() >= size {
+              return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(
+                directory_entry.name_offset() as usize,
+                "bytes",
+              )));
+            }
+
+            let resource_directory_string = resource_section
+              .pread::<DirectoryString>(directory_entry.name_offset() as usize)
+              .map_err(|e| Pe32Error::ParseError(GoblinError::Scroll(e)))?;
+
+            let name_start_offset = (directory_entry.name_offset() + 1) as usize;
+            let name_end_offset = name_start_offset + (resource_directory_string.length * 2) as usize;
+            let string_val = resource_section
+              .get(name_start_offset..name_end_offset)
+              .ok_or(Pe32Error::ParseError(GoblinError::BufferTooShort(name_end_offset, "bytes")))?;
+
+            // L"HII" = [0x0, 0x48, 0x0, 0x49, 0x0, 0x49]
+            if resource_directory_string.length == 3 && string_val == &[0x0, 0x48, 0x0, 0x49, 0x0, 0x49] {
+              if directory_entry.data_is_directory() {
+                if directory_entry.offset_to_directory() > size {
+                  return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(
+                    directory_entry.offset_to_directory() as usize,
+                    "bytes",
+                  )));
+                }
+
+                directory = resource_section
+                  .pread(directory_entry.offset_to_directory() as usize)
+                  .map_err(|e| Pe32Error::ParseError(GoblinError::Scroll(e)))?;
+                offset = (directory_entry.offset_to_directory() as usize) + directory.size_in_bytes();
+
+                if offset > size as usize {
+                  return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(offset as usize, "bytes")));
+                }
+
+                directory_entry = resource_section
+                  .pread((directory_entry.offset_to_directory() as usize) + core::mem::size_of::<Directory>())
+                  .map_err(|e| Pe32Error::ParseError(GoblinError::Scroll(e)))?;
+
+                if directory_entry.data_is_directory() {
+                  if directory_entry.offset_to_directory() > size {
+                    return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(
+                      directory_entry.offset_to_directory() as usize,
+                      "bytes",
+                    )));
+                  }
+
+                  directory = resource_section
+                    .pread(directory_entry.offset_to_directory() as usize)
+                    .map_err(|e| Pe32Error::ParseError(GoblinError::Scroll(e)))?;
+
+                  offset = (directory_entry.offset_to_directory() as usize) + directory.size_in_bytes();
+
+                  if offset > size as usize {
+                    return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(offset, "bytes")));
+                  }
+
+                  directory_entry = resource_section
+                    .pread((directory_entry.offset_to_directory() as usize) + core::mem::size_of::<Directory>())
+                    .map_err(|e| Pe32Error::ParseError(GoblinError::Scroll(e)))?;
+                }
+              }
+
+              if !directory_entry.data_is_directory() {
+                if directory_entry.data >= size {
+                  return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(
+                    directory_entry.data as usize,
+                    "bytes",
+                  )));
+                }
+
+                let resource_data_entry: DataEntry = resource_section
+                  .pread(directory_entry.data as usize)
+                  .map_err(|e| Pe32Error::ParseError(GoblinError::Scroll(e)))?;
+                let data_offset = resource_directory_offset + (directory_entry.data as usize);
+                return Ok(Some(
+                  resource_section[data_offset..(data_offset + resource_data_entry.size as usize)].as_ref(),
+                ));
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  Ok(None)
+}
+
 #[cfg(test)]
 mod tests {
   extern crate std;
@@ -480,5 +637,26 @@ mod tests {
     pe32_relocate_image(0x04158000, &mut reclocated_image_copy).unwrap();
 
     assert_eq!(relocated_image, reclocated_image_copy);
+  }
+
+  #[test]
+  fn pe32_load_resource_section_should_succeed() {
+    // test_image_hii.pe32 file is just a copy of TftpDynamicCommand.efi module copied and renamed.
+    let mut test_file = File::open(test_collateral!("test_image_hii.pe32")).expect("failed to open test file.");
+    let mut buffer = Vec::new();
+
+    test_file.read_to_end(&mut buffer).expect("failed to read test file");
+
+    let result = pe32_load_resource_section(&buffer).unwrap();
+    assert_eq!(result.is_some(), true);
+    let result_data = result.unwrap();
+
+    let mut ref_file = File::open(test_collateral!("test_image_hii_section.bin")).expect("failed to open test file.");
+    let mut ref_buffer = Vec::new();
+
+    ref_file.read_to_end(&mut ref_buffer).expect("failed to read test file");
+
+    assert_eq!(result_data.len(), ref_buffer.len());
+    assert_eq!(result_data, ref_buffer.as_slice());
   }
 }

@@ -114,6 +114,7 @@ unsafe impl Stack for ImageStack {
 struct PrivateImageData {
   image_buffer: Box<[u8], AlignedAllocWrapper>,
   image_info: Box<r_efi::efi::protocols::loaded_image::Protocol>,
+  hii_resource_section: Option<Box<[u8], AlignedAllocWrapper>>,
   image_type: u16,
   entry_point: r_efi::efi::ImageEntryPoint,
   filename: Option<String>,
@@ -128,6 +129,7 @@ impl PrivateImageData {
     PrivateImageData {
       image_buffer: Box::new_in([0; 0], AlignedAllocWrapper::new(1, &Global)),
       image_info: Box::new(image_info),
+      hii_resource_section: None,
       image_type: 0,
       entry_point: unimplemented_entry_point,
       filename: None,
@@ -143,6 +145,12 @@ impl PrivateImageData {
 
     self.image_buffer = unsafe { Box::new_uninit_slice_in(size, wrapped_allocator).assume_init() };
     self.image_info.image_base = self.image_buffer.as_mut_ptr() as *mut c_void;
+  }
+
+  fn allocate_resource_section(&mut self, size: usize, alignment: usize, allocator: &'static UefiAllocator) {
+    let wrapped_allocator = AlignedAllocWrapper::new(alignment, allocator);
+
+    self.hii_resource_section = Some(unsafe { Box::new_uninit_slice_in(size, wrapped_allocator).assume_init() });
   }
 }
 
@@ -275,7 +283,7 @@ fn core_load_pe_image(
   image_info.image_data_type = data_type;
 
   let mut private_info = PrivateImageData::new(image_info);
-  private_info.filename = pe_info.filename;
+  private_info.filename = pe_info.filename.clone();
   private_info.image_type = pe_info.image_type;
 
   //allocate a buffer to hold the image (also updates private_info.image_info.image_base)
@@ -291,6 +299,14 @@ fn core_load_pe_image(
 
   // update the entry point. Transmute is required here to cast the raw function address to the ImageEntryPoint function pointer type.
   private_info.entry_point = unsafe { transmute(loaded_image_addr + pe_info.entry_point_offset) };
+
+  let result = uefi_pe32_lib::pe32_load_resource_section(image).map_err(|_| r_efi::efi::Status::LOAD_ERROR)?;
+
+  if let Some(resource_section) = result {
+    private_info.allocate_resource_section(resource_section.len(), alignment, &allocator);
+    private_info.hii_resource_section.as_mut().unwrap().copy_from_slice(resource_section);
+    println!("HII Resource Section found for {}.", pe_info.filename.as_deref().unwrap_or("Unknown"));
+  }
 
   Ok(private_info)
 }
@@ -360,7 +376,13 @@ pub fn core_load_image(
     device_path as *mut c_void,
   )?;
 
-  // TODO: support for HII resource sections not implemented yet.
+  if let Some(res_section) = &private_info.hii_resource_section {
+    core_install_protocol_interface(
+      Some(handle),
+      hii_package_list::PROTOCOL_GUID,
+      res_section.as_ref().as_ptr() as *mut c_void,
+    )?;
+  }
 
   // Store the interface pointers for unload to use when uninstalling these protocol interfaces.
   private_info.image_info_ptr = image_info_ptr;
