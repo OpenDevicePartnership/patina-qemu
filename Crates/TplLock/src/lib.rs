@@ -169,34 +169,45 @@ mod tests {
   use std::println;
 
   use crate::{init_boot_services, TplMutex};
-  use core::mem::MaybeUninit;
+  use core::{
+    mem::MaybeUninit,
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+  };
   use r_efi::{efi, system};
 
-  //TODO: this mock TPL is quick and dirty and mostly works; but has a race condition that can trigger due to tests
-  //running in parallel. To fix it, logic needs to be added to the tests to ensure that interactions with TPL are
-  //mutually exclusive between tests. "Real" UEFI systems don't have this problem because they are inherently single-
-  //threaded at a given TPL level.
-  static mut TPL: efi::Tpl = system::TPL_APPLICATION;
+  static BOOT_SERVICES_LOCK: AtomicBool = AtomicBool::new(false);
+  static TPL: AtomicUsize = AtomicUsize::new(system::TPL_APPLICATION);
+
+  fn lock_boot_services() {
+    loop {
+      //spin until we get access to do boot services stuff. This ensures that parallel tests don't clobber BootServices interactions.
+      if BOOT_SERVICES_LOCK.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok() {
+        break;
+      }
+    }
+  }
+
+  fn release_boot_services() {
+    BOOT_SERVICES_LOCK.store(false, Ordering::Release);
+  }
 
   extern "efiapi" fn mock_raise_tpl(new_tpl: r_efi::efi::Tpl) -> r_efi::efi::Tpl {
-    let prev_tpl = unsafe { TPL };
-    if prev_tpl > new_tpl {
-      panic!("cannot raise tpl to lower than current level.");
-    }
-    unsafe { TPL = new_tpl };
+    let prev_tpl = TPL.load(Ordering::SeqCst);
+
+    assert!(prev_tpl <= new_tpl, "cannot raise tpl to lower than current level.");
+
+    TPL.store(new_tpl, Ordering::SeqCst);
     prev_tpl
   }
 
   extern "efiapi" fn mock_restore_tpl(new_tpl: r_efi::efi::Tpl) {
-    let prev_tpl = unsafe { TPL };
-    if prev_tpl < new_tpl {
-      panic!("cannot restore tpl to higher than current level.");
-    }
-    unsafe { TPL = new_tpl };
+    let prev_tpl = TPL.load(Ordering::SeqCst);
+    assert!(prev_tpl >= new_tpl, "cannot restore tpl to higher than current level.");
+
+    TPL.store(new_tpl, Ordering::SeqCst);
   }
 
   fn mock_boot_services() -> efi::BootServices {
-    unsafe { TPL = system::TPL_APPLICATION };
     let boot_services = MaybeUninit::zeroed();
     let mut boot_services: efi::BootServices = unsafe { boot_services.assume_init() };
     boot_services.raise_tpl = mock_raise_tpl;
@@ -206,30 +217,36 @@ mod tests {
 
   #[test]
   fn tpl_mutex_can_be_created() {
+    lock_boot_services();
     let tpl_mutex = TplMutex::new(system::TPL_HIGH_LEVEL, 1_usize, "test_lock");
     *tpl_mutex.lock() = 2_usize;
     assert_eq!(2_usize, *tpl_mutex.lock());
+    release_boot_services();
   }
 
   #[test]
   fn tpl_mutex_should_change_tpl_if_bs_available() {
+    lock_boot_services();
     let mut boot_services = mock_boot_services();
     let tpl_mutex = TplMutex::new(system::TPL_NOTIFY, 1_usize, "test_lock");
     init_boot_services(&mut boot_services);
 
     let guard = tpl_mutex.lock();
-    assert_eq!(unsafe { TPL }, system::TPL_NOTIFY);
+    assert_eq!(TPL.load(Ordering::SeqCst), system::TPL_NOTIFY);
     drop(guard);
-    assert_eq!(unsafe { TPL }, system::TPL_APPLICATION);
+    assert_eq!(TPL.load(Ordering::SeqCst), system::TPL_APPLICATION);
+    release_boot_services();
   }
 
   #[test]
   fn tpl_mutex_and_guard_should_support_debug_and_display() {
+    lock_boot_services();
     let tpl_mutex = TplMutex::new(system::TPL_HIGH_LEVEL, 1_usize, "test_lock");
     println!("{:?}", tpl_mutex);
     let guard = tpl_mutex.lock();
     println!("{:?}", tpl_mutex);
     println!("{:?}", guard);
     println!("{:}", guard);
+    release_boot_services();
   }
 }
