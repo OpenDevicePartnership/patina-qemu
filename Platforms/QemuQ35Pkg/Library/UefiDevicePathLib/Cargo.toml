@@ -9,4 +9,4 @@ name = "uefi_device_path_lib"
 path = "src/lib.rs"
 
 [dependencies]
-r-efi = "4.0.0"
+r-efi = {workspace=true}
