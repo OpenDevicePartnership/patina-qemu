@@ -28,7 +28,6 @@ use dxe_rust::{
   fv::init_fv_support,
   image::init_image_support,
   misc_boot_services::init_misc_boot_services_support,
-  physical_memory,
   protocols::{init_protocol_support, PROTOCOL_DB},
   systemtables::{init_system_table, SYSTEM_TABLE},
   GCD,
@@ -109,21 +108,12 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
       .expect("Failed to mark the first page as non-existent in the GCD.");
   };
 
-  // 2. set up new page tables to replace those set up by the loader.
-  //    initially map EfiMemoryBottom->EfiMemoryTop.
-  unsafe {
-    physical_memory::x86_64::x86_paging_support::PAGE_TABLE
-      .lock()
-      .init(memory_start..memory_end)
-      .expect("Failed to initialize page table");
-  }
-
-  // 3. At this point Rust Heap usage is permitted (since GCD is initialized and memory is mapped).
+  // 2. At this point Rust Heap usage is permitted (since GCD is initialized and memory is mapped).
   // That means that HobList::discover can be used to relocate the hobs from the input list into a Vec.
   let mut hob_list = HobList::default();
   hob_list.discover_hobs(physical_hob_list);
 
-  // 4. iterate over the hob list and map resource descriptor hobs in the gcd and page table
+  // 3. iterate over the hob list and map resource descriptor hobs in the gcd and page table
   for hob in hob_list.iter() {
     let mut gcd_mem_type: GcdMemoryType = GcdMemoryType::NonExistent;
     let mut mem_range: Range<u64> = 0..0;
@@ -222,17 +212,13 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
                 gcd::get_capabilities(gcd_mem_type, resource_attributes as u64),
               )
               .expect("Failed to add memory space to GCD");
-            physical_memory::x86_64::x86_paging_support::PAGE_TABLE
-              .lock()
-              .map_range(actual_range, page_table_flags)
-              .expect("Failed to map memory resource");
           }
         }
       }
     }
   }
 
-  // 5. iterate over the hob list and memory allocation and fv hobs to the hob list
+  // 4. iterate over the hob list and memory allocation and fv hobs to the hob list
   for hob in hob_list.iter() {
     match hob {
       Hob::MemoryAllocation(MemoryAllocation { header: _, alloc_descriptor: desc })
