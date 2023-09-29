@@ -1,7 +1,10 @@
 use core::{ffi::c_void, mem::size_of};
 
 use alloc::{slice, vec, vec::Vec};
-use r_efi::system::{BootServices, OpenProtocolInformationEntry};
+use r_efi::{
+  efi,
+  system::{BootServices, OpenProtocolInformationEntry},
+};
 use uefi_device_path_lib::remaining_device_path;
 use uefi_protocol_db_lib::{SpinLockedProtocolDb, DXE_CORE_HANDLE};
 
@@ -193,7 +196,6 @@ pub extern "efiapi" fn handle_protocol(
   protocol: *mut r_efi::efi::Guid,
   interface: *mut *mut c_void,
 ) -> r_efi::efi::Status {
-  //TODO: agent_handle to this call should be the image handle of the core, but that doesn't exist yet.
   open_protocol(
     handle,
     protocol,
@@ -225,33 +227,43 @@ pub extern "efiapi" fn open_protocol(
   let controller_handle =
     PROTOCOL_DB.validate_handle(controller_handle).map_or_else(|_err| None, |_ok| Some(controller_handle));
 
-  let status =
+  if (attributes != efi::OPEN_PROTOCOL_TEST_PROTOCOL)
+    && (attributes != efi::OPEN_PROTOCOL_GET_PROTOCOL)
+    && (attributes != efi::OPEN_PROTOCOL_BY_HANDLE_PROTOCOL)
+  {
     match PROTOCOL_DB.add_protocol_usage(handle, unsafe { *protocol }, agent_handle, controller_handle, attributes) {
-      Err(r_efi::efi::Status::ALREADY_STARTED) => r_efi::efi::Status::ALREADY_STARTED,
       Err(r_efi::efi::Status::UNSUPPORTED) => {
-        if attributes != r_efi::efi::OPEN_PROTOCOL_TEST_PROTOCOL {
-          unsafe { interface.write(core::ptr::null_mut()) };
-        }
+        unsafe { interface.write(core::ptr::null_mut()) };
         return r_efi::efi::Status::UNSUPPORTED;
       }
       Err(r_efi::efi::Status::ACCESS_DENIED) => {
         //TODO: need to implement support for DisconnectController() requirement from
         //spec - either here, or prior to the attempt. For now, just return the status.
         //todo!()
-        r_efi::efi::Status::ACCESS_DENIED
+        return r_efi::efi::Status::ACCESS_DENIED;
+      }
+      Err(r_efi::efi::Status::ALREADY_STARTED) => {
+        //For already started interface is still returned.
+        let desired_interface = PROTOCOL_DB
+          .get_interface_for_handle(handle, unsafe { *protocol })
+          .expect("Already Started can't happen if protocol doesn't exist.");
+        unsafe { interface.write(desired_interface) };
+        return r_efi::efi::Status::ALREADY_STARTED;
       }
       Err(err) => return err,
-      Ok(_) => r_efi::efi::Status::SUCCESS,
+      Ok(_) => (),
     };
+  }
+
+  let desired_interface = match PROTOCOL_DB.get_interface_for_handle(handle, unsafe { *protocol }) {
+    Err(err) => return err,
+    Ok(found) => found,
+  };
 
   if attributes != r_efi::efi::OPEN_PROTOCOL_TEST_PROTOCOL {
-    let desired_interface = match PROTOCOL_DB.get_interface_for_handle(handle, unsafe { *protocol }) {
-      Err(err) => return err,
-      Ok(found) => found,
-    };
-    unsafe { *interface = desired_interface };
+    unsafe { interface.write(desired_interface) };
   }
-  status
+  efi::Status::SUCCESS
 }
 
 pub extern "efiapi" fn close_protocol(
@@ -481,7 +493,10 @@ pub extern "efiapi" fn locate_protocol(
     }
   } else {
     match PROTOCOL_DB.locate_protocol(unsafe { *protocol }) {
-      Err(err) => return err,
+      Err(err) => {
+        unsafe { interface.write(core::ptr::null_mut()) };
+        return err;
+      }
       Ok(iface) => unsafe { interface.write(iface) },
     }
   }
