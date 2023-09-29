@@ -2,17 +2,25 @@ use alloc::{boxed::Box, vec};
 use core::{
   ffi::c_void,
   slice::{from_raw_parts, from_raw_parts_mut},
+  sync::atomic::{AtomicPtr, Ordering},
 };
 use r_efi::{
-  efi::{Guid, Status},
-  system::{BootServices, ConfigurationTable},
+  efi::{self, Guid, Status},
+  system::{self, BootServices, ConfigurationTable},
 };
+use r_pi::{metronome, watchdog};
 
 use crate::{
   allocator::EFI_RUNTIME_SERVICES_DATA_ALLOCATOR,
   events::EVENT_DB,
+  protocols::PROTOCOL_DB,
   systemtables::{EfiSystemTable, SYSTEM_TABLE},
 };
+
+use serial_print_dxe::println;
+
+static METRONOME_ARCH_PTR: AtomicPtr<metronome::Protocol> = AtomicPtr::new(core::ptr::null_mut());
+static WATCHDOG_ARCH_PTR: AtomicPtr<watchdog::Protocol> = AtomicPtr::new(core::ptr::null_mut());
 
 extern "efiapi" fn calculate_crc32(data: *mut c_void, data_size: usize, crc_32: *mut u32) -> Status {
   if data.is_null() || data_size == 0 || crc_32.is_null() {
@@ -127,7 +135,106 @@ extern "efiapi" fn install_configuration_table(table_guid: *mut Guid, table: *mu
   }
 }
 
+// Induces a fine-grained stall. Stalls execution on the processor for at least the requested number of microseconds.
+// Execution of the processor is not yielded for the duration of the stall.
+extern "efiapi" fn stall(microseconds: usize) -> Status {
+  let metronome_ptr = METRONOME_ARCH_PTR.load(Ordering::SeqCst);
+  if let Some(metronome) = unsafe { metronome_ptr.as_mut() } {
+    let ticks_100ns: u128 = (microseconds as u128) * 10;
+    let mut ticks = ticks_100ns / metronome.tick_period as u128;
+    while ticks > u32::MAX as u128 {
+      let status = (metronome.wait_for_tick)(metronome_ptr, u32::MAX);
+      if status.is_error() {
+        println!("Warning: metronome.wait_for_tick returned unexpected error {:x?}", status);
+      }
+      ticks -= u32::MAX as u128;
+    }
+    if ticks != 0 {
+      let status = (metronome.wait_for_tick)(metronome_ptr, ticks as u32);
+      if status.is_error() {
+        println!("Warning: metronome.wait_for_tick returned unexpected error {:x?}", status);
+      }
+    }
+    efi::Status::SUCCESS
+  } else {
+    efi::Status::NOT_READY //technically this should be NOT_AVAILABLE_YET.
+  }
+}
+
+// The SetWatchdogTimer() function sets the system’s watchdog timer.
+// If the watchdog timer expires, the event is logged by the firmware. The system may then either reset with the Runtime
+// Service ResetSystem() or perform a platform specific action that must eventually cause the platform to be reset. The
+// watchdog timer is armed before the firmware’s boot manager invokes an EFI boot option. The watchdog must be set to a
+// period of 5 minutes. The EFI Image may reset or disable the watchdog timer as needed. If control is returned to the
+// firmware’s boot manager, the watchdog timer must be disabled.
+//
+// The watchdog timer is only used during boot services. On successful completion of
+// EFI_BOOT_SERVICES.ExitBootServices() the watchdog timer is disabled.
+extern "efiapi" fn set_watchdog_timer(
+  timeout: usize,
+  _watchdog_code: u64,
+  _data_size: usize,
+  _data: *mut efi::Char16,
+) -> Status {
+  const WATCHDOG_TIMER_CALIBRATE_PER_SECOND: u64 = 10000000;
+  let watchdog_ptr = WATCHDOG_ARCH_PTR.load(Ordering::SeqCst);
+  if let Some(watchdog) = unsafe { watchdog_ptr.as_mut() } {
+    let timeout = (timeout as u64).saturating_mul(WATCHDOG_TIMER_CALIBRATE_PER_SECOND);
+    let status = (watchdog.set_timer_period)(watchdog_ptr, timeout);
+    if status.is_error() {
+      return efi::Status::DEVICE_ERROR;
+    }
+    efi::Status::SUCCESS
+  } else {
+    efi::Status::NOT_READY
+  }
+}
+
+// This callback is invoked when the Metronome Architectural protocol is installed. It initializes the
+// METRONOME_ARCH_PTR to point to the Metronome Architectural protocol interface.
+extern "efiapi" fn metronome_arch_available(event: r_efi::efi::Event, _context: *mut c_void) {
+  match PROTOCOL_DB.locate_protocol(metronome::PROTOCOL) {
+    Ok(metronome_arch_ptr) => {
+      METRONOME_ARCH_PTR.store(metronome_arch_ptr as *mut metronome::Protocol, Ordering::SeqCst);
+      EVENT_DB.close_event(event).unwrap();
+    }
+    Err(err) => panic!("Unable to retrieve metronome arch: {:?}", err),
+  }
+}
+
+// This callback is invoked when the Watchdog Timer Architectural protocol is installed. It initializes the
+// WATCHDOG_ARCH_PTR to point to the Watchdog Timer Architectural protocol interface.
+extern "efiapi" fn watchdog_arch_available(event: r_efi::efi::Event, _context: *mut c_void) {
+  match PROTOCOL_DB.locate_protocol(watchdog::PROTOCOL) {
+    Ok(watchdog_arch_ptr) => {
+      WATCHDOG_ARCH_PTR.store(watchdog_arch_ptr as *mut watchdog::Protocol, Ordering::SeqCst);
+      EVENT_DB.close_event(event).unwrap();
+    }
+    Err(err) => panic!("Unable to retrieve watchdog arch: {:?}", err),
+  }
+}
+
 pub fn init_misc_boot_services_support(bs: &mut BootServices) {
   bs.calculate_crc32 = calculate_crc32;
   bs.install_configuration_table = install_configuration_table;
+  bs.stall = stall;
+  bs.set_watchdog_timer = set_watchdog_timer;
+
+  //set up call back for metronome arch protocol installation.
+  let event = EVENT_DB
+    .create_event(system::EVT_NOTIFY_SIGNAL, system::TPL_CALLBACK, Some(metronome_arch_available), None, None)
+    .expect("Failed to create metronome available callback.");
+
+  PROTOCOL_DB
+    .register_protocol_notify(metronome::PROTOCOL, event)
+    .expect("Failed to register protocol notify on metronome available.");
+
+  //set up call back for watchdog arch protocol installation.
+  let event = EVENT_DB
+    .create_event(system::EVT_NOTIFY_SIGNAL, system::TPL_CALLBACK, Some(watchdog_arch_available), None, None)
+    .expect("Failed to create watchdog available callback.");
+
+  PROTOCOL_DB
+    .register_protocol_notify(watchdog::PROTOCOL, event)
+    .expect("Failed to register protocol notify on metronome available.");
 }
