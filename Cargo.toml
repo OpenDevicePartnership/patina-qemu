@@ -15,8 +15,8 @@ members = [
 RustAdvancedLoggerDxe = {path = "Common/MU/AdvLoggerPkg/Crates/RustAdvancedLoggerDxe"}
 RustBootServicesAllocatorDxe = {path = "Common/MU/MsCorePkg/Crates/RustBootServicesAllocatorDxe"}
 
-SerialPrintDxe = {path = "Crates/SerialPrintDxe"}
-TplLock = {path = "Crates/TplLock"}
+SerialPrintDxe = {path = "QemuPkg/Library/SerialPrintDxe"}
+TplLock = {path = "QemuPkg/Library/TplLock"}
 
 DxeRust = {path = "Platforms/QemuQ35Pkg/DxeRust"}
 UefiDepexLib = {path = "Platforms/QemuQ35Pkg/Library/UefiDepexLib"}
