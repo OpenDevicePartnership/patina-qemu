@@ -188,7 +188,7 @@ extern "efiapi" fn set_memory_space_capabilities(
 }
 
 extern "efiapi" fn get_memory_space_map(
-  number_of_descriptors: *mut u32,
+  number_of_descriptors: *mut usize,
   memory_space_map: *mut *mut MemorySpaceDescriptor,
 ) -> Status {
   if number_of_descriptors.is_null() || memory_space_map.is_null() {
@@ -213,7 +213,7 @@ extern "efiapi" fn get_memory_space_map(
 
   //allocation succeeded, so set the descriptor count for caller and copy the descriptors into the output buffer.
   unsafe {
-    number_of_descriptors.write(descriptors.len() as u32);
+    number_of_descriptors.write(descriptors.len());
     slice::from_raw_parts_mut(*memory_space_map, descriptors.len()).copy_from_slice(&descriptors);
   }
 
