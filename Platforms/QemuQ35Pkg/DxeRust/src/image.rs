@@ -9,6 +9,7 @@ use core::{
 use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, string::String, vec::Vec};
 use r_efi::system;
 use r_pi::hob::{Hob, HobList};
+use uefi_device_path_lib::copy_device_path_to_boxed_slice;
 use uefi_protocol_db_lib::DXE_CORE_HANDLE;
 use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 
@@ -361,12 +362,19 @@ pub fn core_load_image(
   let handle =
     core_install_protocol_interface(None, r_efi::efi::protocols::loaded_image::PROTOCOL_GUID, image_info_ptr)?;
 
-  // install the loaded_image device path protocol for the new image. Note: device_path might be null,
-  // in which case a null interface is installed as a marker.
+  // install the loaded_image device path protocol for the new image. If input device path is not null, then make a
+  // permanent copy on the heap.
+  let loaded_image_device_path;
+  if device_path.is_null() {
+    loaded_image_device_path = core::ptr::null_mut();
+  } else {
+    // make copy and convert to raw pointer to avoid drop at end of function.
+    loaded_image_device_path = Box::into_raw(copy_device_path_to_boxed_slice(device_path)) as *mut u8;
+  }
   core_install_protocol_interface(
     Some(handle),
     r_efi::efi::protocols::loaded_image_device_path::PROTOCOL_GUID,
-    device_path as *mut c_void,
+    loaded_image_device_path as *mut c_void,
   )?;
 
   if let Some(res_section) = &private_info.hii_resource_section {

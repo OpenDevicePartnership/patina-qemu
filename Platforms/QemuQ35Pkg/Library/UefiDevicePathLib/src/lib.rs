@@ -11,7 +11,10 @@
 #![no_std]
 #![feature(pointer_byte_offsets)]
 
-use core::ptr::slice_from_raw_parts;
+extern crate alloc;
+
+use alloc::{boxed::Box, vec};
+use core::{ptr::slice_from_raw_parts, slice::from_raw_parts};
 
 /// Returns the count of nodes and size (in bytes) of the given device path.
 ///
@@ -73,6 +76,16 @@ pub fn device_path_node_count(device_path: *const r_efi::protocols::device_path:
     current_node_ptr = unsafe { current_node_ptr.byte_offset(current_length.try_into().unwrap()) };
   }
   (node_count, dev_path_size)
+}
+
+/// Copies the device path from the given pointer into a Boxed [u8] slice.
+pub fn copy_device_path_to_boxed_slice(device_path: *const r_efi::protocols::device_path::Protocol) -> Box<[u8]> {
+  let (_, byte_count) = device_path_node_count(device_path);
+  let mut dest_path = vec![0u8; byte_count];
+  unsafe {
+    dest_path.copy_from_slice(from_raw_parts(device_path as *const u8, byte_count));
+  }
+  dest_path.into_boxed_slice()
 }
 
 /// Computes the remaining device path and the number of nodes in common for two device paths.
