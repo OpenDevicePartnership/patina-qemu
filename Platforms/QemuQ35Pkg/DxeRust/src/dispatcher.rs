@@ -1,11 +1,10 @@
-use alloc::{
-  collections::{BTreeSet, VecDeque},
-  vec::Vec,
-};
 use core::ffi::c_void;
-use r_efi::{efi, system};
+
+use alloc::{collections::BTreeSet, vec::Vec};
+use r_efi::{efi, protocols};
 use r_pi::fw_fs::{ffs, FfsFileRawType, FfsSectionType, FirmwareVolume, FirmwareVolumeBlockProtocol};
 use serial_print_dxe::println;
+use tpl_lock::TplMutex;
 use uefi_depex_lib::{Depex, Opcode};
 use uefi_protocol_db_lib::DXE_CORE_HANDLE;
 
@@ -43,167 +42,128 @@ const DEFAULT_DEPEX: &[Opcode] = &[
   Opcode::End,
 ];
 
-#[derive(Debug, Clone)]
-struct ScheduledDriver {
+struct PendingDriver {
   file: ffs::File,
-  device_path: *mut efi::protocols::device_path::Protocol,
-  execution_attempted: bool,
+  device_path: *mut protocols::device_path::Protocol,
+  depex: Depex,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct FvInfo {
-  base_address: u64,
-  handle: efi::Handle,
-  device_path: *mut efi::protocols::device_path::Protocol,
-}
-
-#[derive(Debug)]
+#[derive(Default)]
 struct DispatcherContext {
-  discovered_fv_info: tpl_lock::TplMutex<BTreeSet<FvInfo>>,
-  processed_fvs: tpl_lock::TplMutex<BTreeSet<efi::Handle>>,
-  scheduled_driver_base_addresses: tpl_lock::TplMutex<VecDeque<ScheduledDriver>>, //only used in dispatch loop, should not be touched from anywhere else.
-  dispatcher_executing: tpl_lock::TplMutex<bool>,
+  executing: bool,
+  pending_drivers: Vec<PendingDriver>,
+  processed_fvs: BTreeSet<efi::Handle>,
 }
 
 impl DispatcherContext {
   const fn new() -> Self {
-    Self {
-      discovered_fv_info: tpl_lock::TplMutex::new(system::TPL_NOTIFY, BTreeSet::new(), "DispDiscFvLock"),
-      processed_fvs: tpl_lock::TplMutex::new(system::TPL_NOTIFY, BTreeSet::new(), "DispProcFvLock"),
-      scheduled_driver_base_addresses: tpl_lock::TplMutex::new(system::TPL_NOTIFY, VecDeque::new(), "DispScheduleLock"),
-      dispatcher_executing: tpl_lock::TplMutex::new(system::TPL_NOTIFY, false, "DispExecutingLock"),
-    }
-  }
-
-  fn add_fv_handles(&self, new_handles: Vec<efi::Handle>) {
-    let mut fv_handles = self.processed_fvs.lock();
-    for handle in new_handles {
-      if fv_handles.insert(handle) {
-        //process freshly discovered FV
-        let fvb_ptr = match PROTOCOL_DB.get_interface_for_handle(handle, FirmwareVolumeBlockProtocol::GUID) {
-          Err(_) => {
-            panic!("get_interface_for_handle failed to return an interface on a handle where it should have existed")
-          }
-          Ok(protocol) => protocol as *mut FirmwareVolumeBlockProtocol::Protocol,
-        };
-
-        let fvb =
-          unsafe { fvb_ptr.as_ref().expect("get_interface_for_handle returned NULL ptr for FirmwareVolumeBlock") };
-
-        let mut fv_address: u64 = 0;
-        let status = (fvb.get_physical_address)(fvb_ptr, core::ptr::addr_of_mut!(fv_address));
-        if status.is_error() {
-          return;
-        }
-
-        let fv_device_path = PROTOCOL_DB.get_interface_for_handle(handle, efi::protocols::device_path::PROTOCOL_GUID);
-
-        let fv_info = FvInfo {
-          base_address: fv_address,
-          handle,
-          device_path: fv_device_path.unwrap_or(core::ptr::null_mut()) as *mut efi::protocols::device_path::Protocol,
-        };
-
-        self.discovered_fv_info.lock().insert(fv_info);
-      }
-    }
-  }
-
-  fn evaluate_depex(file: ffs::File) -> bool {
-    let depex_section = file.ffs_sections().find_map(|x| match x.section_type() {
-      Some(FfsSectionType::DxeDepex) => {
-        let data = x.section_data().to_vec();
-        Some(data)
-      }
-      _ => None,
-    });
-
-    let depex = match depex_section {
-      Some(depex) => Depex::from(depex),
-      None => Depex::from(DEFAULT_DEPEX), //if no depex section, use default.
-    };
-
-    depex.eval(&PROTOCOL_DB)
-  }
-
-  fn dispatch(&self) -> bool {
-    let mut dispatch_attempted = false;
-    let discovered_fv_info: Vec<FvInfo> = self.discovered_fv_info.lock().clone().into_iter().collect();
-
-    for fv_info in discovered_fv_info {
-      let fv_base_address = fv_info.base_address;
-      let fv = FirmwareVolume::new(fv_base_address);
-      for file in fv.ffs_files() {
-        match file.file_type_raw() {
-          FfsFileRawType::DRIVER => {
-            let mut scheduled_queue = self.scheduled_driver_base_addresses.lock();
-
-            if !scheduled_queue.iter().any(|x| x.file.base_address() == file.base_address())
-              && Self::evaluate_depex(file)
-            {
-              //depex is met, insert into scheduled queue
-              scheduled_queue.push_back(ScheduledDriver {
-                file,
-                device_path: fv_info.device_path,
-                execution_attempted: false,
-              });
-            }
-          }
-          _ => { /*don't care about other file types in the dispatcher */ }
-        }
-      }
-    }
-
-    //collect a copy of the scheduled queue here so that we don't hold the lock while running the image.
-    let candidates: Vec<ScheduledDriver> = self
-      .scheduled_driver_base_addresses
-      .lock()
-      .iter_mut()
-      .filter_map(|x| {
-        if !x.execution_attempted {
-          x.execution_attempted = true;
-          Some(x.clone())
-        } else {
-          None
-        }
-      })
-      .collect();
-
-    for candidate in candidates {
-      println!("Evaluating candidate: {:?}", uuid::Uuid::from_bytes_le(*(candidate.file.file_name().as_bytes())));
-
-      let pe32_section = candidate.file.ffs_sections().find_map(|x| match x.section_type() {
-        Some(FfsSectionType::Pe32) => Some(x.section_data().to_vec()),
-        _ => None,
-      });
-
-      if let Some(pe32_data) = pe32_section {
-        let image_load_result = core_load_image(DXE_CORE_HANDLE, candidate.device_path, Some(pe32_data.as_slice()));
-        if let Ok(image_handle) = image_load_result {
-          dispatch_attempted = true;
-          let status = core_start_image(image_handle);
-          println!("Module Entry point finished with status: {:?}", status);
-        } else {
-          println!("Failed to load: load_image returned {:?}", image_load_result);
-        }
-      } else {
-        println!("Failed to load: no PE32 section in candidate driver.");
-      }
-    }
-    dispatch_attempted
+    Self { executing: false, pending_drivers: Vec::new(), processed_fvs: BTreeSet::new() }
   }
 }
 
-unsafe impl Sync for DispatcherContext {}
 unsafe impl Send for DispatcherContext {}
 
-static DISPATCHER_CONTEXT: DispatcherContext = DispatcherContext::new();
+static DISPATCHER_CONTEXT: TplMutex<DispatcherContext> =
+  TplMutex::new(efi::TPL_NOTIFY, DispatcherContext::new(), "Dispatcher Context");
 
-extern "efiapi" fn core_fw_vol_event_protocol_notify(_event: efi::Event, _context: *mut c_void) {
-  //Note: runs at TPL_CALLBACK
-  match PROTOCOL_DB.locate_handles(Some(FirmwareVolumeBlockProtocol::GUID)) {
-    Ok(fv_handles) => DISPATCHER_CONTEXT.add_fv_handles(fv_handles),
-    Err(_) => panic!("could not locate handles in protocol call back"),
+fn dispatch() -> Result<bool, efi::Status> {
+  println!("Evaluating depex");
+  let mut scheduled = Vec::new();
+  {
+    let mut dispatcher = DISPATCHER_CONTEXT.lock();
+    let candidates: Vec<_> = dispatcher.pending_drivers.drain(..).collect();
+    for candidate in candidates {
+      if candidate.depex.eval(&PROTOCOL_DB) {
+        scheduled.push(candidate)
+      } else {
+        dispatcher.pending_drivers.push(candidate);
+      }
+    }
+  }
+  println!("Depex evaluation complete, scheduled {:} drivers", scheduled.len());
+
+  let mut dispatch_attempted = false;
+  for driver in scheduled {
+    let pe32_section = driver.file.ffs_sections().find_map(|x| match x.section_type() {
+      Some(FfsSectionType::Pe32) => Some(x.section_data().to_vec()),
+      _ => None,
+    });
+
+    if let Some(pe32_data) = pe32_section {
+      let image_load_result = core_load_image(DXE_CORE_HANDLE, driver.device_path, Some(pe32_data.as_slice()));
+      if let Ok(image_handle) = image_load_result {
+        dispatch_attempted = true;
+        let status = core_start_image(image_handle);
+        println!("Module Entry point finished with status: {:?}", status);
+      } else {
+        println!("Failed to load: load_image returned {:?}", image_load_result);
+      }
+    } else {
+      println!("Failed to load: no PE32 section in candidate driver.");
+    }
+  }
+
+  Ok(dispatch_attempted)
+}
+
+fn add_fv_handles(new_handles: Vec<efi::Handle>) {
+  let mut dispatcher = DISPATCHER_CONTEXT.lock();
+  for handle in new_handles {
+    if dispatcher.processed_fvs.insert(handle) {
+      //process freshly discovered FV
+      let fvb_ptr = match PROTOCOL_DB.get_interface_for_handle(handle, FirmwareVolumeBlockProtocol::GUID) {
+        Err(_) => {
+          panic!("get_interface_for_handle failed to return an interface on a handle where it should have existed")
+        }
+        Ok(protocol) => protocol as *mut FirmwareVolumeBlockProtocol::Protocol,
+      };
+
+      let fvb =
+        unsafe { fvb_ptr.as_ref().expect("get_interface_for_handle returned NULL ptr for FirmwareVolumeBlock") };
+
+      let mut fv_address: u64 = 0;
+      let status = (fvb.get_physical_address)(fvb_ptr, core::ptr::addr_of_mut!(fv_address));
+      if status.is_error() {
+        return;
+      }
+
+      let fv_device_path = PROTOCOL_DB.get_interface_for_handle(handle, efi::protocols::device_path::PROTOCOL_GUID);
+      let fv_device_path =
+        fv_device_path.unwrap_or(core::ptr::null_mut()) as *mut efi::protocols::device_path::Protocol;
+
+      let fv = FirmwareVolume::new(fv_address);
+      for file in fv.ffs_files() {
+        if file.file_type_raw() == FfsFileRawType::DRIVER {
+          let depex_section = file.ffs_sections().find_map(|x| {
+            if x.section_type() == Some(FfsSectionType::DxeDepex) {
+              let data = x.section_data().to_vec();
+              Some(data)
+            } else {
+              None
+            }
+          });
+          let depex = depex_section.map(Depex::from);
+          dispatcher.pending_drivers.push(PendingDriver { file, device_path: fv_device_path, depex });
+        }
+      }
+    }
+  }
+}
+
+pub fn core_dispatcher() -> Result<(), efi::Status> {
+  if DISPATCHER_CONTEXT.lock().executing {
+    return Err(efi::Status::ALREADY_STARTED);
+  }
+
+  let mut something_dispatched = false;
+  while dispatch()? {
+    something_dispatched = true;
+  }
+
+  if something_dispatched {
+    Ok(())
+  } else {
+    Err(efi::Status::NOT_FOUND)
   }
 }
 
@@ -218,34 +178,17 @@ pub fn init_dispatcher() {
     .expect("Failed to register protocol notify on fv protocol.");
 }
 
-pub fn core_dispatcher() -> Result<(), efi::Status> {
-  let mut dispatcher_executing = DISPATCHER_CONTEXT.dispatcher_executing.lock();
-  if *dispatcher_executing {
-    return Err(efi::Status::ALREADY_STARTED);
-  }
-  *dispatcher_executing = true;
-  drop(dispatcher_executing); //release the lock
-
-  let mut anything_dispatched = false;
-  loop {
-    let something_dispatched = DISPATCHER_CONTEXT.dispatch();
-    if !something_dispatched {
-      break;
-    }
-    anything_dispatched = true;
-  }
-  if !anything_dispatched {
-    Err(efi::Status::NOT_FOUND)
-  } else {
-    Ok(())
+pub fn display_discovered_not_dispatched() {
+  for driver in &DISPATCHER_CONTEXT.lock().pending_drivers {
+    let file_name = uuid::Uuid::from_bytes_le(*driver.file.file_name().as_bytes());
+    println!("Driver {:?} found but not dispatched.", file_name);
   }
 }
 
-pub fn display_discovered_not_dispatched() {
-  for driver in DISPATCHER_CONTEXT.scheduled_driver_base_addresses.lock().iter() {
-    if !driver.execution_attempted {
-      let file_name = uuid::Uuid::from_bytes_le(*driver.file.file_name().as_bytes());
-      println!("Driver {:?} found but not dispatched.", file_name);
-    }
+extern "efiapi" fn core_fw_vol_event_protocol_notify(_event: efi::Event, _context: *mut c_void) {
+  //Note: runs at TPL_CALLBACK
+  match PROTOCOL_DB.locate_handles(Some(FirmwareVolumeBlockProtocol::GUID)) {
+    Ok(fv_handles) => add_fv_handles(fv_handles),
+    Err(_) => panic!("could not locate handles in protocol call back"),
   }
 }
