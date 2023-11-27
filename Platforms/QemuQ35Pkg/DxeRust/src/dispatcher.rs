@@ -15,7 +15,7 @@ use crate::{
 };
 
 // Default Dependency expression per PI spec v1.2 Vol 2 section 10.9.
-const DEFAULT_DEPEX: &[Opcode] = &[
+const ALL_ARCH_DEPEX: &[Opcode] = &[
   Opcode::Push(Some(uuid::Uuid::from_u128(0x665e3ff6_46cc_11d4_9a38_0090273fc14d)), false), //BDS Arch
   Opcode::Push(Some(uuid::Uuid::from_u128(0x26baccb1_6f42_11d4_bce7_0080c73c8881)), false), //Cpu Arch
   Opcode::Push(Some(uuid::Uuid::from_u128(0x26baccb2_6f42_11d4_bce7_0080c73c8881)), false), //Metronome Arch
@@ -45,19 +45,25 @@ const DEFAULT_DEPEX: &[Opcode] = &[
 struct PendingDriver {
   file: ffs::File,
   device_path: *mut protocols::device_path::Protocol,
-  depex: Depex,
+  depex: Option<Depex>,
 }
 
 #[derive(Default)]
 struct DispatcherContext {
   executing: bool,
+  arch_protocols_available: bool,
   pending_drivers: Vec<PendingDriver>,
   processed_fvs: BTreeSet<efi::Handle>,
 }
 
 impl DispatcherContext {
   const fn new() -> Self {
-    Self { executing: false, pending_drivers: Vec::new(), processed_fvs: BTreeSet::new() }
+    Self {
+      executing: false,
+      arch_protocols_available: false,
+      pending_drivers: Vec::new(),
+      processed_fvs: BTreeSet::new(),
+    }
   }
 }
 
@@ -71,9 +77,17 @@ fn dispatch() -> Result<bool, efi::Status> {
   let mut scheduled = Vec::new();
   {
     let mut dispatcher = DISPATCHER_CONTEXT.lock();
+    if !dispatcher.arch_protocols_available {
+      dispatcher.arch_protocols_available = Depex::from(ALL_ARCH_DEPEX).eval(&PROTOCOL_DB);
+    }
     let candidates: Vec<_> = dispatcher.pending_drivers.drain(..).collect();
     for mut candidate in candidates {
-      if candidate.depex.eval(&PROTOCOL_DB) {
+      let depex_satisfied = match candidate.depex {
+        Some(ref mut depex) => depex.eval(&PROTOCOL_DB),
+        None => dispatcher.arch_protocols_available,
+      };
+
+      if depex_satisfied {
         scheduled.push(candidate)
       } else {
         dispatcher.pending_drivers.push(candidate);
