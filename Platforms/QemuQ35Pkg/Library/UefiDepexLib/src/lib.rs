@@ -80,7 +80,7 @@ pub enum Opcode {
   /// may be used by DXE and SMM drivers.
   After,
   /// A Push opcode is followed by a GUID.
-  Push(Option<Uuid>),
+  Push(Option<Uuid>, bool),
   /// A logical AND operation of the two operands on the top
   /// of the stack.
   And,
@@ -99,10 +99,6 @@ pub enum Opcode {
   /// If present, this must be the first opcode in the expression.
   /// Used to schedule on request.
   Sor,
-  /// Used to dynamically patch the dependency expression
-  /// to save time. A EFI_DEP_PUSH is evaluated once and
-  /// replaced with EFI_DEP_REPLACE_TRUE.
-  ReplaceTrue,
   /// An unknown opcode. Indicates an unrecognized opcode
   /// that should be treated as an error during evaluation.
   Unknown,
@@ -125,7 +121,9 @@ impl<'a> From<&'a [u8]> for Opcode {
     match bytes[0] {
       0x00 => Opcode::Before,
       0x01 => Opcode::After,
-      0x02 => Opcode::Push(if bytes.len() > GUID_SIZE + 1 { uuid_from_slice(&bytes[1..1 + GUID_SIZE]) } else { None }),
+      0x02 => {
+        Opcode::Push(if bytes.len() > GUID_SIZE + 1 { uuid_from_slice(&bytes[1..1 + GUID_SIZE]) } else { None }, false)
+      }
       0x03 => Opcode::And,
       0x04 => Opcode::Or,
       0x05 => Opcode::Not,
@@ -133,7 +131,6 @@ impl<'a> From<&'a [u8]> for Opcode {
       0x07 => Opcode::False,
       0x08 => Opcode::End,
       0x09 => Opcode::Sor,
-      0xFF => Opcode::ReplaceTrue,
       _ => Opcode::Unknown,
     }
   }
@@ -166,10 +163,10 @@ impl From<&[Opcode]> for Depex {
 
 impl Depex {
   /// Evaluates a DEPEX expression.
-  pub fn eval(&self, protocol_db: &SpinLockedProtocolDb) -> bool {
+  pub fn eval(&mut self, protocol_db: &SpinLockedProtocolDb) -> bool {
     let mut stack = vec![false; DEPEX_STACK_SIZE_INCREMENT];
 
-    for (index, opcode) in self.expression.iter().enumerate() {
+    for (index, opcode) in self.expression.iter_mut().enumerate() {
       match opcode {
         Opcode::Before | Opcode::After => {
           debug_assert!(false, "Exiting early due to an unexpected BEFORE or AFTER.");
@@ -181,17 +178,21 @@ impl Depex {
             return false;
           }
         }
-        Opcode::Push(guid) => {
+        Opcode::Push(guid, present) => {
           if guid.is_none() {
             debug_assert!(false, "Exiting early because a PUSH operand is not followed by a GUID.");
             return false;
           }
-          let result = protocol_db.locate_protocol(guid_from_uuid(&guid.unwrap()));
-          if result.is_ok() {
-            // Todo: Replace opcode with `EFI_DEP_REPLACE_TRUE` later
-            stack.push(true);
+          if *present {
+            stack.push(true)
           } else {
-            stack.push(false);
+            let result = protocol_db.locate_protocol(guid_from_uuid(&guid.unwrap()));
+            if result.is_ok() {
+              *present = true;
+              stack.push(true);
+            } else {
+              stack.push(false);
+            }
           }
         }
         Opcode::And => {
@@ -217,10 +218,6 @@ impl Depex {
         Opcode::End => {
           let operator = stack.pop().unwrap_or(false);
           return operator;
-        }
-        Opcode::ReplaceTrue => {
-          debug_assert!(false, "The ReplaceTrue operation is not supported (yet).");
-          return false;
         }
         Opcode::Unknown => {
           debug_assert!(false, "Exiting early due to an unknown opcode.");
@@ -254,16 +251,10 @@ impl Iterator for DepexParser {
 
     let mut opcode = Opcode::from(slice::from_ref(&self.expression[self.index]));
 
-    match opcode {
-      Opcode::Push(None) => {
-        let guid_start = self.index + 1;
-        opcode = Opcode::Push(uuid_from_slice(&self.expression[guid_start..guid_start + GUID_SIZE]));
-        self.index += GUID_SIZE;
-      }
-      Opcode::ReplaceTrue => {
-        self.index += GUID_SIZE;
-      }
-      _ => {}
+    if let Opcode::Push(None, _) = opcode {
+      let guid_start = self.index + 1;
+      opcode = Opcode::Push(uuid_from_slice(&self.expression[guid_start..guid_start + GUID_SIZE]), false);
+      self.index += GUID_SIZE;
     }
 
     self.index += mem::size_of::<u8>();
@@ -286,7 +277,7 @@ mod tests {
   fn true_should_eval_true() {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
-    let depex = Depex::from(vec![0x06, 0x08]);
+    let mut depex = Depex::from(vec![0x06, 0x08]);
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), true);
   }
 
@@ -294,7 +285,7 @@ mod tests {
   fn false_should_eval_false() {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
-    let depex = Depex::from(vec![0x07, 0x08]);
+    let mut depex = Depex::from(vec![0x07, 0x08]);
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
   }
 
@@ -303,7 +294,7 @@ mod tests {
   fn before_should_eval_false() {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
-    let depex = Depex::from(vec![0x00, 0x08]);
+    let mut depex = Depex::from(vec![0x00, 0x08]);
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
   }
 
@@ -312,7 +303,7 @@ mod tests {
   fn after_should_eval_false() {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
-    let depex = Depex::from(vec![0x01, 0x08]);
+    let mut depex = Depex::from(vec![0x01, 0x08]);
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
   }
 
@@ -321,7 +312,7 @@ mod tests {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
     // Treated as a no-op, with no other operands, false should be returned
-    let depex = Depex::from(vec![0x09, 0x08]);
+    let mut depex = Depex::from(vec![0x09, 0x08]);
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
   }
 
@@ -329,7 +320,7 @@ mod tests {
   fn sor_first_opcode_followed_by_true_should_eval_true() {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
-    let depex = Depex::from(vec![0x09, 0x06, 0x08]);
+    let mut depex = Depex::from(vec![0x09, 0x06, 0x08]);
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), true);
   }
 
@@ -338,16 +329,16 @@ mod tests {
   fn sor_not_first_opcode_should_eval_false() {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
-    let depex = Depex::from(vec![0x06, 0x09, 0x08]);
+    let mut depex = Depex::from(vec![0x06, 0x09, 0x08]);
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
   }
 
   #[test]
-  #[should_panic(expected = "The ReplaceTrue operation is not supported (yet).")]
+  #[should_panic(expected = "Exiting early due to an unknown opcode.")]
   fn replacetrue_should_eval_false() {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
-    let depex = Depex::from(vec![0xFF, 0x08]);
+    let mut depex = Depex::from(vec![0xFF, 0x08]);
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
   }
 
@@ -356,7 +347,7 @@ mod tests {
   fn unknown_opcode_should_return_false() {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
-    let depex = Depex::from(vec![0xE0, 0x08]);
+    let mut depex = Depex::from(vec![0xE0, 0x08]);
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), false);
   }
 
@@ -364,7 +355,7 @@ mod tests {
   fn not_true_should_eval_false() {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
-    let depex = Depex::from(vec![0x07, 0x06, 0x08]);
+    let mut depex = Depex::from(vec![0x07, 0x06, 0x08]);
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), true);
   }
 
@@ -372,7 +363,7 @@ mod tests {
   fn not_false_should_eval_true() {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
-    let depex = Depex::from(vec![0x07, 0x05, 0x08]);
+    let mut depex = Depex::from(vec![0x07, 0x05, 0x08]);
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), true);
   }
 
@@ -438,7 +429,7 @@ mod tests {
       0xBA, 0x31, 0xDD, 0x24, 0x53, 0x02, 0xE2, 0x68, 0x56, 0x1E, 0x81, 0x84, 0xD4, 0x11, 0xBC, 0xF1, 0x00, 0x80, 0xC7,
       0x3C, 0x88, 0x81, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x08,
     ];
-    let depex = Depex::from(expression.to_vec());
+    let mut depex = Depex::from(expression.to_vec());
 
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), true);
   }
@@ -493,7 +484,7 @@ mod tests {
       0x4A, 0x26, 0xF0, 0x3E, 0xF2, 0xE0, 0xDE, 0xC5, 0x12, 0x34, 0x2F, 0x34, 0x02, 0x4E, 0xBE, 0x79, 0x03, 0x06, 0xD7,
       0x7D, 0x43, 0xB0, 0x37, 0xED, 0xB8, 0x2F, 0xB7, 0x72, 0xA4, 0x03, 0x03, 0x08,
     ];
-    let depex = Depex::from(expression.to_vec());
+    let mut depex = Depex::from(expression.to_vec());
 
     assert_eq!(depex.eval(&SPIN_LOCKED_PROTOCOL_DB), true);
   }

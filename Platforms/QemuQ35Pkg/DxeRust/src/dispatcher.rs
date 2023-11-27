@@ -16,29 +16,29 @@ use crate::{
 
 // Default Dependency expression per PI spec v1.2 Vol 2 section 10.9.
 const DEFAULT_DEPEX: &[Opcode] = &[
-  Opcode::Push(Some(uuid::Uuid::from_u128(0x665e3ff6_46cc_11d4_9a38_0090273fc14d))), //BDS Arch
-  Opcode::Push(Some(uuid::Uuid::from_u128(0x26baccb1_6f42_11d4_bce7_0080c73c8881))), //Cpu Arch
-  Opcode::Push(Some(uuid::Uuid::from_u128(0x26baccb2_6f42_11d4_bce7_0080c73c8881))), //Metronome Arch
-  Opcode::Push(Some(uuid::Uuid::from_u128(0x1da97072_bddc_4b30_99f1_72a0b56fff2a))), //Monotonic Counter Arch
-  Opcode::Push(Some(uuid::Uuid::from_u128(0x27cfac87_46cc_11d4_9a38_0090273fc14d))), //Real Time Clock Arch
-  Opcode::Push(Some(uuid::Uuid::from_u128(0x27cfac88_46cc_11d4_9a38_0090273fc14d))), //Reset Arch
-  Opcode::Push(Some(uuid::Uuid::from_u128(0xb7dfb4e1_052f_449f_87be_9818fc91b733))), //Runtime Arch
-  Opcode::Push(Some(uuid::Uuid::from_u128(0xa46423e3_4617_49f1_b9ff_d1bfa9115839))), //Security Arch
-  Opcode::Push(Some(uuid::Uuid::from_u128(0x26baccb3_6f42_11d4_bce7_0080c73c8881))), //Timer Arch
-  Opcode::Push(Some(uuid::Uuid::from_u128(0x6441f818_6362_4e44_b570_7dba31dd2453))), //Variable Write Arch
-  Opcode::Push(Some(uuid::Uuid::from_u128(0x1e5668e2_8481_11d4_bcf1_0080c73c8881))), //Variable Arch
-  Opcode::Push(Some(uuid::Uuid::from_u128(0x665e3ff5_46cc_11d4_9a38_0090273fc14d))), //Watchdog Arch
-  Opcode::And,                                                                       //Variable + Watchdog
-  Opcode::And,                                                                       //+Variable Write
-  Opcode::And,                                                                       //+Timer
-  Opcode::And,                                                                       //+Security
-  Opcode::And,                                                                       //+Runtime
-  Opcode::And,                                                                       //+Reset
-  Opcode::And,                                                                       //+Real Time Clock
-  Opcode::And,                                                                       //+Monotonic Counter
-  Opcode::And,                                                                       //+Metronome
-  Opcode::And,                                                                       //+Cpu
-  Opcode::And,                                                                       //+Bds
+  Opcode::Push(Some(uuid::Uuid::from_u128(0x665e3ff6_46cc_11d4_9a38_0090273fc14d)), false), //BDS Arch
+  Opcode::Push(Some(uuid::Uuid::from_u128(0x26baccb1_6f42_11d4_bce7_0080c73c8881)), false), //Cpu Arch
+  Opcode::Push(Some(uuid::Uuid::from_u128(0x26baccb2_6f42_11d4_bce7_0080c73c8881)), false), //Metronome Arch
+  Opcode::Push(Some(uuid::Uuid::from_u128(0x1da97072_bddc_4b30_99f1_72a0b56fff2a)), false), //Monotonic Counter Arch
+  Opcode::Push(Some(uuid::Uuid::from_u128(0x27cfac87_46cc_11d4_9a38_0090273fc14d)), false), //Real Time Clock Arch
+  Opcode::Push(Some(uuid::Uuid::from_u128(0x27cfac88_46cc_11d4_9a38_0090273fc14d)), false), //Reset Arch
+  Opcode::Push(Some(uuid::Uuid::from_u128(0xb7dfb4e1_052f_449f_87be_9818fc91b733)), false), //Runtime Arch
+  Opcode::Push(Some(uuid::Uuid::from_u128(0xa46423e3_4617_49f1_b9ff_d1bfa9115839)), false), //Security Arch
+  Opcode::Push(Some(uuid::Uuid::from_u128(0x26baccb3_6f42_11d4_bce7_0080c73c8881)), false), //Timer Arch
+  Opcode::Push(Some(uuid::Uuid::from_u128(0x6441f818_6362_4e44_b570_7dba31dd2453)), false), //Variable Write Arch
+  Opcode::Push(Some(uuid::Uuid::from_u128(0x1e5668e2_8481_11d4_bcf1_0080c73c8881)), false), //Variable Arch
+  Opcode::Push(Some(uuid::Uuid::from_u128(0x665e3ff5_46cc_11d4_9a38_0090273fc14d)), false), //Watchdog Arch
+  Opcode::And,                                                                              //Variable + Watchdog
+  Opcode::And,                                                                              //+Variable Write
+  Opcode::And,                                                                              //+Timer
+  Opcode::And,                                                                              //+Security
+  Opcode::And,                                                                              //+Runtime
+  Opcode::And,                                                                              //+Reset
+  Opcode::And,                                                                              //+Real Time Clock
+  Opcode::And,                                                                              //+Monotonic Counter
+  Opcode::And,                                                                              //+Metronome
+  Opcode::And,                                                                              //+Cpu
+  Opcode::And,                                                                              //+Bds
   Opcode::End,
 ];
 
@@ -72,7 +72,7 @@ fn dispatch() -> Result<bool, efi::Status> {
   {
     let mut dispatcher = DISPATCHER_CONTEXT.lock();
     let candidates: Vec<_> = dispatcher.pending_drivers.drain(..).collect();
-    for candidate in candidates {
+    for mut candidate in candidates {
       if candidate.depex.eval(&PROTOCOL_DB) {
         scheduled.push(candidate)
       } else {
