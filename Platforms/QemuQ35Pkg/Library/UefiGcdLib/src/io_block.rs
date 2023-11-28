@@ -44,7 +44,7 @@ impl IoBlock {
     }
   }
 
-  pub fn split<'a>(&mut self, base_address: usize, len: usize) -> Result<IoBlockSplit, Error> {
+  pub fn split(&mut self, base_address: usize, len: usize) -> Result<IoBlockSplit, Error> {
     let start = base_address;
     let end = base_address + len;
 
@@ -57,7 +57,7 @@ impl IoBlock {
     }
 
     if self.start() == start && end < self.end() {
-      let mut next = IoBlock::clone(&self);
+      let mut next = IoBlock::clone(self);
 
       self.as_mut().base_address = base_address as u64;
       self.as_mut().length = len as u64;
@@ -68,7 +68,7 @@ impl IoBlock {
     }
 
     if self.start() < start && end == self.end() {
-      let mut next = IoBlock::clone(&self);
+      let mut next = IoBlock::clone(self);
 
       self.as_mut().length -= len as u64;
       next.as_mut().base_address = base_address as u64;
@@ -78,8 +78,8 @@ impl IoBlock {
     }
 
     if self.start() < start && end < self.end() {
-      let mut next = IoBlock::clone(&self);
-      let mut last = IoBlock::clone(&self);
+      let mut next = IoBlock::clone(self);
+      let mut last = IoBlock::clone(self);
 
       self.as_mut().length = (start - self.start()) as u64;
       next.as_mut().base_address = base_address as u64;
@@ -130,17 +130,13 @@ impl IoBlock {
   }
 
   pub fn is_same_state(&self, other: &IoBlock) -> bool {
-    match (self, other) {
-      (IoBlock::Unallocated(self_desc), IoBlock::Unallocated(other_desc))
-      | (IoBlock::Allocated(self_desc), IoBlock::Allocated(other_desc))
+    matches!((self, other),
+      (IoBlock::Unallocated(self_desc), IoBlock::Unallocated(other_desc)) |
+      (IoBlock::Allocated(self_desc), IoBlock::Allocated(other_desc))
         if self_desc.io_type == other_desc.io_type
-          && self_desc.device_handle == other_desc.device_handle
-          && self_desc.image_handle == other_desc.image_handle =>
-      {
-        true
-      }
-      _ => false,
-    }
+           && self_desc.device_handle == other_desc.device_handle
+           && self_desc.image_handle == other_desc.image_handle
+    )
   }
 
   pub fn state_transition(&mut self, transition: StateTransition) -> Result<(), Error> {
@@ -208,6 +204,9 @@ impl IoBlock {
 
   pub fn len(&self) -> usize {
     self.as_ref().length as usize
+  }
+  pub fn is_empty(&self) -> bool {
+    self.len() == 0
   }
 }
 

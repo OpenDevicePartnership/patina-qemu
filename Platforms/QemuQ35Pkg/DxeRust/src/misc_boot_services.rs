@@ -68,7 +68,7 @@ pub fn core_install_configuration_table(
           entry.vendor_table = vendor_table;
         } else {
           //entry doesn't exist, add it.
-          current_table.push(ConfigurationTable { vendor_guid: vendor_guid, vendor_table: vendor_table });
+          current_table.push(ConfigurationTable { vendor_guid, vendor_table });
         }
       } else {
         //vendor_table is none; we are deleting an entry.
@@ -98,7 +98,7 @@ pub fn core_install_configuration_table(
     }
   };
 
-  if new_table.len() == 0 {
+  if new_table.is_empty() {
     // if empty, just set config table ptr to null
     system_table.number_of_table_entries = 0;
     system_table.configuration_table = core::ptr::null_mut();

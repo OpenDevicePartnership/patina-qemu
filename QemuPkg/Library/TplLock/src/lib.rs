@@ -102,7 +102,7 @@ impl<T: ?Sized> TplMutex<T> {
   /// Attempts to lock the TplMutex, and if successful, returns a guard object that can be used to access the data.
   pub fn try_lock(&self) -> Option<TplGuard<T>> {
     let boot_services = boot_services();
-    let release_tpl = boot_services.as_ref().and_then(|bs| Some((bs.raise_tpl)(self.tpl_lock_level)));
+    let release_tpl = boot_services.as_ref().map(|bs| (bs.raise_tpl)(self.tpl_lock_level));
     if self.lock.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok() {
       Some(TplGuard { release_tpl, lock: &self.lock, name: self.name, data: unsafe { &mut *self.data.get() } })
     } else {
@@ -119,7 +119,7 @@ impl<T: ?Sized> TplMutex<T> {
 impl<T: ?Sized + fmt::Debug> fmt::Debug for TplMutex<T> {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     match self.try_lock() {
-      Some(guard) => write!(f, "Mutex {{ data: ").and_then(|()| (&*guard).fmt(f)).and_then(|()| write!(f, "}}")),
+      Some(guard) => write!(f, "Mutex {{ data: ").and_then(|()| (*guard).fmt(f)).and_then(|()| write!(f, "}}")),
       None => write!(f, "Mutex {{ <locked> }}"),
     }
   }

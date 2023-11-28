@@ -5,7 +5,7 @@ use core::{ffi::c_void, mem::size_of, slice::from_raw_parts};
 use alloc::{alloc::Allocator, boxed::Box};
 use r_efi::{
   efi::{Boolean, Char16, Event, Guid, Handle, PhysicalAddress, Status, Tpl},
-  protocols::{device_path, simple_text_input, simple_text_output},
+  protocols::device_path,
   system::{self, BootServices, RuntimeServices, SystemTable, TableHeader},
 };
 
@@ -439,7 +439,7 @@ impl EfiBootServicesTable {
       reinstall_protocol_interface: Self::reinstall_protocol_interface_unimplemented,
       uninstall_protocol_interface: Self::uninstall_protocol_interface_unimplemented,
       handle_protocol: Self::handle_protocol_unimplemented,
-      reserved: 0 as *mut c_void,
+      reserved: core::ptr::null_mut(),
       register_protocol_notify: Self::register_protocol_notify_unimplemented,
       locate_handle: Self::locate_handle_unimplemented,
       locate_device_path: Self::locate_device_path_unimplemented,
@@ -497,19 +497,11 @@ impl EfiSystemTable {
     self.as_ptr() as *mut SystemTable
   }
 
-  pub fn as_ref(&self) -> &SystemTable {
-    self.system_table.as_ref()
-  }
-
-  pub fn as_mut(&mut self) -> &mut SystemTable {
-    self.system_table.as_mut()
-  }
-
-  pub fn boot_services(&self) -> &mut BootServices {
+  pub fn boot_services(&mut self) -> &mut BootServices {
     unsafe { self.system_table.boot_services.as_mut().expect("BootServices uninitialized") }
   }
 
-  pub fn runtime_services(&self) -> &mut RuntimeServices {
+  pub fn runtime_services(&mut self) -> &mut RuntimeServices {
     unsafe { self.system_table.runtime_services.as_mut().expect("RuntimeServices uninitialized") }
   }
 
@@ -527,6 +519,18 @@ impl EfiSystemTable {
   }
 }
 
+impl AsMut<SystemTable> for EfiSystemTable {
+  fn as_mut(&mut self) -> &mut SystemTable {
+    self.system_table.as_mut()
+  }
+}
+
+impl AsRef<SystemTable> for EfiSystemTable {
+  fn as_ref(&self) -> &SystemTable {
+    self.system_table.as_ref()
+  }
+}
+
 //access to global system table is only through mutex guard, so safe to mark sync/send.
 unsafe impl Sync for EfiSystemTable {}
 unsafe impl Send for EfiSystemTable {}
@@ -540,18 +544,18 @@ pub fn init_system_table() {
       crc32: 0,
       reserved: 0,
     },
-    firmware_vendor: core::ptr::null_mut() as *mut u16,
+    firmware_vendor: core::ptr::null_mut(),
     firmware_revision: 0,
-    console_in_handle: core::ptr::null_mut() as *mut c_void,
-    con_in: core::ptr::null_mut() as *mut simple_text_input::Protocol,
-    console_out_handle: core::ptr::null_mut() as *mut c_void,
-    con_out: core::ptr::null_mut() as *mut simple_text_output::Protocol,
-    standard_error_handle: core::ptr::null_mut() as *mut c_void,
-    std_err: core::ptr::null_mut() as *mut simple_text_output::Protocol,
-    runtime_services: core::ptr::null_mut() as *mut RuntimeServices,
-    boot_services: core::ptr::null_mut() as *mut BootServices,
+    console_in_handle: core::ptr::null_mut(),
+    con_in: core::ptr::null_mut(),
+    console_out_handle: core::ptr::null_mut(),
+    con_out: core::ptr::null_mut(),
+    standard_error_handle: core::ptr::null_mut(),
+    std_err: core::ptr::null_mut(),
+    runtime_services: core::ptr::null_mut(),
+    boot_services: core::ptr::null_mut(),
     number_of_table_entries: 0,
-    configuration_table: core::ptr::null_mut() as *mut r_efi::system::ConfigurationTable,
+    configuration_table: core::ptr::null_mut(),
   };
   let mut bs = EfiBootServicesTable::init_boot_services_table();
   let mut rt = EfiRuntimeServicesTable::init_runtime_services_table();

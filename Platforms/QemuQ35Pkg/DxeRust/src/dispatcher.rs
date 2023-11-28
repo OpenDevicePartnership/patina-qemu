@@ -11,7 +11,7 @@ use uefi_protocol_db_lib::DXE_CORE_HANDLE;
 
 use crate::{
   events::EVENT_DB,
-  image::{core_load_image, start_image},
+  image::{core_load_image, core_start_image},
   protocols::PROTOCOL_DB,
 };
 
@@ -100,7 +100,7 @@ impl DispatcherContext {
 
         let fv_info = FvInfo {
           base_address: fv_address,
-          handle: handle,
+          handle,
           device_path: fv_device_path.unwrap_or(core::ptr::null_mut()) as *mut efi::protocols::device_path::Protocol,
         };
 
@@ -123,11 +123,7 @@ impl DispatcherContext {
       None => Depex::from(DEFAULT_DEPEX), //if no depex section, use default.
     };
 
-    //print!("evaluating depex for {:?}", uuid::Uuid::from_bytes_le(*file.file_name().as_bytes()));
-    let result = depex.eval(&PROTOCOL_DB);
-    //println!(" result {:?}", result);
-    //println!("full depex: {:#x?}", depex);
-    result
+    depex.eval(&PROTOCOL_DB)
   }
 
   fn dispatch(&self) -> bool {
@@ -142,12 +138,12 @@ impl DispatcherContext {
           FfsFileRawType::DRIVER => {
             let mut scheduled_queue = self.scheduled_driver_base_addresses.lock();
 
-            if scheduled_queue.iter().find(|x| x.file.base_address() == file.base_address()).is_none()
+            if !scheduled_queue.iter().any(|x| x.file.base_address() == file.base_address())
               && Self::evaluate_depex(file)
             {
               //depex is met, insert into scheduled queue
               scheduled_queue.push_back(ScheduledDriver {
-                file: file.clone(),
+                file,
                 device_path: fv_info.device_path,
                 execution_attempted: false,
               });
@@ -164,7 +160,7 @@ impl DispatcherContext {
       .lock()
       .iter_mut()
       .filter_map(|x| {
-        if x.execution_attempted == false {
+        if !x.execution_attempted {
           x.execution_attempted = true;
           Some(x.clone())
         } else {
@@ -185,7 +181,7 @@ impl DispatcherContext {
         let image_load_result = core_load_image(DXE_CORE_HANDLE, candidate.device_path, Some(pe32_data.as_slice()));
         if let Ok(image_handle) = image_load_result {
           dispatch_attempted = true;
-          let status = start_image(image_handle, core::ptr::null_mut(), core::ptr::null_mut());
+          let status = core_start_image(image_handle);
           println!("Module Entry point finished with status: {:?}", status);
         } else {
           println!("Failed to load: load_image returned {:?}", image_load_result);

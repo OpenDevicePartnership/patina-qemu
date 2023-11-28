@@ -39,7 +39,8 @@ impl GlobalPageTable {
   }
   /// Initialize page table
   ///
-  /// Unsafe because it assumes:
+  /// # Safety
+  /// Caller must ensure:
   /// 1. Global allocator is initialized,
   /// 2. Global allocator has enough memory required to allocate memory for
   ///    pages to cover the range memory_start..memory_end when setting up the
@@ -74,8 +75,8 @@ impl GlobalPageTable {
   }
 
   /// Map a range of memory and set flags as specified.
-  ///
-  /// Unsafe because it assumes:
+  /// # Safety
+  /// Caller must ensure:
   /// 1. Global allocator is initialized
   /// 2. Global allocator has enough memory to allocate pages to cover the
   ///    range specified.

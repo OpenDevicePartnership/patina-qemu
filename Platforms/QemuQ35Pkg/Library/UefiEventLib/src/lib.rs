@@ -273,7 +273,7 @@ impl Event {
       //     TPL_APPLICATION | TPL_CALLBACK | TPL_NOTIFY | TPL_HIGH_LEVEL => (),
       //     _ => return Err(r_efi::efi::Status::INVALID_PARAMETER),
       // }
-      if notify_tpl < TPL_APPLICATION || notify_tpl > TPL_HIGH_LEVEL {
+      if !(TPL_APPLICATION..=TPL_HIGH_LEVEL).contains(&notify_tpl) {
         return Err(r_efi::efi::Status::INVALID_PARAMETER);
       }
     }
@@ -332,15 +332,15 @@ impl EventDb {
   //private helper function for signal_event.
   fn queue_notify_event(pending_notifies: &mut BTreeSet<TaggedEventNotification>, event: &mut Event, tag: u64) {
     if event.event_type.is_notify_signal() || event.event_type.is_notify_wait() {
-      pending_notifies.insert(TaggedEventNotification {
-        0: EventNotification {
+      pending_notifies.insert(TaggedEventNotification(
+        EventNotification {
           event: event.event_id as r_efi::efi::Event,
           notify_tpl: event.notify_tpl,
           notify_function: event.notify_function.unwrap(),
           notify_context: event.notify_context,
         },
-        1: tag,
-      });
+        tag,
+      ));
     }
   }
 
@@ -410,7 +410,7 @@ impl EventDb {
         return Err(r_efi::efi::Status::NOT_FOUND);
       }
       Ok(EventNotification {
-        event: event,
+        event,
         notify_tpl: found_event.notify_tpl,
         notify_function: found_event.notify_function.expect("Notify event without notify function is illegal."),
         notify_context: found_event.notify_context,

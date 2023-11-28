@@ -23,18 +23,18 @@ static SYSTEM_TIME: AtomicU64 = AtomicU64::new(0);
 static CPU_ARCH_PTR: AtomicPtr<cpu_arch::Protocol> = AtomicPtr::new(core::ptr::null_mut());
 static EVENT_NOTIFIES_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
-pub extern "efiapi" fn create_event(
+extern "efiapi" fn create_event(
   event_type: u32,
   notify_tpl: r_efi::efi::Tpl,
   notify_function: Option<r_efi::system::EventNotify>,
   notify_context: *mut c_void,
   event: *mut r_efi::efi::Event,
 ) -> r_efi::efi::Status {
-  if event == core::ptr::null_mut() {
+  if event.is_null() {
     return r_efi::efi::Status::INVALID_PARAMETER;
   }
 
-  let notify_context = if notify_context != core::ptr::null_mut() { Some(notify_context) } else { None };
+  let notify_context = if !notify_context.is_null() { Some(notify_context) } else { None };
 
   let (event_type, event_group) = match event_type {
     r_efi::efi::EVT_SIGNAL_EXIT_BOOT_SERVICES => {
@@ -55,7 +55,7 @@ pub extern "efiapi" fn create_event(
   }
 }
 
-pub extern "efiapi" fn create_event_ex(
+extern "efiapi" fn create_event_ex(
   event_type: u32,
   notify_tpl: r_efi::efi::Tpl,
   notify_function: Option<r_efi::system::EventNotify>,
@@ -63,11 +63,11 @@ pub extern "efiapi" fn create_event_ex(
   event_group: *const r_efi::efi::Guid,
   event: *mut r_efi::efi::Event,
 ) -> r_efi::efi::Status {
-  if event == core::ptr::null_mut() {
+  if event.is_null() {
     return r_efi::efi::Status::INVALID_PARAMETER;
   }
 
-  let notify_context = if notify_context != core::ptr::null_mut() { Some(notify_context as *mut c_void) } else { None };
+  let notify_context = if !notify_context.is_null() { Some(notify_context as *mut c_void) } else { None };
 
   match event_type {
     r_efi::efi::EVT_SIGNAL_EXIT_BOOT_SERVICES | r_efi::efi::EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE => {
@@ -76,7 +76,7 @@ pub extern "efiapi" fn create_event_ex(
     _ => (),
   }
 
-  let event_group = if event_group != core::ptr::null_mut() { Some(unsafe { *event_group }) } else { None };
+  let event_group = if !event_group.is_null() { Some(unsafe { *event_group }) } else { None };
 
   match EVENT_DB.create_event(event_type, notify_tpl, notify_function, notify_context, event_group) {
     Ok(new_event) => {
@@ -110,12 +110,12 @@ pub extern "efiapi" fn signal_event(event: r_efi::efi::Event) -> r_efi::efi::Sta
   status
 }
 
-pub extern "efiapi" fn wait_for_event(
+extern "efiapi" fn wait_for_event(
   number_of_events: usize,
   event_array: *mut r_efi::efi::Event,
   out_index: *mut usize,
 ) -> r_efi::efi::Status {
-  if number_of_events == 0 || event_array == core::ptr::null_mut() || out_index == core::ptr::null_mut() {
+  if number_of_events == 0 || event_array.is_null() || out_index.is_null() {
     return r_efi::efi::Status::INVALID_PARAMETER;
   }
 

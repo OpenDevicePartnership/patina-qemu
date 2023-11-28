@@ -1,4 +1,4 @@
-#![cfg_attr(not(test), no_std)]
+#![cfg_attr(target_os = "uefi", no_std)]
 #![feature(abi_x86_interrupt)]
 #![feature(alloc_error_handler)]
 #![feature(const_option)]
@@ -32,6 +32,9 @@ pub fn init() {
   interrupts::init_idt();
   x86_64::instructions::interrupts::enable();
 }
+
+#[cfg(not(target_os = "uefi"))]
+pub fn init() {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]

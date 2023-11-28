@@ -46,7 +46,7 @@ impl MemoryBlock {
     }
   }
 
-  pub fn split<'a>(&mut self, base_address: usize, len: usize) -> Result<MemoryBlockSplit, Error> {
+  pub fn split(&mut self, base_address: usize, len: usize) -> Result<MemoryBlockSplit, Error> {
     let start = base_address;
     let end = base_address + len;
 
@@ -59,7 +59,7 @@ impl MemoryBlock {
     }
 
     if self.start() == start && end < self.end() {
-      let mut next = MemoryBlock::clone(&self);
+      let mut next = MemoryBlock::clone(self);
 
       self.as_mut().base_address = base_address as u64;
       self.as_mut().length = len as u64;
@@ -70,7 +70,7 @@ impl MemoryBlock {
     }
 
     if self.start() < start && end == self.end() {
-      let mut next = MemoryBlock::clone(&self);
+      let mut next = MemoryBlock::clone(self);
 
       self.as_mut().length -= len as u64;
       next.as_mut().base_address = base_address as u64;
@@ -80,8 +80,8 @@ impl MemoryBlock {
     }
 
     if self.start() < start && end < self.end() {
-      let mut next = MemoryBlock::clone(&self);
-      let mut last = MemoryBlock::clone(&self);
+      let mut next = MemoryBlock::clone(self);
+      let mut last = MemoryBlock::clone(self);
 
       self.as_mut().length = (start - self.start()) as u64;
       next.as_mut().base_address = base_address as u64;
@@ -132,19 +132,15 @@ impl MemoryBlock {
   }
 
   pub fn is_same_state(&self, other: &MemoryBlock) -> bool {
-    match (self, other) {
-      (MemoryBlock::Unallocated(self_desc), MemoryBlock::Unallocated(other_desc))
-      | (MemoryBlock::Allocated(self_desc), MemoryBlock::Allocated(other_desc))
+    matches!((self, other),
+      (MemoryBlock::Unallocated(self_desc), MemoryBlock::Unallocated(other_desc)) |
+      (MemoryBlock::Allocated(self_desc), MemoryBlock::Allocated(other_desc))
         if self_desc.memory_type == other_desc.memory_type
           && self_desc.attributes == other_desc.attributes
           && self_desc.capabilities == other_desc.capabilities
           && self_desc.device_handle == other_desc.device_handle
-          && self_desc.image_handle == other_desc.image_handle =>
-      {
-        true
-      }
-      _ => false,
-    }
+          && self_desc.image_handle == other_desc.image_handle
+    )
   }
 
   pub fn state_transition(&mut self, transition: StateTransition) -> Result<(), Error> {
@@ -246,6 +242,10 @@ impl MemoryBlock {
 
   pub fn len(&self) -> usize {
     self.as_ref().length as usize
+  }
+
+  pub fn is_empty(&self) -> bool {
+    self.len() == 0
   }
 }
 

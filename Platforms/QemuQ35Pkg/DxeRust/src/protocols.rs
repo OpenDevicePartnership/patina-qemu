@@ -9,7 +9,7 @@ use uefi_device_path_lib::remaining_device_path;
 use uefi_protocol_db_lib::{SpinLockedProtocolDb, DXE_CORE_HANDLE};
 
 use crate::{
-  allocator::allocate_pool,
+  allocator::core_allocate_pool,
   events::{signal_event, EVENT_DB},
 };
 
@@ -28,9 +28,9 @@ pub fn core_install_protocol_interface(
   let mut closed_events = Vec::new();
 
   for notify in notifies {
-    match signal_event(notify.event) {
-      r_efi::efi::Status::INVALID_PARAMETER => closed_events.push(notify.event), //means event doesn't exist (probably closed).
-      _ => (),                                                                   // Other error cases not actionable.
+    if signal_event(notify.event) == r_efi::efi::Status::INVALID_PARAMETER {
+      //means event doesn't exist (probably closed).
+      closed_events.push(notify.event); // Other error cases not actionable.
     }
   }
 
@@ -39,7 +39,7 @@ pub fn core_install_protocol_interface(
   Ok(handle)
 }
 
-pub extern "efiapi" fn install_protocol_interface(
+extern "efiapi" fn install_protocol_interface(
   handle: *mut r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   interface_type: r_efi::system::InterfaceType,
@@ -64,7 +64,7 @@ pub extern "efiapi" fn install_protocol_interface(
   r_efi::efi::Status::SUCCESS
 }
 
-pub extern "efiapi" fn uninstall_protocol_interface(
+extern "efiapi" fn uninstall_protocol_interface(
   handle: r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   interface: *mut c_void,
@@ -78,12 +78,12 @@ pub extern "efiapi" fn uninstall_protocol_interface(
   match PROTOCOL_DB.uninstall_protocol_interface(handle, caller_protocol, interface) {
     //TODO: need to handle driver disconnect on access denied.
     Err(r_efi::efi::Status::ACCESS_DENIED) => todo!(),
-    Err(err) => return err,
+    Err(err) => err,
     Ok(()) => r_efi::efi::Status::SUCCESS,
   }
 }
 
-pub extern "efiapi" fn reinstall_protocol_interface(
+extern "efiapi" fn reinstall_protocol_interface(
   handle: r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   old_interface: *mut c_void,
@@ -103,9 +103,9 @@ pub extern "efiapi" fn reinstall_protocol_interface(
   let mut closed_events = Vec::new();
 
   for notify in notifies {
-    match signal_event(notify.event) {
-      r_efi::efi::Status::INVALID_PARAMETER => closed_events.push(notify.event), //means event doesn't exist (probably closed).
-      _ => (),                                                                   // Other error cases not actionable.
+    if signal_event(notify.event) == r_efi::efi::Status::INVALID_PARAMETER {
+      //means event doesn't exist (probably closed).
+      closed_events.push(notify.event); // Other error cases not actionable.
     }
   }
 
@@ -115,7 +115,7 @@ pub extern "efiapi" fn reinstall_protocol_interface(
   r_efi::efi::Status::SUCCESS
 }
 
-pub extern "efiapi" fn register_protocol_notify(
+extern "efiapi" fn register_protocol_notify(
   protocol: *mut r_efi::efi::Guid,
   event: r_efi::efi::Event,
   registration: *mut *mut c_void,
@@ -133,7 +133,7 @@ pub extern "efiapi" fn register_protocol_notify(
   }
 }
 
-pub extern "efiapi" fn locate_handle(
+extern "efiapi" fn locate_handle(
   search_type: r_efi::system::LocateSearchType,
   protocol: *mut r_efi::efi::Guid,
   search_key: *mut c_void,
@@ -164,7 +164,7 @@ pub extern "efiapi" fn locate_handle(
   match search_result {
     Err(err) => err,
     Ok(mut list) => {
-      if list.len() == 0 {
+      if list.is_empty() {
         return r_efi::efi::Status::NOT_FOUND;
       }
       if buffer_size.is_null() {
@@ -184,7 +184,7 @@ pub extern "efiapi" fn locate_handle(
       }
 
       //copy handle list into output buffer
-      unsafe { slice::from_raw_parts_mut(handle_buffer, list.len()).copy_from_slice(&mut list) };
+      unsafe { slice::from_raw_parts_mut(handle_buffer, list.len()).copy_from_slice(&list) };
 
       r_efi::efi::Status::SUCCESS
     }
@@ -206,7 +206,7 @@ pub extern "efiapi" fn handle_protocol(
   )
 }
 
-pub extern "efiapi" fn open_protocol(
+extern "efiapi" fn open_protocol(
   handle: r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   interface: *mut *mut c_void,
@@ -266,7 +266,7 @@ pub extern "efiapi" fn open_protocol(
   efi::Status::SUCCESS
 }
 
-pub extern "efiapi" fn close_protocol(
+extern "efiapi" fn close_protocol(
   handle: r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   agent_handle: r_efi::efi::Handle,
@@ -287,7 +287,7 @@ pub extern "efiapi" fn close_protocol(
   }
 }
 
-pub extern "efiapi" fn open_protocol_information(
+extern "efiapi" fn open_protocol_information(
   handle: r_efi::efi::Handle,
   protocol: *mut r_efi::efi::Guid,
   entry_buffer: *mut *mut r_efi::system::OpenProtocolInformationEntry,
@@ -300,28 +300,25 @@ pub extern "efiapi" fn open_protocol_information(
   let mut open_info: Vec<OpenProtocolInformationEntry> =
     match PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, unsafe { *protocol }) {
       Err(err) => return err,
-      Ok(info) => info.into_iter().map(|x| OpenProtocolInformationEntry::from(x)).collect(),
+      Ok(info) => info.into_iter().map(OpenProtocolInformationEntry::from).collect(),
     };
 
   open_info.shrink_to_fit();
 
   let buffer_size = open_info.len() * size_of::<r_efi::system::OpenProtocolInformationEntry>();
   //caller is supposed to free the entry buffer using FreePool, so we need to allocate it using allocate pool.
-  match allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, buffer_size, entry_buffer as *mut *mut c_void) {
-    r_efi::efi::Status::SUCCESS => (),
-    err => return err,
-  };
-
-  //allocation succeeded, so set the entry_count for caller and copy the list into the output buffer.
-  unsafe {
-    *entry_count = open_info.len();
-    slice::from_raw_parts_mut(*entry_buffer, open_info.len()).copy_from_slice(&open_info);
+  match core_allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, buffer_size) {
+    Err(err) => err,
+    Ok(allocation) => unsafe {
+      entry_buffer.write(allocation as *mut OpenProtocolInformationEntry);
+      *entry_count = open_info.len();
+      slice::from_raw_parts_mut(*entry_buffer, open_info.len()).copy_from_slice(&open_info);
+      r_efi::efi::Status::SUCCESS
+    },
   }
-
-  r_efi::efi::Status::SUCCESS
 }
 
-pub unsafe extern "C" fn install_multiple_protocol_interfaces(
+unsafe extern "C" fn install_multiple_protocol_interfaces(
   handle: *mut r_efi::efi::Handle,
   mut args: ...
 ) -> r_efi::efi::Status {
@@ -345,7 +342,7 @@ pub unsafe extern "C" fn install_multiple_protocol_interfaces(
   r_efi::efi::Status::SUCCESS
 }
 
-pub unsafe extern "C" fn uninstall_multiple_protocol_interfaces(
+unsafe extern "C" fn uninstall_multiple_protocol_interfaces(
   handle: r_efi::efi::Handle,
   mut args: ...
 ) -> r_efi::efi::Status {
@@ -369,7 +366,7 @@ pub unsafe extern "C" fn uninstall_multiple_protocol_interfaces(
   r_efi::efi::Status::SUCCESS
 }
 
-pub extern "efiapi" fn protocols_per_handle(
+extern "efiapi" fn protocols_per_handle(
   handle: r_efi::efi::Handle,
   protocol_buffer: *mut *mut *mut r_efi::efi::Guid,
   protocol_buffer_count: *mut usize,
@@ -389,31 +386,24 @@ pub extern "efiapi" fn protocols_per_handle(
   let ptr_buffer_size = protocol_list.len() * size_of::<*mut r_efi::efi::Guid>();
   let guid_buffer_size = protocol_list.len() * size_of::<r_efi::efi::Guid>();
   //caller is supposed to free the entry buffer using free pool, so we need to allocate it using allocate pool.
-  match allocate_pool(
-    r_efi::efi::BOOT_SERVICES_DATA,
-    ptr_buffer_size + guid_buffer_size,
-    protocol_buffer as *mut *mut c_void,
-  ) {
-    r_efi::efi::Status::SUCCESS => (),
-    err => return err,
-  };
+  match core_allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, ptr_buffer_size + guid_buffer_size) {
+    Err(err) => err,
+    Ok(allocation) => unsafe {
+      protocol_buffer.write(allocation as *mut *mut r_efi::efi::Guid);
+      protocol_buffer_count.write(protocol_list.len());
 
-  //allocation succeeded, so set the entry_count for caller and copy the list into the output buffer.
-  unsafe {
-    *protocol_buffer_count = protocol_list.len();
+      let guid_buffer = (*protocol_buffer as usize + ptr_buffer_size) as *mut r_efi::efi::Guid;
+      let guids = slice::from_raw_parts_mut(guid_buffer, protocol_list.len());
+      guids.copy_from_slice(&protocol_list);
 
-    let guid_buffer = (*protocol_buffer as usize + ptr_buffer_size) as *mut r_efi::efi::Guid;
-    let guids = slice::from_raw_parts_mut(guid_buffer, protocol_list.len());
-    guids.copy_from_slice(&protocol_list);
-
-    let guid_ptrs: Vec<*mut r_efi::efi::Guid> = guids.iter_mut().map(|x| x as *mut r_efi::efi::Guid).collect();
-    slice::from_raw_parts_mut(*protocol_buffer, protocol_list.len()).copy_from_slice(&guid_ptrs);
+      let guid_ptrs: Vec<*mut r_efi::efi::Guid> = guids.iter_mut().map(|x| x as *mut r_efi::efi::Guid).collect();
+      slice::from_raw_parts_mut(*protocol_buffer, protocol_list.len()).copy_from_slice(&guid_ptrs);
+      r_efi::efi::Status::SUCCESS
+    },
   }
-
-  r_efi::efi::Status::SUCCESS
 }
 
-pub extern "efiapi" fn locate_handle_buffer(
+extern "efiapi" fn locate_handle_buffer(
   search_type: r_efi::system::LocateSearchType,
   protocol: *mut r_efi::efi::Guid,
   search_key: *mut c_void,
@@ -456,26 +446,24 @@ pub extern "efiapi" fn locate_handle_buffer(
     Ok(handles) => handles,
   };
 
-  if handles.len() == 0 {
+  if handles.is_empty() {
     r_efi::efi::Status::NOT_FOUND
   } else {
     //caller is supposed to free the handle buffer using free pool, so we need to allocate it using allocate pool.
     let buffer_size = handles.len() * size_of::<r_efi::efi::Handle>();
-    match allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, buffer_size, buffer as *mut *mut c_void) {
-      r_efi::efi::Status::SUCCESS => (),
-      err => return err,
-    };
-
-    //allocation succeeded, so set the entry_count for caller and copy the list into the output buffer.
-    unsafe {
-      *no_handles = handles.len();
-      slice::from_raw_parts_mut(*buffer, handles.len()).copy_from_slice(&handles);
+    match core_allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, buffer_size) {
+      Err(err) => err,
+      Ok(allocation) => unsafe {
+        buffer.write(allocation as *mut r_efi::efi::Handle);
+        no_handles.write(handles.len());
+        slice::from_raw_parts_mut(*buffer, handles.len()).copy_from_slice(&handles);
+        r_efi::efi::Status::SUCCESS
+      },
     }
-    r_efi::efi::Status::SUCCESS
   }
 }
 
-pub extern "efiapi" fn locate_protocol(
+extern "efiapi" fn locate_protocol(
   protocol: *mut r_efi::efi::Guid,
   registration: *mut c_void,
   interface: *mut *mut c_void,
@@ -562,7 +550,7 @@ extern "efiapi" fn locate_device_path(
 
   unsafe {
     device.write(best_device);
-    device_path.write(best_remaining_path as *mut r_efi::protocols::device_path::Protocol);
+    device_path.write(best_remaining_path);
   }
 
   r_efi::efi::Status::SUCCESS

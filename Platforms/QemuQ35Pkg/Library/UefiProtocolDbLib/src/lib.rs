@@ -140,12 +140,12 @@ struct OrdGuid(r_efi::efi::Guid);
 
 impl PartialOrd for OrdGuid {
   fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    self.0.as_bytes().partial_cmp(&other.0.as_bytes())
+    Some(self.cmp(other))
   }
 }
 impl Ord for OrdGuid {
   fn cmp(&self, other: &Self) -> Ordering {
-    self.0.as_bytes().cmp(&other.0.as_bytes())
+    self.0.as_bytes().cmp(other.0.as_bytes())
   }
 }
 /// This structure is used to track notification events for protocol notifies.
@@ -263,7 +263,7 @@ impl ProtocolDb {
     handle_instance.remove(&OrdGuid(protocol));
 
     //if the last protocol instance on a handle is removed, delete the structures associated with the handles.
-    if handle_instance.len() == 0 {
+    if handle_instance.is_empty() {
       self.handles.remove(&key);
     }
 
@@ -348,7 +348,7 @@ impl ProtocolDb {
         }
       })
       .collect();
-    if handles.len() == 0 {
+    if handles.is_empty() {
       return Err(r_efi::efi::Status::NOT_FOUND);
     }
     Ok(handles)
@@ -418,9 +418,11 @@ impl ProtocolDb {
       return Err(r_efi::efi::Status::ALREADY_STARTED);
     }
 
-    if !instance.opened_by_exclusive && exact_match.is_some() {
-      exact_match.unwrap().open_count += 1;
-      return Ok(());
+    if !instance.opened_by_exclusive {
+      if let Some(exact_match) = exact_match {
+        exact_match.open_count += 1;
+        return Ok(());
+      }
     }
 
     const BY_DRIVER_EXCLUSIVE: u32 = OPEN_PROTOCOL_BY_DRIVER | OPEN_PROTOCOL_EXCLUSIVE;
@@ -525,7 +527,7 @@ impl ProtocolDb {
     let key = handle as usize;
     let handle_instance = self.handles.get(&key).ok_or(r_efi::efi::Status::NOT_FOUND)?;
 
-    let usages = handle_instance.iter().map(|(guid, instance)| (guid.0.clone(), instance.usage.clone())).collect();
+    let usages = handle_instance.iter().map(|(guid, instance)| (guid.0, instance.usage.clone())).collect();
 
     Ok(usages)
   }
@@ -547,7 +549,7 @@ impl ProtocolDb {
   ) -> Result<*mut c_void, r_efi::efi::Status> {
     let registration = self.next_registration as *mut c_void;
     self.next_registration += 1;
-    let protocol_notify = ProtocolNotify { event: event, registration: registration, fresh_handles: BTreeSet::new() };
+    let protocol_notify = ProtocolNotify { event, registration, fresh_handles: BTreeSet::new() };
 
     if let Some(existing_key) = self.notifications.get_mut(&OrdGuid(protocol)) {
       existing_key.push(protocol_notify);
@@ -588,7 +590,7 @@ impl ProtocolDb {
 
     let handles = &self.handles[&(parent_handle as usize)];
     let mut child_handles: Vec<r_efi::efi::Handle> = handles
-      .into_iter()
+      .iter()
       .flat_map(|(_, instance)| {
         //iterate over all the protocol instance usages for the parent handle....
         instance.usage.iter().filter_map(|open_info| {

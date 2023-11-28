@@ -64,11 +64,13 @@ struct AllocationInfo {
 ///
 /// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA, 1 as _);
 ///
-/// let mut buffer: *mut c_void = core::ptr::null_mut();
-/// assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);
-/// assert!(buffer as u64 > base);
-/// assert!((buffer as u64) < base + 0x400000);
-/// assert!(unsafe { ua.free_pool(buffer) } == r_efi::efi::Status::SUCCESS);
+/// unsafe {
+///   let mut buffer: *mut c_void = core::ptr::null_mut();
+///   assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);
+///   assert!(buffer as u64 > base);
+///   assert!((buffer as u64) < base + 0x400000);
+///   assert!(ua.free_pool(buffer) == r_efi::efi::Status::SUCCESS);
+/// }
 /// ```
 ///
 pub struct UefiAllocator {
@@ -85,7 +87,7 @@ impl UefiAllocator {
     memory_type: r_efi::system::MemoryType,
     allocator_handle: r_efi::efi::Handle,
   ) -> Self {
-    UefiAllocator { allocator: SpinLockedFixedSizeBlockAllocator::new(gcd, allocator_handle), memory_type: memory_type }
+    UefiAllocator { allocator: SpinLockedFixedSizeBlockAllocator::new(gcd, allocator_handle), memory_type }
   }
 
   /// Indicates whether the given pointer falls within a memory region managed by this allocator.
@@ -101,6 +103,9 @@ impl UefiAllocator {
   }
 
   /// Allocates a buffer to satisfy `size` and returns in `buffer`.
+  ///
+  /// # Safety
+  /// Buffer input must be a valid memory location to write the allocation to.
   ///
   /// Memory allocated by this routine should be freed by [`Self::free_pool`]
   ///
@@ -136,9 +141,11 @@ impl UefiAllocator {
   /// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA, 1 as _);
   ///
   /// let mut buffer: *mut c_void = core::ptr::null_mut();
-  /// ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer));
+  /// unsafe {
+  ///   ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer));
+  /// }
   /// ```
-  pub fn allocate_pool(&self, size: usize, buffer: *mut *mut c_void) -> r_efi::efi::Status {
+  pub unsafe fn allocate_pool(&self, size: usize, buffer: *mut *mut c_void) -> r_efi::efi::Status {
     let mut allocation_info =
       AllocationInfo { signature: POOL_SIG, memory_type: self.memory_type, layout: Layout::new::<AllocationInfo>() };
     let offset: usize;
@@ -200,8 +207,11 @@ impl UefiAllocator {
   ///
   /// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA, 1 as _);
   ///
+  ///
   /// let mut buffer: *mut c_void = core::ptr::null_mut();
-  /// ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer));
+  /// unsafe {
+  ///   ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer));
+  /// }
   /// //do stuff with the allocation...
   /// unsafe {
   ///   ua.free_pool(buffer);
@@ -228,7 +238,7 @@ impl UefiAllocator {
     r_efi::efi::Status::SUCCESS
   }
 
-  pub unsafe fn allocate_at_address(
+  pub fn allocate_at_address(
     &self,
     layout: core::alloc::Layout,
     address: u64,
@@ -236,7 +246,7 @@ impl UefiAllocator {
     self.allocator.alloc_at_address(layout, address)
   }
 
-  pub unsafe fn allocate_below_address(
+  pub fn allocate_below_address(
     &self,
     layout: core::alloc::Layout,
     address: u64,
@@ -321,7 +331,7 @@ mod tests {
     let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA, 1 as _);
 
     let mut buffer: *mut c_void = core::ptr::null_mut();
-    assert_eq!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)), r_efi::efi::Status::SUCCESS);
+    assert_eq!(unsafe { ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) }, r_efi::efi::Status::SUCCESS);
     assert!(buffer as u64 > base);
     assert!((buffer as u64) < base + 0x400000);
 
@@ -351,7 +361,7 @@ mod tests {
     let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA, 1 as _);
 
     let mut buffer: *mut c_void = core::ptr::null_mut();
-    assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);
+    assert_eq!(unsafe { ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) }, r_efi::efi::Status::SUCCESS);
 
     assert!(unsafe { ua.free_pool(buffer) } == r_efi::efi::Status::SUCCESS);
 
@@ -369,7 +379,7 @@ mod tests {
     }
 
     let prev_buffer = buffer;
-    assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);
+    assert_eq!(unsafe { ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) }, r_efi::efi::Status::SUCCESS);
     assert!(buffer as u64 > base);
     assert!((buffer as u64) < base + 0x400000);
     assert_eq!(buffer, prev_buffer);

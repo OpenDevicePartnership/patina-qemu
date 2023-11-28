@@ -22,7 +22,7 @@ use r_pi::{
 use serial_print_dxe::println;
 
 use crate::{
-  allocator::{allocate_pool, EFI_RUNTIME_SERVICES_DATA_ALLOCATOR},
+  allocator::{core_allocate_pool, EFI_RUNTIME_SERVICES_DATA_ALLOCATOR},
   dispatcher::core_dispatcher,
   events::EVENT_DB,
   misc_boot_services,
@@ -124,7 +124,7 @@ extern "efiapi" fn remove_memory_space(base_address: PhysicalAddress, length: u6
   }
 }
 
-pub extern "efiapi" fn get_memory_space_descriptor(
+extern "efiapi" fn get_memory_space_descriptor(
   base_address: PhysicalAddress,
   descriptor: *mut MemorySpaceDescriptor,
 ) -> Status {
@@ -132,6 +132,16 @@ pub extern "efiapi" fn get_memory_space_descriptor(
     return Status::INVALID_PARAMETER;
   }
 
+  match core_get_memory_space_descriptor(base_address) {
+    Err(err) => return err,
+    Ok(target_descriptor) => unsafe {
+      descriptor.write(target_descriptor);
+    },
+  }
+  Status::SUCCESS
+}
+
+pub fn core_get_memory_space_descriptor(base_address: PhysicalAddress) -> Result<MemorySpaceDescriptor, efi::Status> {
   //Note: this would be more efficient if it was done in the GCD; rather than retrieving all the descriptors and
   //searching them here. It is done this way for simplicity - it can be optimized if it proves too slow.
 
@@ -141,17 +151,16 @@ pub extern "efiapi" fn get_memory_space_descriptor(
   let result = GCD.get_memory_descriptors(&mut descriptors);
 
   if let Err(err) = result {
-    return result_to_efi_status(err);
+    return Err(result_to_efi_status(err));
   }
 
   let target_descriptor =
     descriptors.iter().find(|x| (x.base_address <= base_address) && (base_address < (x.base_address + x.length)));
 
-  if let Some(target_descriptor) = target_descriptor {
-    unsafe { descriptor.write(*target_descriptor) };
-    Status::SUCCESS
+  if let Some(descriptor) = target_descriptor {
+    Ok(*descriptor)
   } else {
-    Status::NOT_FOUND
+    Err(Status::NOT_FOUND)
   }
 }
 
@@ -206,18 +215,15 @@ extern "efiapi" fn get_memory_space_map(
 
   //caller is supposed to free the handle buffer using free pool, so we need to allocate it using allocate pool.
   let buffer_size = descriptors.len() * mem::size_of::<MemorySpaceDescriptor>();
-  match allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, buffer_size, memory_space_map as *mut *mut c_void) {
-    r_efi::efi::Status::SUCCESS => (),
-    err => return err,
-  };
-
-  //allocation succeeded, so set the descriptor count for caller and copy the descriptors into the output buffer.
-  unsafe {
-    number_of_descriptors.write(descriptors.len());
-    slice::from_raw_parts_mut(*memory_space_map, descriptors.len()).copy_from_slice(&descriptors);
+  match core_allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, buffer_size) {
+    Err(err) => err,
+    Ok(allocation) => unsafe {
+      memory_space_map.write(allocation as *mut MemorySpaceDescriptor);
+      number_of_descriptors.write(descriptors.len());
+      slice::from_raw_parts_mut(*memory_space_map, descriptors.len()).copy_from_slice(&descriptors);
+      Status::SUCCESS
+    },
   }
-
-  Status::SUCCESS
 }
 
 extern "efiapi" fn add_io_space(gcd_io_type: GcdIoType, base_address: PhysicalAddress, length: u64) -> Status {
@@ -325,6 +331,9 @@ extern "efiapi" fn get_io_space_map(
   number_of_descriptors: *mut u32,
   io_space_map: *mut *mut IoSpaceDescriptor,
 ) -> Status {
+  if number_of_descriptors.is_null() || io_space_map.is_null() {
+    return Status::INVALID_PARAMETER;
+  }
   //allocate an empty vector with enough space for all the descriptors with some padding (in the event)
   //that extra descriptors come into being after creation but before usage.
   let mut descriptors: Vec<IoSpaceDescriptor> = Vec::with_capacity(GCD.io_descriptor_count() + 10);
@@ -336,24 +345,22 @@ extern "efiapi" fn get_io_space_map(
 
   //caller is supposed to free the handle buffer using free pool, so we need to allocate it using allocate pool.
   let buffer_size = descriptors.len() * mem::size_of::<IoSpaceDescriptor>();
-  match allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, buffer_size, io_space_map as *mut *mut c_void) {
-    r_efi::efi::Status::SUCCESS => (),
-    err => return err,
-  };
 
-  //allocation succeeded, so set the descriptor count for caller and copy the descriptors into the output buffer.
-  unsafe {
-    number_of_descriptors.write(descriptors.len() as u32);
-    slice::from_raw_parts_mut(*io_space_map, descriptors.len()).copy_from_slice(&descriptors);
+  match core_allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, buffer_size) {
+    Err(err) => err,
+    Ok(allocation) => unsafe {
+      io_space_map.write(allocation as *mut IoSpaceDescriptor);
+      number_of_descriptors.write(descriptors.len() as u32);
+      slice::from_raw_parts_mut(*io_space_map, descriptors.len()).copy_from_slice(&descriptors);
+      Status::SUCCESS
+    },
   }
-
-  Status::SUCCESS
 }
 
 extern "efiapi" fn dispatch() -> Status {
   match core_dispatcher() {
-    Err(err) => return err,
-    Ok(()) => return efi::Status::SUCCESS,
+    Err(err) => err,
+    Ok(()) => efi::Status::SUCCESS,
   }
 }
 

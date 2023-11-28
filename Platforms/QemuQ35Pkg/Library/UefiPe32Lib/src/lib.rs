@@ -112,7 +112,7 @@ impl Pe32ImageInfo {
 /// ```
 ///
 pub fn pe32_get_image_info(image: &[u8]) -> Result<Pe32ImageInfo, Pe32Error> {
-  let parsed_pe = goblin::pe::PE::parse(image).map_err(|e| Pe32Error::ParseError(e))?;
+  let parsed_pe = goblin::pe::PE::parse(image).map_err(Pe32Error::ParseError)?;
 
   let mut pe_info = Pe32ImageInfo::new();
   pe_info.entry_point_offset = parsed_pe.entry;
@@ -183,7 +183,7 @@ pub fn pe32_get_image_info(image: &[u8]) -> Result<Pe32ImageInfo, Pe32Error> {
 /// ```
 ///
 pub fn pe32_load_image(image: &[u8], loaded_image: &mut [u8]) -> Result<(), Pe32Error> {
-  let pe = goblin::pe::PE::parse(image).map_err(|e| Pe32Error::ParseError(e))?;
+  let pe = goblin::pe::PE::parse(image).map_err(Pe32Error::ParseError)?;
   let size_of_headers = pe.header.optional_header.ok_or(Pe32Error::LoadError)?.windows_fields.size_of_headers as usize;
 
   //zero the buffer (as the section copy below is sparse and will not initialize all bytes)
@@ -297,7 +297,7 @@ fn parse_relocation_blocks(block: &[u8]) -> Result<Vec<RelocationBlock>, Pe32Err
 /// pe32_relocate_image(0x04158000, &mut relocated_image).unwrap();
 /// ```
 pub fn pe32_relocate_image(destination: usize, image: &mut [u8]) -> Result<(), Pe32Error> {
-  let pe = goblin::pe::PE::parse(&image).map_err(|e| Pe32Error::ParseError(e))?;
+  let pe = goblin::pe::PE::parse(image).map_err(Pe32Error::ParseError)?;
   let current_base = pe.header.optional_header.ok_or(Pe32Error::RelocationError)?.windows_fields.image_base;
   let adjustment = (destination as u64).wrapping_sub(current_base);
 
@@ -380,7 +380,7 @@ pub fn pe32_relocate_image(destination: usize, image: &mut [u8]) -> Result<(), P
 /// let result_data = result.unwrap();
 /// ```
 pub fn pe32_load_resource_section(image: &[u8]) -> Result<Option<&[u8]>, Pe32Error> {
-  let pe = goblin::pe::PE::parse(&image).map_err(|e| Pe32Error::ParseError(e))?;
+  let pe = goblin::pe::PE::parse(image).map_err(Pe32Error::ParseError)?;
 
   for section in &pe.sections {
     if let Ok(name) = core::str::from_utf8(&section.name) {
@@ -408,7 +408,7 @@ pub fn pe32_load_resource_section(image: &[u8]) -> Result<Option<&[u8]>, Pe32Err
         let resource_directory_offset = offset;
 
         if offset > size as usize {
-          return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(offset as usize, "bytes")));
+          return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(offset, "bytes")));
         }
 
         let mut directory_entry: DirectoryEntry = resource_section
@@ -435,7 +435,7 @@ pub fn pe32_load_resource_section(image: &[u8]) -> Result<Option<&[u8]>, Pe32Err
               .ok_or(Pe32Error::ParseError(GoblinError::BufferTooShort(name_end_offset, "bytes")))?;
 
             // L"HII" = [0x0, 0x48, 0x0, 0x49, 0x0, 0x49]
-            if resource_directory_string.length == 3 && string_val == &[0x0, 0x48, 0x0, 0x49, 0x0, 0x49] {
+            if resource_directory_string.length == 3 && string_val == [0x0, 0x48, 0x0, 0x49, 0x0, 0x49] {
               if directory_entry.data_is_directory() {
                 if directory_entry.offset_to_directory() > size {
                   return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(
@@ -450,7 +450,7 @@ pub fn pe32_load_resource_section(image: &[u8]) -> Result<Option<&[u8]>, Pe32Err
                 offset = (directory_entry.offset_to_directory() as usize) + directory.size_in_bytes();
 
                 if offset > size as usize {
-                  return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(offset as usize, "bytes")));
+                  return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(offset, "bytes")));
                 }
 
                 directory_entry = resource_section

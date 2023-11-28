@@ -102,12 +102,13 @@
 //! let base = init_gcd(&GCD, 0x400000);
 //!
 //! let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA, 1 as _);
-//!
-//! let mut buffer: *mut c_void = core::ptr::null_mut();
-//! assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);
-//! assert!(buffer as u64 > base);
-//! assert!((buffer as u64) < base + 0x400000);
-//! assert!(unsafe { ua.free_pool(buffer) } == r_efi::efi::Status::SUCCESS);
+//! unsafe {
+//!   let mut buffer: *mut c_void = core::ptr::null_mut();
+//!   assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);
+//!   assert!(buffer as u64 > base);
+//!   assert!((buffer as u64) < base + 0x400000);
+//!   assert!(ua.free_pool(buffer) == r_efi::efi::Status::SUCCESS);
+//! }
 //! ```
 //!
 //! ## License

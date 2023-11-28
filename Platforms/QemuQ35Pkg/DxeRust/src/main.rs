@@ -7,7 +7,7 @@ extern crate alloc;
 
 use r_pi::{
   bds,
-  dxe_services::{GcdIoType, GcdMemoryType, MemorySpaceDescriptor},
+  dxe_services::{GcdIoType, GcdMemoryType},
   hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
 };
 use uefi_protocol_db_lib::{
@@ -23,7 +23,7 @@ use dxe_rust::{
   allocator::init_memory_support,
   dispatcher::{core_dispatcher, display_discovered_not_dispatched, init_dispatcher},
   driver_services::init_driver_services,
-  dxe_services::{get_memory_space_descriptor, init_dxe_services},
+  dxe_services::{core_get_memory_space_descriptor, init_dxe_services},
   events::init_events_support,
   fv::init_fv_support,
   image::init_image_support,
@@ -228,11 +228,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
         module_name: _,
         entry_point: _,
       }) => {
-        let mut descriptor: MemorySpaceDescriptor = MemorySpaceDescriptor::default();
-
-        if get_memory_space_descriptor(desc.memory_base_address, &mut descriptor as *mut MemorySpaceDescriptor)
-          == efi::Status::SUCCESS
-        {
+        if let Ok(descriptor) = core_get_memory_space_descriptor(desc.memory_base_address) {
           let allocator_handle = match desc.memory_type {
             RESERVED_MEMORY_TYPE => RESERVED_MEMORY_ALLOCATOR_HANDLE,
             LOADER_CODE => EFI_LOADER_CODE_ALLOCATOR_HANDLE,
@@ -303,7 +299,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     init_events_support(st.boot_services());
     init_protocol_support(st.boot_services());
     init_misc_boot_services_support(st.boot_services());
-    init_image_support(&hob_list, &st);
+    init_image_support(&hob_list, st);
     init_dispatcher();
     init_fv_support(&hob_list);
     init_dxe_services(st);
@@ -322,8 +318,8 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     .unwrap();
   }
 
-  let st = SYSTEM_TABLE.lock();
-  let bs = st.as_ref().unwrap().boot_services() as *mut BootServices;
+  let mut st = SYSTEM_TABLE.lock();
+  let bs = st.as_mut().unwrap().boot_services() as *mut BootServices;
   drop(st);
   tpl_lock::init_boot_services(bs);
 

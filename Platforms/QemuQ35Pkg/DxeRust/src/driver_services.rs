@@ -1,5 +1,5 @@
 use alloc::{vec, vec::Vec};
-use core::{mem::size_of, ptr::NonNull, slice::from_raw_parts_mut};
+use core::{ptr::NonNull, slice::from_raw_parts_mut};
 
 use r_efi::{
   efi::{Boolean, Handle, Status},
@@ -13,7 +13,7 @@ fn get_bindings_for_handles(handles: Vec<Handle>) -> Vec<*mut driver_binding::Pr
   handles
     .iter()
     .filter_map(|x| {
-      match PROTOCOL_DB.get_interface_for_handle(x.clone(), driver_binding::PROTOCOL_GUID) {
+      match PROTOCOL_DB.get_interface_for_handle(*x, driver_binding::PROTOCOL_GUID) {
         Ok(interface) => Some(interface as *mut driver_binding::Protocol),
         Err(_) => None, //ignore handles without driver bindings
       }
@@ -39,7 +39,7 @@ fn get_bus_specific_override_bindings(_controller_handle: Handle) -> Vec<*mut dr
 fn get_all_driver_bindings() -> Vec<*mut driver_binding::Protocol> {
   let mut driver_bindings = match PROTOCOL_DB.locate_handles(Some(driver_binding::PROTOCOL_GUID)) {
     Err(_) => return Vec::new(),
-    Ok(handles) if handles.len() == 0 => return Vec::new(),
+    Ok(handles) if handles.is_empty() => return Vec::new(),
     Ok(handles) => get_bindings_for_handles(handles),
   };
 
@@ -86,8 +86,7 @@ fn core_connect_single_controller(
     let mut started_drivers = Vec::new();
     for driver_binding_interface in driver_candidates.clone() {
       let driver_binding = unsafe { &mut *(driver_binding_interface) };
-      let device_path =
-        remaining_device_path.or(Some(core::ptr::null_mut() as *mut device_path::Protocol)).expect("must be some");
+      let device_path = remaining_device_path.or(Some(core::ptr::null_mut())).expect("must be some");
       match (driver_binding.supported)(driver_binding_interface, controller_handle, device_path) {
         Status::SUCCESS => {
           //driver claims support; attempt to start it.
@@ -99,7 +98,7 @@ fn core_connect_single_controller(
         _ => continue,
       }
     }
-    if started_drivers.len() == 0 {
+    if started_drivers.is_empty() {
       break;
     }
     driver_candidates.retain(|x| !started_drivers.contains(x));
@@ -123,7 +122,7 @@ fn core_connect_single_controller(
 /// This function matches the behavior of EFI_BOOT_SERVICES.ConnectController() API in the UEFI spec 2.10 section
 /// 7.3.12. Refer to the UEFI spec description for details on input parameters, behavior, and error return codes.
 ///
-/// ## Safety:
+/// # Safety
 /// This routine cannot hold the protocol db lock while executing DriverBinding->Supported()/Start() since
 /// they need to access protocol db services. That means this routine can't guarantee that driver bindings remain
 /// valid for the duration of its execution. For example, if a driver were be unloaded in a timer callback after
@@ -176,7 +175,7 @@ extern "efiapi" fn connect_controller(
         break;
       }
       count += 1;
-      current_ptr = unsafe { current_ptr.offset(size_of::<Handle>() as isize) };
+      current_ptr = unsafe { current_ptr.add(1) };
     }
     let slice = unsafe { from_raw_parts_mut(driver_image_handle, count) };
     slice.to_vec().clone()
@@ -196,7 +195,7 @@ extern "efiapi" fn connect_controller(
 /// This function matches the behavior of EFI_BOOT_SERVICES.DisconnectController() API in the UEFI spec 2.10 section
 /// 7.3.13. Refer to the UEFI spec description for details on input parameters, behavior, and error return codes.
 ///
-/// ## Safety:
+/// # Safety
 /// This routine cannot hold the protocol db lock while executing DriverBinding->Supported()/Start() since
 /// they need to access protocol db services. That means this routine can't guarantee that driver bindings remain
 /// valid for the duration of its execution. For example, if a driver were be unloaded in a timer callback after
@@ -230,7 +229,7 @@ pub unsafe fn core_disconnect_controller(
         .flat_map(|(_guid, open_info)| {
           open_info.iter().filter_map(|x| {
             if (x.attributes & OPEN_PROTOCOL_BY_DRIVER) != 0 {
-              Some(x.agent_handle.expect("BY_DRIVER usage must have an agent handle").clone())
+              Some(x.agent_handle.expect("BY_DRIVER usage must have an agent handle"))
             } else {
               None
             }
@@ -274,7 +273,7 @@ pub unsafe fn core_disconnect_controller(
     let driver_binding = unsafe { &mut *(driver_binding_interface) };
 
     let mut status = Status::SUCCESS;
-    if child_handles.len() > 0 {
+    if !child_handles.is_empty() {
       //disconnect the child controllers.
       status = (driver_binding.stop)(
         driver_binding_interface,

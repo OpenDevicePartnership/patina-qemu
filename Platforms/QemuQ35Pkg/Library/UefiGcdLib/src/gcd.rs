@@ -38,9 +38,9 @@ pub enum Error {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum InternalError {
-  MemoryBlockErr(MemoryBlockError),
-  IoBlockErr(IoBlockError),
-  SortedSliceErr(SortedSliceError),
+  MemoryBlock(MemoryBlockError),
+  IoBlock(IoBlockError),
+  SortedSlice(SortedSliceError),
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -142,11 +142,11 @@ pub fn get_capabilities(gcd_mem_type: GcdMemoryType, attributes: u64) -> u64 {
       break;
     }
 
-    if conversion.memory || (gcd_mem_type != GcdMemoryType::SystemMemory && gcd_mem_type != GcdMemoryType::MoreReliable)
+    if (conversion.memory
+      || (gcd_mem_type != GcdMemoryType::SystemMemory && gcd_mem_type != GcdMemoryType::MoreReliable))
+      && (attributes & (conversion.attribute as u64) != 0)
     {
-      if attributes & (conversion.attribute as u64) != 0 {
-        capabilities |= conversion.capability;
-      }
+      capabilities |= conversion.capability;
     }
   }
 
@@ -244,9 +244,9 @@ impl GCD {
       MemoryStateTransition::Add(memory_type, capabilities),
     ) {
       Ok(idx) => Ok(idx),
-      Err(InternalError::MemoryBlockErr(MemoryBlockError::BlockOutsideRange)) => error!(Error::AccessDenied),
-      Err(InternalError::MemoryBlockErr(MemoryBlockError::InvalidStateTransition)) => error!(Error::InvalidParameter),
-      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(InternalError::MemoryBlock(MemoryBlockError::BlockOutsideRange)) => error!(Error::AccessDenied),
+      Err(InternalError::MemoryBlock(MemoryBlockError::InvalidStateTransition)) => error!(Error::InvalidParameter),
+      Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
       Err(e) => panic!("{e:?}"),
     }
   }
@@ -269,12 +269,12 @@ impl GCD {
 
     match Self::split_state_transition_at_idx(memory_blocks, idx, base_address, len, MemoryStateTransition::Remove) {
       Ok(_) => Ok(()),
-      Err(InternalError::MemoryBlockErr(MemoryBlockError::BlockOutsideRange)) => error!(Error::NotFound),
-      Err(InternalError::MemoryBlockErr(MemoryBlockError::InvalidStateTransition)) => match memory_blocks[idx] {
+      Err(InternalError::MemoryBlock(MemoryBlockError::BlockOutsideRange)) => error!(Error::NotFound),
+      Err(InternalError::MemoryBlock(MemoryBlockError::InvalidStateTransition)) => match memory_blocks[idx] {
         MemoryBlock::Unallocated(_) => error!(Error::NotFound),
         MemoryBlock::Allocated(_) => error!(Error::AccessDenied),
       },
-      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
       Err(e) => panic!("{e:?}"),
     }
   }
@@ -353,8 +353,8 @@ impl GCD {
         MemoryStateTransition::Allocate(image_handle, device_handle),
       ) {
         Ok(_) => return Ok(addr),
-        Err(InternalError::MemoryBlockErr(_)) => continue,
-        Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+        Err(InternalError::MemoryBlock(_)) => continue,
+        Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
         Err(e) => panic!("{e:?}"),
       }
     }
@@ -383,7 +383,7 @@ impl GCD {
       if addr < mb.start() {
         continue;
       }
-      addr = addr & (usize::MAX << alignment);
+      addr &= usize::MAX << alignment;
       ensure!(addr >= min_address, Error::NotFound);
 
       if mb.as_ref().memory_type != memory_type {
@@ -398,8 +398,8 @@ impl GCD {
         MemoryStateTransition::Allocate(image_handle, device_handle),
       ) {
         Ok(_) => return Ok(addr),
-        Err(InternalError::MemoryBlockErr(_)) => continue,
-        Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+        Err(InternalError::MemoryBlock(_)) => continue,
+        Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
         Err(e) => panic!("{e:?}"),
       }
     }
@@ -436,8 +436,8 @@ impl GCD {
       MemoryStateTransition::Allocate(image_handle, device_handle),
     ) {
       Ok(_) => Ok(address),
-      Err(InternalError::MemoryBlockErr(_)) => error!(Error::NotFound),
-      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(InternalError::MemoryBlock(_)) => error!(Error::NotFound),
+      Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
       Err(e) => panic!("{e:?}"),
     }
   }
@@ -460,8 +460,8 @@ impl GCD {
 
     match Self::split_state_transition_at_idx(memory_blocks, idx, base_address, len, MemoryStateTransition::Free) {
       Ok(_) => Ok(()),
-      Err(InternalError::MemoryBlockErr(_)) => error!(Error::NotFound),
-      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(InternalError::MemoryBlock(_)) => error!(Error::NotFound),
+      Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
       Err(e) => panic!("{e:?}"),
     }
   }
@@ -490,8 +490,8 @@ impl GCD {
       MemoryStateTransition::SetAttributes(attributes),
     ) {
       Ok(_) => Ok(()),
-      Err(InternalError::MemoryBlockErr(_)) => error!(Error::Unsupported),
-      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(InternalError::MemoryBlock(_)) => error!(Error::Unsupported),
+      Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
       Err(e) => panic!("{e:?}"),
     }
   }
@@ -525,8 +525,8 @@ impl GCD {
       MemoryStateTransition::SetCapabilities(capabilities),
     ) {
       Ok(_) => Ok(()),
-      Err(InternalError::MemoryBlockErr(_)) => error!(Error::Unsupported),
-      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(InternalError::MemoryBlock(_)) => error!(Error::Unsupported),
+      Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
       Err(e) => panic!("{e:?}"),
     }
   }
@@ -538,7 +538,7 @@ impl GCD {
   pub fn get_memory_descriptors(&mut self, buffer: &mut Vec<MemorySpaceDescriptor>) -> Result<(), Error> {
     ensure!(self.maximum_address != 0, Error::NotInitialized);
     ensure!(buffer.capacity() >= self.memory_descriptor_count(), Error::InvalidParameter);
-    ensure!(buffer.len() == 0, Error::InvalidParameter);
+    ensure!(buffer.is_empty(), Error::InvalidParameter);
 
     if let Some(blocks) = &self.memory_blocks {
       for block in blocks {
@@ -608,13 +608,13 @@ impl SortedSliceKey for MemoryBlock {
 
 impl From<sorted_slice::Error> for InternalError {
   fn from(value: sorted_slice::Error) -> Self {
-    InternalError::SortedSliceErr(value)
+    InternalError::SortedSlice(value)
   }
 }
 
 impl From<memory_block::Error> for InternalError {
   fn from(value: memory_block::Error) -> Self {
-    InternalError::MemoryBlockErr(value)
+    InternalError::MemoryBlock(value)
   }
 }
 
@@ -708,9 +708,9 @@ impl IoGCD {
 
     match Self::split_state_transition_at_idx(io_blocks, idx, base_address, len, IoStateTransition::Add(io_type)) {
       Ok(idx) => Ok(idx),
-      Err(InternalError::IoBlockErr(IoBlockError::BlockOutsideRange)) => error!(Error::AccessDenied),
-      Err(InternalError::IoBlockErr(IoBlockError::InvalidStateTransition)) => error!(Error::InvalidParameter),
-      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(InternalError::IoBlock(IoBlockError::BlockOutsideRange)) => error!(Error::AccessDenied),
+      Err(InternalError::IoBlock(IoBlockError::InvalidStateTransition)) => error!(Error::InvalidParameter),
+      Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
       Err(e) => panic!("{e:?}"),
     }
   }
@@ -737,12 +737,12 @@ impl IoGCD {
 
     match Self::split_state_transition_at_idx(io_blocks, idx, base_address, len, IoStateTransition::Remove) {
       Ok(_) => Ok(()),
-      Err(InternalError::IoBlockErr(IoBlockError::BlockOutsideRange)) => error!(Error::NotFound),
-      Err(InternalError::IoBlockErr(IoBlockError::InvalidStateTransition)) => match io_blocks[idx] {
+      Err(InternalError::IoBlock(IoBlockError::BlockOutsideRange)) => error!(Error::NotFound),
+      Err(InternalError::IoBlock(IoBlockError::InvalidStateTransition)) => match io_blocks[idx] {
         IoBlock::Unallocated(_) => error!(Error::NotFound),
         IoBlock::Allocated(_) => error!(Error::AccessDenied),
       },
-      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
       Err(e) => panic!("{e:?}"),
     }
   }
@@ -817,8 +817,8 @@ impl IoGCD {
         IoStateTransition::Allocate(image_handle, device_handle),
       ) {
         Ok(_) => return Ok(addr),
-        Err(InternalError::IoBlockErr(_)) => continue,
-        Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+        Err(InternalError::IoBlock(_)) => continue,
+        Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
         Err(e) => panic!("{e:?}"),
       }
     }
@@ -851,7 +851,7 @@ impl IoGCD {
       if addr < mb.start() {
         continue;
       }
-      addr = addr & (usize::MAX << alignment);
+      addr &= usize::MAX << alignment;
       ensure!(addr >= min_address, Error::NotFound);
 
       if mb.as_ref().io_type != io_type {
@@ -866,8 +866,8 @@ impl IoGCD {
         IoStateTransition::Allocate(image_handle, device_handle),
       ) {
         Ok(_) => return Ok(addr),
-        Err(InternalError::IoBlockErr(_)) => continue,
-        Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+        Err(InternalError::IoBlock(_)) => continue,
+        Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
         Err(e) => panic!("{e:?}"),
       }
     }
@@ -907,8 +907,8 @@ impl IoGCD {
       IoStateTransition::Allocate(image_handle, device_handle),
     ) {
       Ok(_) => Ok(address),
-      Err(InternalError::IoBlockErr(_)) => error!(Error::NotFound),
-      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(InternalError::IoBlock(_)) => error!(Error::NotFound),
+      Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
       Err(e) => panic!("{e:?}"),
     }
   }
@@ -935,8 +935,8 @@ impl IoGCD {
 
     match Self::split_state_transition_at_idx(io_blocks, idx, base_address, len, IoStateTransition::Free) {
       Ok(_) => Ok(()),
-      Err(InternalError::IoBlockErr(_)) => error!(Error::NotFound),
-      Err(InternalError::SortedSliceErr(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
+      Err(InternalError::IoBlock(_)) => error!(Error::NotFound),
+      Err(InternalError::SortedSlice(SortedSliceError::NotEnoughMemory)) => error!(Error::OutOfResources),
       Err(e) => panic!("{e:?}"),
     }
   }
@@ -948,7 +948,7 @@ impl IoGCD {
   pub fn get_io_descriptors(&mut self, buffer: &mut Vec<IoSpaceDescriptor>) -> Result<(), Error> {
     ensure!(self.maximum_address != 0, Error::NotInitialized);
     ensure!(buffer.capacity() >= self.io_descriptor_count(), Error::InvalidParameter);
-    ensure!(buffer.len() == 0, Error::InvalidParameter);
+    ensure!(buffer.is_empty(), Error::InvalidParameter);
 
     if let Some(blocks) = &self.io_blocks {
       for block in blocks {
@@ -1018,7 +1018,7 @@ impl SortedSliceKey for IoBlock {
 
 impl From<io_block::Error> for InternalError {
   fn from(value: io_block::Error) -> Self {
-    InternalError::IoBlockErr(value)
+    InternalError::IoBlock(value)
   }
 }
 
@@ -1050,6 +1050,8 @@ impl SpinLockedGcd {
   }
 
   /// Acquires lock and delegates to [`GCD::add_memory_space`]
+  /// # Safety
+  /// See [`GCD::add_memory_space`]
   pub unsafe fn add_memory_space(
     &self,
     memory_type: GcdMemoryType,

@@ -131,12 +131,7 @@ impl FixedSizeBlockAllocator {
   /// requests.
   pub const fn new(gcd: &'static SpinLockedGcd, allocator_handle: r_efi::efi::Handle) -> Self {
     const EMPTY: Option<&'static mut BlockListNode> = None;
-    FixedSizeBlockAllocator {
-      gcd: gcd,
-      handle: allocator_handle,
-      list_heads: [EMPTY; BLOCK_SIZES.len()],
-      allocators: None,
-    }
+    FixedSizeBlockAllocator { gcd, handle: allocator_handle, list_heads: [EMPTY; BLOCK_SIZES.len()], allocators: None }
   }
 
   // Expand the memory available to this allocator by requesting a new contiguous region of memory from the gcd setting
@@ -193,10 +188,10 @@ impl FixedSizeBlockAllocator {
     }
     //if we get here, then allocation failed in all current allocation ranges.
     //attempt to expand and then allocate again
-    if let Err(_) = self.expand(layout) {
+    if self.expand(layout).is_err() {
       return ptr::null_mut();
     }
-    return self.fallback_alloc(layout);
+    self.fallback_alloc(layout)
   }
 
   /// Allocates and returns a pointer to a memory buffer for the given layout.
@@ -505,17 +500,15 @@ impl FixedSizeBlockAllocator {
   ///
   pub fn contains(&self, ptr: *mut u8) -> bool {
     let address = ptr as usize;
-    AllocatorIterator::new(self.allocators)
-      .find(|&node| {
-        let allocator = unsafe { &mut (*node).allocator };
-        (allocator.bottom() <= address) && (address < allocator.top())
-      })
-      .is_some()
+    AllocatorIterator::new(self.allocators).any(|node| {
+      let allocator = unsafe { &mut (*node).allocator };
+      (allocator.bottom() <= address) && (address < allocator.top())
+    })
   }
 
   /// Attempts to allocate at the specified address.
   /// Note: `address` must be aligned to 0x1000, and `layout.align()` must also be 0x1000
-  pub unsafe fn alloc_at_address(
+  pub fn alloc_at_address(
     &mut self,
     layout: Layout,
     address: u64,
@@ -555,9 +548,6 @@ impl FixedSizeBlockAllocator {
     assert_eq!(requested_start_address, start_address);
 
     //set up the new allocator, reserving space at the beginning of the range for the AllocatorListNode structure.
-    let start_address = start_address as usize;
-    let size = size as usize;
-
     let heap_bottom = start_address + size_of::<AllocatorListNode>();
     let heap_size = size - (heap_bottom - start_address);
 
@@ -584,7 +574,7 @@ impl FixedSizeBlockAllocator {
 
   /// Attempts to allocate a block below the specified address.
   /// Note: layout.align() must be 0x01000.
-  pub unsafe fn alloc_below_address(
+  pub fn alloc_below_address(
     &mut self,
     layout: Layout,
     address: u64,
@@ -619,9 +609,6 @@ impl FixedSizeBlockAllocator {
       .map_err(|_| core::alloc::AllocError)?;
 
     //set up the new allocator, reserving space at the beginning of the range for the AllocatorListNode structure.
-    let start_address = start_address as usize;
-    let size = size as usize;
-
     let heap_bottom = start_address + size_of::<AllocatorListNode>();
     let heap_size = size - (heap_bottom - start_address);
 
@@ -649,12 +636,12 @@ impl FixedSizeBlockAllocator {
 
 impl Display for FixedSizeBlockAllocator {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "Allocation Ranges:\n")?;
+    writeln!(f, "Allocation Ranges:")?;
     for node in AllocatorIterator::new(self.allocators) {
       let allocator = unsafe { &mut (*node).allocator };
-      write!(
+      writeln!(
         f,
-        "  PhysRange: {:#x}-{:#x}, Size: {:#x}, Used: {:#x} Free: {:#x} Maint: {:#x}\n",
+        "  PhysRange: {:#x}-{:#x}, Size: {:#x}, Used: {:#x} Free: {:#x} Maint: {:#x}",
         align_down(allocator.bottom(), 0x1000), //account for AllocatorListNode
         allocator.top(),
         align_up(allocator.size(), 0x1000), //account for AllocatorListNode
@@ -792,7 +779,7 @@ impl SpinLockedFixedSizeBlockAllocator {
 
   /// Attempts to allocate at the specified address.
   /// Note: `address` must be aligned to 0x1000, and `layout.align()` must also be 0x1000
-  pub unsafe fn alloc_at_address(
+  pub fn alloc_at_address(
     &self,
     layout: Layout,
     address: u64,
@@ -802,7 +789,7 @@ impl SpinLockedFixedSizeBlockAllocator {
 
   /// Attempts to allocate a block below the specified address.
   /// Note: layout.align() must be 0x01000.
-  pub unsafe fn alloc_below_address(
+  pub fn alloc_below_address(
     &self,
     layout: Layout,
     address: u64,
@@ -1109,7 +1096,7 @@ mod tests {
     let size = 4 * ALIGNMENT;
 
     let layout = Layout::from_size_align(size, ALIGNMENT).unwrap();
-    let allocation = unsafe { fsb.alloc_at_address(layout, target_address).unwrap().as_non_null_ptr() };
+    let allocation = fsb.alloc_at_address(layout, target_address).unwrap().as_non_null_ptr();
     assert!(fsb.contains(allocation));
     assert_eq!(allocation.as_ptr() as u64, target_address);
 
@@ -1131,7 +1118,7 @@ mod tests {
     let size = 4 * ALIGNMENT;
 
     let layout = Layout::from_size_align(size, ALIGNMENT).unwrap();
-    let allocation = unsafe { fsb.alloc_below_address(layout, target_address).unwrap().as_non_null_ptr() };
+    let allocation = fsb.alloc_below_address(layout, target_address).unwrap().as_non_null_ptr();
     assert!(fsb.contains(allocation));
     assert!((allocation.as_ptr() as u64) < target_address);
 

@@ -16,7 +16,7 @@ use r_pi::{
 
 use r_efi::{protocols::device_path, system};
 
-use crate::{allocator::allocate_pool, protocols::core_install_protocol_interface};
+use crate::{allocator::core_allocate_pool, protocols::core_install_protocol_interface};
 
 struct PrivateFvbData {
   _interface: Box<FirmwareVolumeBlockProtocol::Protocol>,
@@ -327,12 +327,13 @@ extern "efiapi" fn fv_read_file(
     //routine should allocate a buffer of appropriate size. Since the caller
     //is expected to free this buffer via free_pool, we need to manually
     //allocate it via allocate_pool.
-    match allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, file.file_data_size(), buffer as *mut *mut c_void) {
-      r_efi::efi::Status::SUCCESS => (),
-      err => return err,
-    };
-
-    local_buffer_ptr = unsafe { *buffer };
+    match core_allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, file.file_data_size()) {
+      Err(err) => return err,
+      Ok(allocation) => unsafe {
+        local_buffer_ptr = allocation;
+        buffer.write(local_buffer_ptr);
+      },
+    }
   }
 
   //convert pointer+size into a slice and copy the file data.
@@ -399,14 +400,15 @@ extern "efiapi" fn fv_read_section(
     //routine should allocate a buffer of appropriate size. Since the caller
     //is expected to free this buffer via free_pool, we need to manually
     //allocate it via allocate_pool.
-    match allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, section_data.len(), buffer as *mut *mut c_void) {
-      r_efi::efi::Status::SUCCESS => (),
-      err => return err,
-    };
-
-    unsafe { buffer_size.write(section_data.len()) }
-    local_buffer_ptr = unsafe { *buffer };
-    local_buffer_size = section_data.len();
+    match core_allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, section_data.len()) {
+      Err(err) => return err,
+      Ok(allocation) => unsafe {
+        local_buffer_size = section_data.len();
+        local_buffer_ptr = allocation;
+        buffer_size.write(local_buffer_size);
+        buffer.write(local_buffer_ptr);
+      },
+    }
   }
 
   //copy bytes to output. Caller-provided buffer may be shorter than section
@@ -418,9 +420,9 @@ extern "efiapi" fn fv_read_section(
   //TODO: authentication status not yet supported.
 
   if dest_buffer.len() < section_data.len() {
-    return r_efi::efi::Status::WARN_BUFFER_TOO_SMALL;
+    r_efi::efi::Status::WARN_BUFFER_TOO_SMALL
   } else {
-    return r_efi::efi::Status::SUCCESS;
+    r_efi::efi::Status::SUCCESS
   }
 }
 
@@ -466,7 +468,7 @@ extern "efiapi" fn fv_get_next_file(
       .ffs_files()
       .filter(|file| {
         local_file_type == FfsFileRawType::ALL
-          || file.file_type().and_then(|file_type| Some(file_type as u8 == local_file_type)) == Some(true)
+          || file.file_type().map(|file_type| file_type as u8 == local_file_type) == Some(true)
       })
       .nth(local_key);
 
@@ -596,7 +598,7 @@ fn install_fv_device_path_protocol(
               ((mem::size_of::<MediaFwVolDevicePath>() >> 8) & 0xff) as u8,
             ],
           },
-          fv_name: fv_name.clone(),
+          fv_name,
         },
         end_dev_path: device_path::End {
           header: device_path::Protocol {

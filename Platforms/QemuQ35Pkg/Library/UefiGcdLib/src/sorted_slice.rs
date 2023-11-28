@@ -5,6 +5,7 @@ pub enum Error {
   NotEnoughMemory,
   ElementAlreadyInserted,
   ElementsNeedToBeSorted,
+  ElementNotFound,
 }
 
 pub trait SortedSliceKey {
@@ -24,7 +25,7 @@ where
   pub fn new(slice: &'a mut [u8]) -> SortedSlice<'a, T> {
     Self {
       slice: unsafe {
-        slice::from_raw_parts_mut::<'a, T>(slice.as_mut() as *mut [u8] as *mut T, slice.len() / mem::size_of::<T>())
+        slice::from_raw_parts_mut::<'a, T>(slice as *mut [u8] as *mut T, slice.len() / mem::size_of::<T>())
       },
       item_count: 0,
     }
@@ -83,9 +84,9 @@ where
     Ok(idx)
   }
 
-  pub fn remove(&mut self, element: T) -> Result<usize, ()> {
+  pub fn remove(&mut self, element: T) -> Result<usize, Error> {
     let Ok(idx) = self.search(element) else {
-      return Err(());
+      return Err(Error::ElementNotFound);
     };
     self.remove_at_idx(idx);
     Ok(idx)
@@ -175,7 +176,7 @@ where
 {
   type Key = Self;
   fn ordering_key(&self) -> &T {
-    &self
+    self
   }
 }
 
@@ -255,7 +256,7 @@ mod tests {
     ss.add_contiguous_slice(&[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]).unwrap();
 
     assert_eq!(Ok(5), ss.remove(5));
-    assert_eq!(Err(()), ss.remove(5));
+    assert_eq!(Err(Error::ElementNotFound), ss.remove(5));
 
     let mut len = ss.len();
     for e in [3, 2, 4, 9, 0, 1, 8, 7, 6] {
