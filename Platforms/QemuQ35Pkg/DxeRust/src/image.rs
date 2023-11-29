@@ -451,8 +451,8 @@ extern "efiapi" fn start_image(
   let status = core_start_image(image_handle);
 
   // retrieve any exit data that was provided by the entry point.
-  let private_data = PRIVATE_IMAGE_DATA.lock();
   if !exit_data_size.is_null() && !exit_data.is_null() {
+    let private_data = PRIVATE_IMAGE_DATA.lock();
     let image_data = private_data.private_image_data.get(&image_handle).unwrap();
     if let Some(image_exit_data) = image_data.exit_data {
       unsafe {
@@ -462,7 +462,7 @@ extern "efiapi" fn start_image(
     }
   }
 
-  let image_type = private_data.private_image_data.get(&image_handle).unwrap().image_type;
+  let image_type = PRIVATE_IMAGE_DATA.lock().private_image_data.get(&image_handle).unwrap().image_type;
   if status != r_efi::efi::Status::SUCCESS || image_type == EFI_IMAGE_SUBSYSTEM_EFI_APPLICATION {
     let _result = core_unload_image(image_handle, true);
   }
