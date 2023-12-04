@@ -367,19 +367,24 @@ pub fn pe32_relocate_image(destination: usize, image: &mut [u8]) -> Result<(), P
 /// extern crate std;
 ///
 /// use std::{fs::File, io::Read};
-/// use uefi_pe32_lib::pe32_load_resource_section;
+/// use uefi_pe32_lib::{pe32_get_image_info, pe32_load_image, pe32_load_resource_section};
 ///
-/// let mut test_file: File = File::open(concat!(env!("CARGO_MANIFEST_DIR"), "/resources/test/", "test_image_hii.pe32"))
+/// let mut image = File::open(concat!(env!("CARGO_MANIFEST_DIR"), "/resources/test/", "test_image_msvc_hii.pe32"))
 ///   .expect("failed to open test file.");
 ///
-/// let mut buffer = Vec::new();
+/// let mut image_buffer = Vec::new();
+/// image.read_to_end(&mut image_buffer).expect("failed to read the test image.");
+/// let image_info = pe32_get_image_info(&image_buffer).unwrap();
 ///
-/// test_file.read_to_end(&mut buffer).expect("failed to read test file");
+/// let mut loaded_image: Vec<u8> = vec![0; image_info.size_of_image as usize];
+/// pe32_load_image(&image_buffer, &mut loaded_image).unwrap();;
 ///
-/// let result = pe32_load_resource_section(&buffer).unwrap();
-/// let result_data = result.unwrap();
+/// let result = pe32_load_resource_section(&image_buffer).unwrap();
+/// let (resource_section_offset, resource_section_size) = result.unwrap();
+///
+/// let resource_section = &loaded_image[resource_section_offset..(resource_section_offset + resource_section_size)];
 /// ```
-pub fn pe32_load_resource_section(image: &[u8]) -> Result<Option<&[u8]>, Pe32Error> {
+pub fn pe32_load_resource_section(image: &[u8]) -> Result<Option<(usize, usize)>, Pe32Error> {
   let pe = goblin::pe::PE::parse(image).map_err(Pe32Error::ParseError)?;
 
   for section in &pe.sections {
@@ -405,7 +410,6 @@ pub fn pe32_load_resource_section(image: &[u8]) -> Result<Option<&[u8]>, Pe32Err
           resource_section.pread(0).map_err(|e| Pe32Error::ParseError(GoblinError::Scroll(e)))?;
 
         let mut offset = directory.size_in_bytes();
-        let resource_directory_offset = offset;
 
         if offset > size as usize {
           return Err(Pe32Error::ParseError(GoblinError::BufferTooShort(offset, "bytes")));
@@ -492,10 +496,7 @@ pub fn pe32_load_resource_section(image: &[u8]) -> Result<Option<&[u8]>, Pe32Err
                 let resource_data_entry: DataEntry = resource_section
                   .pread(directory_entry.data as usize)
                   .map_err(|e| Pe32Error::ParseError(GoblinError::Scroll(e)))?;
-                let data_offset = resource_directory_offset + (directory_entry.data as usize);
-                return Ok(Some(
-                  resource_section[data_offset..(data_offset + resource_data_entry.size as usize)].as_ref(),
-                ));
+                return Ok(Some((resource_data_entry.offset_to_data as usize, resource_data_entry.size as usize)));
               }
             }
           }
@@ -641,22 +642,48 @@ mod tests {
 
   #[test]
   fn pe32_load_resource_section_should_succeed() {
-    // test_image_hii.pe32 file is just a copy of TftpDynamicCommand.efi module copied and renamed.
-    let mut test_file = File::open(test_collateral!("test_image_hii.pe32")).expect("failed to open test file.");
-    let mut buffer = Vec::new();
+    // test_image_<toolchain>_hii.pe32 file is just a copy of TftpDynamicCommand.efi module copied and renamed.
+    // the HII resource section layout slightly varies between Linux (GCC) and Windows (MSVC) bulids so both are
+    // tested here.
+    let mut test_file_msvc_image =
+      File::open(test_collateral!("test_image_msvc_hii.pe32")).expect("failed to open msvc test image.");
+    let mut test_msvc_image_buffer = Vec::new();
+    test_file_msvc_image.read_to_end(&mut test_msvc_image_buffer).expect("failed to read msvc test image.");
+    let test_msvc_image_info = pe32_get_image_info(&test_msvc_image_buffer).unwrap();
+    let mut test_msvc_loaded_image: Vec<u8> = vec![0; test_msvc_image_info.size_of_image as usize];
+    pe32_load_image(&test_msvc_image_buffer, &mut test_msvc_loaded_image).unwrap();
+    assert_eq!(test_msvc_loaded_image.len(), test_msvc_image_info.size_of_image as usize);
 
-    test_file.read_to_end(&mut buffer).expect("failed to read test file");
+    let mut test_file_gcc_image =
+      File::open(test_collateral!("test_image_gcc_hii.pe32")).expect("failed to open gcc test image.");
+    let mut test_gcc_image_buffer = Vec::new();
+    test_file_gcc_image.read_to_end(&mut test_gcc_image_buffer).expect("failed to read gcc test image.");
+    let test_gcc_image_info = pe32_get_image_info(&test_gcc_image_buffer).unwrap();
+    let mut test_gcc_loaded_image: Vec<u8> = vec![0; test_gcc_image_info.size_of_image as usize];
+    pe32_load_image(&test_gcc_image_buffer, &mut test_gcc_loaded_image).unwrap();
+    assert_eq!(test_gcc_loaded_image.len(), test_gcc_image_info.size_of_image as usize);
 
-    let result = pe32_load_resource_section(&buffer).unwrap();
-    assert_eq!(result.is_some(), true);
-    let result_data = result.unwrap();
-
-    let mut ref_file = File::open(test_collateral!("test_image_hii_section.bin")).expect("failed to open test file.");
+    let mut ref_file =
+      File::open(test_collateral!("test_image_hii_section.bin")).expect("failed to open test hii reference file.");
     let mut ref_buffer = Vec::new();
+    ref_file.read_to_end(&mut ref_buffer).expect("failed to read test hii reeference file");
 
-    ref_file.read_to_end(&mut ref_buffer).expect("failed to read test file");
+    let msvc_result = pe32_load_resource_section(&test_msvc_image_buffer).unwrap();
+    assert_eq!(msvc_result.is_some(), true);
+    let (msvc_resource_section_offset, msvc_resource_section_size) = msvc_result.unwrap();
+    assert_eq!(msvc_resource_section_size, ref_buffer.len());
+    assert_eq!(
+      test_msvc_loaded_image[msvc_resource_section_offset..(msvc_resource_section_offset + msvc_resource_section_size)],
+      ref_buffer
+    );
 
-    assert_eq!(result_data.len(), ref_buffer.len());
-    assert_eq!(result_data, ref_buffer.as_slice());
+    let gcc_result = pe32_load_resource_section(&test_gcc_image_buffer).unwrap();
+    assert_eq!(gcc_result.is_some(), true);
+    let (gcc_resource_section_offset, gcc_resource_section_size) = gcc_result.unwrap();
+    assert_eq!(gcc_resource_section_size, ref_buffer.len());
+    assert_eq!(
+      test_gcc_loaded_image[gcc_resource_section_offset..(gcc_resource_section_offset + gcc_resource_section_size)],
+      ref_buffer
+    );
   }
 }

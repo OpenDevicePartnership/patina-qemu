@@ -6,7 +6,7 @@ use core::{
   slice::from_raw_parts,
 };
 
-use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, string::String, vec::Vec};
+use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, string::String, vec, vec::Vec};
 use r_efi::system;
 use r_pi::hob::{Hob, HobList};
 use uefi_device_path_lib::copy_device_path_to_boxed_slice;
@@ -296,9 +296,11 @@ fn core_load_pe_image(
 
   let result = uefi_pe32_lib::pe32_load_resource_section(image).map_err(|_| r_efi::efi::Status::LOAD_ERROR)?;
 
-  if let Some(resource_section) = result {
-    private_info.allocate_resource_section(resource_section.len(), alignment, allocator);
-    private_info.hii_resource_section.as_mut().unwrap().copy_from_slice(resource_section);
+  if let Some((resource_section_offset, resource_section_size)) = result {
+    private_info.allocate_resource_section(resource_section_size, alignment, &allocator);
+    private_info.hii_resource_section.as_mut().unwrap().copy_from_slice(
+      &private_info.image_buffer[resource_section_offset..resource_section_offset + resource_section_size],
+    );
     println!("HII Resource Section found for {}.", pe_info.filename.as_deref().unwrap_or("Unknown"));
   }
 
