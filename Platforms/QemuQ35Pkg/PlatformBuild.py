@@ -22,6 +22,7 @@ from edk2toolext.invocables.edk2_pr_eval import PrEvalSettingsManager
 from edk2toolext.invocables.edk2_setup import (RequiredSubmodule,
                                                SetupSettingsManager)
 from edk2toolext.invocables.edk2_update import UpdateSettingsManager
+from edk2toolext.invocables.edk2_parse import ParseSettingsManager
 from edk2toollib.utility_functions import GetHostInfo, RunCmd
 
 WORKSPACE_ROOT = str(Path(__file__).parent.parent.parent)
@@ -46,7 +47,7 @@ class CommonPlatform():
     PackagesSupported = ("QemuQ35Pkg",)
     ArchSupported = ("IA32", "X64")
     TargetsSupported = ("DEBUG", "RELEASE", "NOOPT")
-    Scopes = ('qemu', 'qemuq35', 'edk2-build', 'cibuild', 'configdata')
+    Scopes = ('qemu', 'qemuq35', 'edk2-build', 'cibuild', 'configdata', 'rust-ci')
     PackagesPath = (
         "Platforms",
         "MU_BASECORE",
@@ -88,7 +89,7 @@ class CommonPlatform():
     # ####################################################################################### #
     #                         Configuration for Update & Setup                                #
     # ####################################################################################### #
-class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSettingsManager):
+class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSettingsManager, ParseSettingsManager):
 
     def AddCommandLineOptions(self, parserObj):
         """Add command line options to the argparser"""

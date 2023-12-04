@@ -58,8 +58,8 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         shutdown_after_run = (env.GetValue("SHUTDOWN_AFTER_RUN", "TRUE")=="TRUE")
         repo_version = env.GetValue("VERSION", "Unknown")
 
-        # Check if QEMU is on the path, if not find it
-        executable = "qemu-system-x86_64"
+        # Use a provided QEMU path. Default to the system path if not provided.
+        executable = env.GetValue("QEMU_PATH", "qemu-system-x86_64")
 
         # First query the version
         qemu_version = QemuRunner.QueryQemuVersion(executable)

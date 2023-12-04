@@ -56,6 +56,12 @@ extends:
         itemPattern: '**/cargo-make.exe'
         artifactName: 'Binaries'
       displayName: Download Cargo Make
+    - task: Bash@3
+      displayName: Exclude Cargo Tarpaulin on Windows
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "##vso[task.setvariable variable=RUST_ENV_CHECK_TOOL_EXCLUSIONS;]cargo tarpaulin"
     build_matrix:
 #     TARGET_QEMU:
 #       Pkgs: 'QemuPkg'
