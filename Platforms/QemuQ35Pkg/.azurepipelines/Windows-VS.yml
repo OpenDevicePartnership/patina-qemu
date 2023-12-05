@@ -47,6 +47,10 @@ extends:
         targetType: 'inline'
         script: |
           echo "##vso[task.setvariable variable=RUST_ENV_CHECK_TOOL_EXCLUSIONS;]cargo tarpaulin"
+    - task: CmdLine@2
+      displayName: Install rust-src Component
+      inputs:
+        script: rustup component add rust-src
     build_matrix:
       TARGET_Q35_RELEASE:
         Pkgs: 'QemuQ35Pkg'
