@@ -19,7 +19,7 @@ use core::{
   mem::{align_of, size_of},
   ptr::{self, slice_from_raw_parts_mut, NonNull},
 };
-use linked_list_allocator::{align_down, align_up};
+use linked_list_allocator::{align_down_size, align_up_size};
 use r_efi::system;
 use r_pi::dxe_services::GcdMemoryType;
 use uefi_gcd_lib::gcd::SpinLockedGcd;
@@ -140,7 +140,7 @@ impl FixedSizeBlockAllocator {
     let size = layout.pad_to_align().size() + Layout::new::<AllocatorListNode>().pad_to_align().size();
     let size = max(size, MIN_EXPANSION);
     //ensure size is a multiple of alignment to avoid fragmentation.
-    let size = align_up(size, ALIGNMENT);
+    let size = align_up_size(size, ALIGNMENT);
     //Allocate memory from the gcd.
     let start_address = self
       .gcd
@@ -168,7 +168,7 @@ impl FixedSizeBlockAllocator {
     //the range, and add the new allocator to the front of the allocator list.
     unsafe {
       alloc_node_ptr.write(node);
-      (*alloc_node_ptr).allocator.init(heap_bottom, heap_size);
+      (*alloc_node_ptr).allocator.init(heap_bottom as *mut u8, heap_size);
       (*alloc_node_ptr).next = self.allocators;
     }
 
@@ -322,10 +322,9 @@ impl FixedSizeBlockAllocator {
   // layout being freed is too big to be tracked as a fixed-size free block.
   fn fallback_dealloc(&mut self, ptr: *mut u8, layout: Layout) {
     let ptr = NonNull::new(ptr).unwrap();
-    let address = ptr.as_ptr() as usize;
     for node in AllocatorIterator::new(self.allocators) {
       let allocator = unsafe { &mut (*node).allocator };
-      if (allocator.bottom() <= address) && (address < allocator.top()) {
+      if (allocator.bottom() <= ptr.as_ptr()) && (ptr.as_ptr() < allocator.top()) {
         unsafe { allocator.deallocate(ptr, layout) };
       }
     }
@@ -499,10 +498,9 @@ impl FixedSizeBlockAllocator {
   /// ```
   ///
   pub fn contains(&self, ptr: *mut u8) -> bool {
-    let address = ptr as usize;
     AllocatorIterator::new(self.allocators).any(|node| {
       let allocator = unsafe { &mut (*node).allocator };
-      (allocator.bottom() <= address) && (address < allocator.top())
+      (allocator.bottom() <= ptr) && (ptr < allocator.top())
     })
   }
 
@@ -528,7 +526,7 @@ impl FixedSizeBlockAllocator {
     //allocate an extra page for the allocator node. This is a lot like an expand(), except that
     //it is more selective about how it requests memory from GCD.
     let size = layout.pad_to_align().size() + ALIGNMENT;
-    let size = align_up(size, ALIGNMENT);
+    let size = align_up_size(size, ALIGNMENT);
 
     // request an allocation from GCD starting one page before the desired address.
     let requested_start_address = address as usize - ALIGNMENT;
@@ -558,7 +556,7 @@ impl FixedSizeBlockAllocator {
     //the range, and add the new allocator to the front of the allocator list.
     unsafe {
       alloc_node_ptr.write(node);
-      (*alloc_node_ptr).allocator.init(heap_bottom, heap_size);
+      (*alloc_node_ptr).allocator.init(heap_bottom as *mut u8, heap_size);
       (*alloc_node_ptr).next = self.allocators;
     }
 
@@ -587,12 +585,12 @@ impl FixedSizeBlockAllocator {
     }
 
     //Align the requested "top" address down to the alignment size.
-    let address = align_down(address as usize, layout.align());
+    let address = align_down_size(address as usize, layout.align());
 
     //allocate an extra page for the allocator node. This is a lot like an expand(), except that
     //it is more selective about how it requests memory from GCD.
     let size = layout.pad_to_align().size() + ALIGNMENT;
-    let size = align_up(size, ALIGNMENT);
+    let size = align_up_size(size, ALIGNMENT);
 
     // request an allocation from GCD starting one page before the desired address.
     let requested_start_address = address;
@@ -619,7 +617,7 @@ impl FixedSizeBlockAllocator {
     //the range, and add the new allocator to the front of the allocator list.
     unsafe {
       alloc_node_ptr.write(node);
-      (*alloc_node_ptr).allocator.init(heap_bottom, heap_size);
+      (*alloc_node_ptr).allocator.init(heap_bottom as *mut u8, heap_size);
       (*alloc_node_ptr).next = self.allocators;
     }
 
@@ -642,12 +640,12 @@ impl Display for FixedSizeBlockAllocator {
       writeln!(
         f,
         "  PhysRange: {:#x}-{:#x}, Size: {:#x}, Used: {:#x} Free: {:#x} Maint: {:#x}",
-        align_down(allocator.bottom(), 0x1000), //account for AllocatorListNode
-        allocator.top(),
-        align_up(allocator.size(), 0x1000), //account for AllocatorListNode
+        align_down_size(allocator.bottom() as usize, 0x1000), //account for AllocatorListNode
+        allocator.top() as usize,
+        align_up_size(allocator.size(), 0x1000), //account for AllocatorListNode
         allocator.used(),
         allocator.free(),
-        align_up(allocator.size(), 0x100) - allocator.size()
+        align_up_size(allocator.size(), 0x100) - allocator.size()
       )?;
     }
     Ok(())
@@ -892,7 +890,7 @@ mod tests {
     assert!(fsb.allocators.is_some());
     unsafe {
       assert!((*fsb.allocators.unwrap()).next.is_none());
-      assert!((*fsb.allocators.unwrap()).allocator.bottom() > base as usize);
+      assert!((*fsb.allocators.unwrap()).allocator.bottom() as usize > base as usize);
       assert_eq!((*fsb.allocators.unwrap()).allocator.free(), MIN_EXPANSION - size_of::<AllocatorListNode>());
     }
     //expand by larger than MIN_EXPANSION.
@@ -902,7 +900,7 @@ mod tests {
     unsafe {
       assert!((*fsb.allocators.unwrap()).next.is_some());
       assert!((*(*fsb.allocators.unwrap()).next.unwrap()).next.is_none());
-      assert!((*fsb.allocators.unwrap()).allocator.bottom() > base as usize);
+      assert!((*fsb.allocators.unwrap()).allocator.bottom() as usize > base as usize);
       assert_eq!(
         (*fsb.allocators.unwrap()).allocator.free(),
         //expected free: size + a page to hold allocator node - size of allocator node.
