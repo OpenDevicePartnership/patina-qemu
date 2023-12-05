@@ -148,6 +148,8 @@
             "DxeRust": 0.0,
             "UefiRustAllocatorLib": 0.65,
             "UefiGcdLib": 0.4,
+            "UefiDepexLib": 0.55,
+            "UefiEventLib": 0.65
         }
     }
 }
