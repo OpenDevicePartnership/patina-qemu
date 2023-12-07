@@ -572,35 +572,41 @@ struct FvPiWgDevicePath {
   end_dev_path: efi::protocols::device_path::End,
 }
 
+impl FvPiWgDevicePath {
+  fn new(fv_name: efi::Guid) -> Self {
+    FvPiWgDevicePath {
+      fv_dev_path: MediaFwVolDevicePath {
+        header: efi::protocols::device_path::Protocol {
+          r#type: efi::protocols::device_path::TYPE_MEDIA,
+          sub_type: 0x7, //MEDIA_PIWG_FW_VOL_DP not defined in r_efi.
+          length: [
+            (mem::size_of::<MediaFwVolDevicePath>() & 0xff) as u8,
+            ((mem::size_of::<MediaFwVolDevicePath>() >> 8) & 0xff) as u8,
+          ],
+        },
+        fv_name,
+      },
+      end_dev_path: efi::protocols::device_path::End {
+        header: efi::protocols::device_path::Protocol {
+          r#type: efi::protocols::device_path::TYPE_END,
+          sub_type: efi::protocols::device_path::End::SUBTYPE_ENTIRE,
+          length: [
+            (mem::size_of::<efi::protocols::device_path::End>() & 0xff) as u8,
+            ((mem::size_of::<efi::protocols::device_path::End>() >> 8) & 0xff) as u8,
+          ],
+        },
+      },
+    }
+  }
+}
+
 fn install_fv_device_path_protocol(handle: Option<efi::Handle>, base_address: u64) -> Result<efi::Handle, efi::Status> {
   let fv = fw_fs::FirmwareVolume::new(base_address);
 
   let device_path_ptr = match fv.fv_name() {
     Some(fv_name) => {
       //Construct FvPiWgDevicePath
-      let device_path = FvPiWgDevicePath {
-        fv_dev_path: MediaFwVolDevicePath {
-          header: efi::protocols::device_path::Protocol {
-            r#type: efi::protocols::device_path::TYPE_MEDIA,
-            sub_type: 0x7, //MEDIA_PIWG_FW_VOL_DP not defined in r_efi.
-            length: [
-              (mem::size_of::<MediaFwVolDevicePath>() & 0xff) as u8,
-              ((mem::size_of::<MediaFwVolDevicePath>() >> 8) & 0xff) as u8,
-            ],
-          },
-          fv_name,
-        },
-        end_dev_path: efi::protocols::device_path::End {
-          header: efi::protocols::device_path::Protocol {
-            r#type: efi::protocols::device_path::TYPE_END,
-            sub_type: efi::protocols::device_path::End::SUBTYPE_ENTIRE,
-            length: [
-              (mem::size_of::<efi::protocols::device_path::End>() & 0xff) as u8,
-              ((mem::size_of::<efi::protocols::device_path::End>() >> 8) & 0xff) as u8,
-            ],
-          },
-        },
-      };
+      let device_path = FvPiWgDevicePath::new(fv_name);
       Box::into_raw(Box::new(device_path)) as *mut c_void
     }
     None => {

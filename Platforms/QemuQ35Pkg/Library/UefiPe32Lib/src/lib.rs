@@ -41,7 +41,7 @@ use alloc::{
   string::{String, ToString},
   vec::Vec,
 };
-use goblin::{self, error::Error as GoblinError};
+use goblin::{self, error::Error as GoblinError, pe::options};
 use resource_directory::{DataEntry, Directory, DirectoryEntry, DirectoryString};
 use scroll::Pread;
 
@@ -297,7 +297,12 @@ fn parse_relocation_blocks(block: &[u8]) -> Result<Vec<RelocationBlock>, Pe32Err
 /// pe32_relocate_image(0x04158000, &mut relocated_image).unwrap();
 /// ```
 pub fn pe32_relocate_image(destination: usize, image: &mut [u8]) -> Result<(), Pe32Error> {
-  let pe = goblin::pe::PE::parse(image).map_err(Pe32Error::ParseError)?;
+  // since an image being relocated is loaded, do not parse attribute certificates since those are not loaded into
+  // memory from the offline image.
+  let parse_options = options::ParseOptions { resolve_rva: true, parse_attribute_certificates: false };
+
+  let pe = goblin::pe::PE::parse_with_opts(image, &parse_options).unwrap();
+
   let current_base = pe.header.optional_header.ok_or(Pe32Error::RelocationError)?.windows_fields.image_base;
   let adjustment = (destination as u64).wrapping_sub(current_base);
 

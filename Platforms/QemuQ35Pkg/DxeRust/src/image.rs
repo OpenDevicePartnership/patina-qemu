@@ -6,7 +6,7 @@ use core::{
   slice::from_raw_parts,
 };
 
-use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, string::String, vec::Vec};
+use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, string::String, vec, vec::Vec};
 use r_efi::efi;
 use r_pi::hob::{Hob, HobList};
 use uefi_device_path_lib::copy_device_path_to_boxed_slice;
@@ -305,10 +305,134 @@ fn core_load_pe_image(
   Ok(private_info)
 }
 
+/// Returns an image for a given file path.
+/// * _boot_policy - Indicates whether the image is being loaded by the boot manager and that the boot manager is
+///                  attempting to load FilePath as a boot selection. Currently not used.
+/// * file_path - The device path of the file to load.
+///
+/// Returns the image buffer.
+fn get_buffer_by_file_path(
+  _boot_policy: bool,
+  file_path: *mut efi::protocols::device_path::Protocol,
+) -> Result<Vec<u8>, efi::Status> {
+  if let Ok((fs_device_path_node, handle)) =
+    core_locate_device_path(efi::protocols::simple_file_system::PROTOCOL_GUID, file_path)
+  {
+    let mut sfs_protocol: *mut efi::protocols::simple_file_system::Protocol = core::ptr::null_mut();
+    let sfs_protocol_ptr: *mut *mut c_void = &mut sfs_protocol as *mut _ as *mut *mut c_void;
+    let status = crate::protocols::handle_protocol(
+      handle,
+      &efi::protocols::simple_file_system::PROTOCOL_GUID as *const r_efi::efi::Guid as *mut r_efi::efi::Guid,
+      sfs_protocol_ptr,
+    );
+    if status != efi::Status::SUCCESS {
+      return Err(efi::Status::NOT_FOUND);
+    }
+
+    unsafe { sfs_protocol = *sfs_protocol_ptr as *mut efi::protocols::simple_file_system::Protocol };
+    unsafe {
+      if let Some(sfs) = sfs_protocol.as_ref() {
+        let mut file_protocol: *mut efi::protocols::file::Protocol = core::ptr::null_mut();
+        let file_protocol_ptr: *mut *mut efi::protocols::file::Protocol = core::ptr::addr_of_mut!(file_protocol);
+        if (sfs.open_volume)(sfs_protocol, file_protocol_ptr) == efi::Status::SUCCESS {
+          // Parse each MEDIA_FILEPATH_DP node. There may be more than one since the directory information and
+          // filename can be separate.
+          let mut current_node_ptr = fs_device_path_node;
+          let mut current_node = core::ptr::read_unaligned(current_node_ptr);
+
+          #[allow(unused_assignments)]
+          let mut last_file_protocol = file_protocol;
+
+          let mut status = efi::Status::SUCCESS;
+          while status == efi::Status::SUCCESS && current_node.r#type != efi::protocols::device_path::TYPE_END {
+            if current_node.r#type != efi::protocols::device_path::TYPE_MEDIA || current_node.sub_type != 4 {
+              // Note: MEDIA_FILEPATH_DP subtype not defined in r-efi right now
+              status = efi::Status::UNSUPPORTED;
+              break;
+            }
+
+            let current_length: usize = u16::from_le_bytes(current_node.length).try_into().unwrap();
+
+            last_file_protocol = file_protocol;
+            file_protocol = core::ptr::null_mut();
+
+            let file_name = current_node_ptr.add(1) as *mut u16;
+
+            status = ((*last_file_protocol).open)(
+              last_file_protocol,
+              file_protocol_ptr,
+              file_name,
+              efi::protocols::file::MODE_READ,
+              0,
+            );
+
+            ((*last_file_protocol).close)(last_file_protocol);
+
+            current_node_ptr = current_node_ptr.byte_offset(current_length.try_into().unwrap());
+            current_node = core::ptr::read_unaligned(current_node_ptr);
+          }
+
+          if status == efi::Status::SUCCESS {
+            let mut file_info_size: usize = 0;
+            status = ((*file_protocol).get_info)(
+              file_protocol,
+              &efi::protocols::file::INFO_ID as *const r_efi::efi::Guid as *mut r_efi::efi::Guid,
+              &mut file_info_size as *mut usize,
+              core::ptr::null_mut(),
+            );
+
+            if status == efi::Status::BUFFER_TOO_SMALL {
+              let mut file_info_buffer: Vec<u8> = vec![0u8; file_info_size];
+              status = ((*file_protocol).get_info)(
+                file_protocol,
+                &efi::protocols::file::INFO_ID as *const r_efi::efi::Guid as *mut r_efi::efi::Guid,
+                &mut file_info_size as *mut usize,
+                file_info_buffer.as_mut_ptr() as *mut c_void,
+              );
+
+              // determine if the buffer was populated
+              // for perf reasons, convert to a slice of 128-bit integers for comparison
+              let (prefix, aligned, suffix) = file_info_buffer.as_slice().align_to::<u128>();
+
+              let file_info_buffer_populated =
+                !(prefix.iter().all(|&x| x == 0) && suffix.iter().all(|&x| x == 0) && aligned.iter().all(|&x| x == 0));
+
+              if status == efi::Status::SUCCESS && file_info_buffer_populated {
+                let file_info = file_info_buffer.as_slice().align_to::<efi::protocols::file::Info>().1[0];
+
+                if file_info.attribute & efi::protocols::file::DIRECTORY == 0 {
+                  let mut file_size = file_info.file_size as usize;
+                  let file_layout =
+                    core::alloc::Layout::array::<u8>(file_size).map_err(|_| efi::Status::OUT_OF_RESOURCES)?;
+                  let file_buffer = Global.allocate(file_layout).map_err(|_| efi::Status::OUT_OF_RESOURCES)?;
+
+                  status = ((*file_protocol).read)(
+                    file_protocol,
+                    &mut file_size as *mut usize,
+                    file_buffer.as_mut_ptr() as *mut c_void,
+                  );
+                  ((*file_protocol).close)(file_protocol);
+
+                  if status == efi::Status::SUCCESS {
+                    let file_buffer = Vec::from_raw_parts(file_buffer.as_mut_ptr(), file_size, file_size);
+                    return Ok(file_buffer);
+                  }
+                }
+              }
+            }
+            ((*file_protocol).close)(file_protocol);
+          }
+        }
+      }
+    }
+  }
+
+  Err(efi::Status::NOT_FOUND)
+}
+
 /// Loads the image specified by the device path (not yet supported) or slice.
 /// * parent_image_handle - the handle of the image that is loading this one.
-/// * device_path - optional device path describing where to load the image from
-///                 (not yet supported).
+/// * device_path - optional device path describing where to load the image from.
 /// * image - optional slice containing the image data.
 ///
 /// One of `device_path` or `image` must be specified.
@@ -324,13 +448,10 @@ pub fn core_load_image(
     return Err(efi::Status::INVALID_PARAMETER);
   }
 
-  //TODO: we only support loading from a slice for now. device path support
-  //needs to be added.
-  if image.is_none() {
-    todo!("Support for loading from DevicePath within LoadImage not yet implemented.");
-  }
-
-  let image = image.unwrap();
+  let image_to_load = match image {
+    Some(image) => image.to_vec(),
+    None => get_buffer_by_file_path(false, device_path)?,
+  };
 
   //TODO: image authentication not implemented yet.
 
@@ -340,12 +461,12 @@ pub fn core_load_image(
   image_info.parent_handle = parent_image_handle;
 
   if !device_path.is_null() {
-    if let Ok((_, handle)) = core_locate_device_path(r_efi::protocols::device_path::PROTOCOL_GUID, device_path) {
+    if let Ok((_, handle)) = core_locate_device_path(efi::protocols::device_path::PROTOCOL_GUID, device_path) {
       image_info.device_handle = handle;
     }
   }
 
-  let mut private_info = core_load_pe_image(image, image_info)?;
+  let mut private_info = core_load_pe_image(image_to_load.as_ref(), image_info)?;
 
   let image_info_ptr = private_info.image_info.as_ref() as *const efi::protocols::loaded_image::Protocol;
   let image_info_ptr = image_info_ptr as *mut c_void;
