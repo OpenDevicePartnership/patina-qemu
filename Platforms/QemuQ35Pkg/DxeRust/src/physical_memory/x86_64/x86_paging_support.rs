@@ -15,10 +15,10 @@ use x86_64::{
   PhysAddr, VirtAddr,
 };
 
-use r_efi::system;
+use r_efi::efi;
 
 pub static PAGE_TABLE: tpl_lock::TplMutex<GlobalPageTable> =
-  tpl_lock::TplMutex::new(system::TPL_HIGH_LEVEL, GlobalPageTable::empty(), "PageLock");
+  tpl_lock::TplMutex::new(efi::TPL_HIGH_LEVEL, GlobalPageTable::empty(), "PageLock");
 
 #[derive(Debug)]
 pub enum PageTableError {

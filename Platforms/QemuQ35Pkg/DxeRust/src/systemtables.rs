@@ -3,43 +3,36 @@
 use core::{ffi::c_void, mem::size_of, slice::from_raw_parts};
 
 use alloc::{alloc::Allocator, boxed::Box};
-use r_efi::{
-  efi::{Boolean, Char16, Event, Guid, Handle, PhysicalAddress, Status, Tpl},
-  protocols::device_path,
-  system::{self, BootServices, RuntimeServices, SystemTable, TableHeader},
-};
+use r_efi::efi;
 
 use crate::allocator::EFI_RUNTIME_SERVICES_DATA_ALLOCATOR;
 
 pub static SYSTEM_TABLE: tpl_lock::TplMutex<Option<EfiSystemTable>> =
-  tpl_lock::TplMutex::new(system::TPL_NOTIFY, None, "StLock");
+  tpl_lock::TplMutex::new(efi::TPL_NOTIFY, None, "StLock");
 
 pub struct EfiRuntimeServicesTable {
-  runtime_services: Box<RuntimeServices, &'static dyn Allocator>,
+  runtime_services: Box<efi::RuntimeServices, &'static dyn Allocator>,
 }
 
 impl EfiRuntimeServicesTable {
   //private unimplemented stub functions used to initialize the table.
-  extern "efiapi" fn get_time_unimplemented(
-    _: *mut r_efi::system::Time,
-    _: *mut r_efi::system::TimeCapabilities,
-  ) -> Status {
+  extern "efiapi" fn get_time_unimplemented(_: *mut efi::Time, _: *mut efi::TimeCapabilities) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn set_time_unimplemented(_: *mut r_efi::system::Time) -> Status {
+  extern "efiapi" fn set_time_unimplemented(_: *mut efi::Time) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn get_wakeup_time_unimplemented(
-    _: *mut Boolean,
-    _: *mut Boolean,
-    _: *mut r_efi::system::Time,
-  ) -> Status {
+    _: *mut efi::Boolean,
+    _: *mut efi::Boolean,
+    _: *mut efi::Time,
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn set_wakeup_time_unimplemented(_: Boolean, _: *mut r_efi::system::Time) -> Status {
+  extern "efiapi" fn set_wakeup_time_unimplemented(_: efi::Boolean, _: *mut efi::Time) -> efi::Status {
     unimplemented!()
   }
 
@@ -47,73 +40,77 @@ impl EfiRuntimeServicesTable {
     _: usize,
     _: usize,
     _: u32,
-    _: *mut r_efi::system::MemoryDescriptor,
-  ) -> Status {
+    _: *mut efi::MemoryDescriptor,
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn convert_pointer_unimplemented(_: usize, _: *mut *mut c_void) -> Status {
+  extern "efiapi" fn convert_pointer_unimplemented(_: usize, _: *mut *mut c_void) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn get_variable_unimplemented(
-    _: *mut Char16,
-    _: *mut Guid,
+    _: *mut efi::Char16,
+    _: *mut efi::Guid,
     _: *mut u32,
     _: *mut usize,
     _: *mut c_void,
-  ) -> Status {
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn get_next_variable_name_unimplemented(_: *mut usize, _: *mut Char16, _: *mut Guid) -> Status {
+  extern "efiapi" fn get_next_variable_name_unimplemented(
+    _: *mut usize,
+    _: *mut efi::Char16,
+    _: *mut efi::Guid,
+  ) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn set_variable_unimplemented(
-    _: *mut Char16,
-    _: *mut Guid,
+    _: *mut efi::Char16,
+    _: *mut efi::Guid,
     _: u32,
     _: usize,
     _: *mut c_void,
-  ) -> Status {
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn get_next_high_mono_count_unimplemented(_: *mut u32) -> Status {
+  extern "efiapi" fn get_next_high_mono_count_unimplemented(_: *mut u32) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn reset_system_unimplemented(_: r_efi::system::ResetType, _: Status, _: usize, _: *mut c_void) {
+  extern "efiapi" fn reset_system_unimplemented(_: efi::ResetType, _: efi::Status, _: usize, _: *mut c_void) {
     unimplemented!()
   }
 
   extern "efiapi" fn update_capsule_unimplemented(
-    _: *mut *mut r_efi::system::CapsuleHeader,
+    _: *mut *mut efi::CapsuleHeader,
     _: usize,
-    _: PhysicalAddress,
-  ) -> Status {
+    _: efi::PhysicalAddress,
+  ) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn query_capsule_capabilities_unimplemented(
-    _: *mut *mut r_efi::system::CapsuleHeader,
+    _: *mut *mut efi::CapsuleHeader,
     _: usize,
     _: *mut u64,
-    _: *mut r_efi::system::ResetType,
-  ) -> Status {
+    _: *mut efi::ResetType,
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn query_variable_info_unimplemented(_: u32, _: *mut u64, _: *mut u64, _: *mut u64) -> Status {
+  extern "efiapi" fn query_variable_info_unimplemented(_: u32, _: *mut u64, _: *mut u64, _: *mut u64) -> efi::Status {
     unimplemented!()
   }
 
   pub fn init_runtime_services_table() -> EfiRuntimeServicesTable {
-    let mut rt = RuntimeServices {
-      hdr: TableHeader {
-        signature: r_efi::system::RUNTIME_SERVICES_SIGNATURE,
-        revision: r_efi::system::RUNTIME_SERVICES_REVISION,
+    let mut rt = efi::RuntimeServices {
+      hdr: efi::TableHeader {
+        signature: efi::RUNTIME_SERVICES_SIGNATURE,
+        revision: efi::RUNTIME_SERVICES_REVISION,
         header_size: 0,
         crc32: 0,
         reserved: 0,
@@ -134,7 +131,7 @@ impl EfiRuntimeServicesTable {
       query_variable_info: Self::query_variable_info_unimplemented,
     };
 
-    rt.hdr.header_size = size_of::<RuntimeServices>() as u32;
+    rt.hdr.header_size = size_of::<efi::RuntimeServices>() as u32;
 
     let mut table = EfiRuntimeServicesTable { runtime_services: Box::new_in(rt, &EFI_RUNTIME_SERVICES_DATA_ALLOCATOR) };
     table.checksum();
@@ -143,254 +140,279 @@ impl EfiRuntimeServicesTable {
 
   pub fn checksum(&mut self) {
     self.runtime_services.hdr.crc32 = 0;
-    let rs_ptr = self.runtime_services.as_ref() as *const RuntimeServices as *const u8;
-    let rs_slice = unsafe { from_raw_parts(rs_ptr, size_of::<RuntimeServices>()) };
+    let rs_ptr = self.runtime_services.as_ref() as *const efi::RuntimeServices as *const u8;
+    let rs_slice = unsafe { from_raw_parts(rs_ptr, size_of::<efi::RuntimeServices>()) };
     self.runtime_services.hdr.crc32 = crc32fast::hash(rs_slice);
   }
 }
 
 pub struct EfiBootServicesTable {
-  boot_services: Box<BootServices>, //Use the global allocator (EfiBootServicesData)
+  boot_services: Box<efi::BootServices>, //Use the global allocator (EfiBootServicesData)
 }
 
 impl EfiBootServicesTable {
   //private unimplemented stub functions used to initialize the table.
-  extern "efiapi" fn raise_tpl_unimplemented(_: Tpl) -> Tpl {
+  extern "efiapi" fn raise_tpl_unimplemented(_: efi::Tpl) -> efi::Tpl {
     unimplemented!()
   }
 
-  extern "efiapi" fn restore_tpl_unimplemented(_: Tpl) {
+  extern "efiapi" fn restore_tpl_unimplemented(_: efi::Tpl) {
     unimplemented!()
   }
 
   extern "efiapi" fn allocate_pages_unimplemented(
-    _: r_efi::system::AllocateType,
-    _: r_efi::system::MemoryType,
+    _: efi::AllocateType,
+    _: efi::MemoryType,
     _: usize,
-    _: *mut PhysicalAddress,
-  ) -> Status {
+    _: *mut efi::PhysicalAddress,
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn free_pages_unimplemented(_: PhysicalAddress, _: usize) -> Status {
+  extern "efiapi" fn free_pages_unimplemented(_: efi::PhysicalAddress, _: usize) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn get_memory_map_unimplemented(
     _: *mut usize,
-    _: *mut r_efi::system::MemoryDescriptor,
+    _: *mut efi::MemoryDescriptor,
     _: *mut usize,
     _: *mut usize,
     _: *mut u32,
-  ) -> Status {
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn allocate_pool_unimplemented(
-    _: r_efi::system::MemoryType,
-    _: usize,
-    _: *mut *mut c_void,
-  ) -> Status {
+  extern "efiapi" fn allocate_pool_unimplemented(_: efi::MemoryType, _: usize, _: *mut *mut c_void) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn free_pool_unimplemented(_: *mut c_void) -> Status {
+  extern "efiapi" fn free_pool_unimplemented(_: *mut c_void) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn create_event_unimplemented(
     _: u32,
-    _: Tpl,
-    _: Option<r_efi::system::EventNotify>,
+    _: efi::Tpl,
+    _: Option<efi::EventNotify>,
     _: *mut c_void,
-    _: *mut Event,
-  ) -> Status {
+    _: *mut efi::Event,
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn set_timer_unimplemented(_: Event, _: r_efi::system::TimerDelay, _: u64) -> Status {
+  extern "efiapi" fn set_timer_unimplemented(_: efi::Event, _: efi::TimerDelay, _: u64) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn wait_for_event_unimplemented(_: usize, _: *mut Event, _: *mut usize) -> Status {
+  extern "efiapi" fn wait_for_event_unimplemented(_: usize, _: *mut efi::Event, _: *mut usize) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn signal_event_unimplemented(_: Event) -> Status {
+  extern "efiapi" fn signal_event_unimplemented(_: efi::Event) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn close_event_unimplemented(_: Event) -> Status {
+  extern "efiapi" fn close_event_unimplemented(_: efi::Event) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn check_event_unimplemented(_: Event) -> Status {
+  extern "efiapi" fn check_event_unimplemented(_: efi::Event) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn install_protocol_interface_unimplemented(
-    _: *mut Handle,
-    _: *mut Guid,
-    _: r_efi::system::InterfaceType,
+    _: *mut efi::Handle,
+    _: *mut efi::Guid,
+    _: efi::InterfaceType,
     _: *mut c_void,
-  ) -> Status {
+  ) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn reinstall_protocol_interface_unimplemented(
-    _: Handle,
-    _: *mut Guid,
+    _: efi::Handle,
+    _: *mut efi::Guid,
     _: *mut c_void,
     _: *mut c_void,
-  ) -> Status {
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn uninstall_protocol_interface_unimplemented(_: Handle, _: *mut Guid, _: *mut c_void) -> Status {
+  extern "efiapi" fn uninstall_protocol_interface_unimplemented(
+    _: efi::Handle,
+    _: *mut efi::Guid,
+    _: *mut c_void,
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn handle_protocol_unimplemented(_: Handle, _: *mut Guid, _: *mut *mut c_void) -> Status {
+  extern "efiapi" fn handle_protocol_unimplemented(
+    _: efi::Handle,
+    _: *mut efi::Guid,
+    _: *mut *mut c_void,
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn register_protocol_notify_unimplemented(_: *mut Guid, _: Event, _: *mut *mut c_void) -> Status {
+  extern "efiapi" fn register_protocol_notify_unimplemented(
+    _: *mut efi::Guid,
+    _: efi::Event,
+    _: *mut *mut c_void,
+  ) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn locate_handle_unimplemented(
-    _: r_efi::system::LocateSearchType,
-    _: *mut Guid,
+    _: efi::LocateSearchType,
+    _: *mut efi::Guid,
     _: *mut c_void,
     _: *mut usize,
-    _: *mut Handle,
-  ) -> Status {
+    _: *mut efi::Handle,
+  ) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn locate_device_path_unimplemented(
-    _: *mut Guid,
-    _: *mut *mut device_path::Protocol,
-    _: *mut Handle,
-  ) -> Status {
+    _: *mut efi::Guid,
+    _: *mut *mut efi::protocols::device_path::Protocol,
+    _: *mut efi::Handle,
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn install_configuration_table_unimplemented(_: *mut Guid, _: *mut c_void) -> Status {
+  extern "efiapi" fn install_configuration_table_unimplemented(_: *mut efi::Guid, _: *mut c_void) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn load_image_unimplemented(
-    _: Boolean,
-    _: Handle,
-    _: *mut device_path::Protocol,
+    _: efi::Boolean,
+    _: efi::Handle,
+    _: *mut efi::protocols::device_path::Protocol,
     _: *mut c_void,
     _: usize,
-    _: *mut Handle,
-  ) -> Status {
+    _: *mut efi::Handle,
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn start_image_unimplemented(_: Handle, _: *mut usize, _: *mut *mut Char16) -> Status {
+  extern "efiapi" fn start_image_unimplemented(_: efi::Handle, _: *mut usize, _: *mut *mut efi::Char16) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn exit_unimplemented(_: Handle, _: Status, _: usize, _: *mut Char16) -> Status {
+  extern "efiapi" fn exit_unimplemented(_: efi::Handle, _: efi::Status, _: usize, _: *mut efi::Char16) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn unload_image_unimplemented(_: Handle) -> Status {
+  extern "efiapi" fn unload_image_unimplemented(_: efi::Handle) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn exit_boot_services_unimplemented(_: Handle, _: usize) -> Status {
+  extern "efiapi" fn exit_boot_services_unimplemented(_: efi::Handle, _: usize) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn get_next_monotonic_count_unimplemented(_: *mut u64) -> Status {
+  extern "efiapi" fn get_next_monotonic_count_unimplemented(_: *mut u64) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn stall_unimplemented(_: usize) -> Status {
+  extern "efiapi" fn stall_unimplemented(_: usize) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn set_watchdog_timer_unimplemented(_: usize, _: u64, _: usize, _: *mut Char16) -> Status {
+  extern "efiapi" fn set_watchdog_timer_unimplemented(_: usize, _: u64, _: usize, _: *mut efi::Char16) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn connect_controller_unimplemented(
-    _: Handle,
-    _: *mut Handle,
-    _: *mut device_path::Protocol,
-    _: Boolean,
-  ) -> Status {
+    _: efi::Handle,
+    _: *mut efi::Handle,
+    _: *mut efi::protocols::device_path::Protocol,
+    _: efi::Boolean,
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn disconnect_controller_unimplemented(_: Handle, _: Handle, _: Handle) -> Status {
+  extern "efiapi" fn disconnect_controller_unimplemented(
+    _: efi::Handle,
+    _: efi::Handle,
+    _: efi::Handle,
+  ) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn open_protocol_unimplemented(
-    _: Handle,
-    _: *mut Guid,
+    _: efi::Handle,
+    _: *mut efi::Guid,
     _: *mut *mut c_void,
-    _: Handle,
-    _: Handle,
+    _: efi::Handle,
+    _: efi::Handle,
     _: u32,
-  ) -> Status {
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn close_protocol_unimplemented(_: Handle, _: *mut Guid, _: Handle, _: Handle) -> Status {
+  extern "efiapi" fn close_protocol_unimplemented(
+    _: efi::Handle,
+    _: *mut efi::Guid,
+    _: efi::Handle,
+    _: efi::Handle,
+  ) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn open_protocol_information_unimplemented(
-    _: Handle,
-    _: *mut Guid,
-    _: *mut *mut r_efi::system::OpenProtocolInformationEntry,
+    _: efi::Handle,
+    _: *mut efi::Guid,
+    _: *mut *mut efi::OpenProtocolInformationEntry,
     _: *mut usize,
-  ) -> Status {
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn protocols_per_handle_unimplemented(_: Handle, _: *mut *mut *mut Guid, _: *mut usize) -> Status {
+  extern "efiapi" fn protocols_per_handle_unimplemented(
+    _: efi::Handle,
+    _: *mut *mut *mut efi::Guid,
+    _: *mut usize,
+  ) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn locate_handle_buffer_unimplemented(
-    _: r_efi::system::LocateSearchType,
-    _: *mut Guid,
+    _: efi::LocateSearchType,
+    _: *mut efi::Guid,
     _: *mut c_void,
     _: *mut usize,
-    _: *mut *mut Handle,
-  ) -> Status {
+    _: *mut *mut efi::Handle,
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn locate_protocol_unimplemented(_: *mut Guid, _: *mut c_void, _: *mut *mut c_void) -> Status {
+  extern "efiapi" fn locate_protocol_unimplemented(
+    _: *mut efi::Guid,
+    _: *mut c_void,
+    _: *mut *mut c_void,
+  ) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn install_multiple_protocol_interfaces_unimplemented(
-    _: *mut Handle,
+    _: *mut efi::Handle,
     _: *mut c_void,
     _: *mut c_void,
-  ) -> Status {
+  ) -> efi::Status {
     unimplemented!()
   }
 
   extern "efiapi" fn uninstall_multiple_protocol_interfaces_unimplemented(
-    _: *mut Handle,
+    _: *mut efi::Handle,
     _: *mut c_void,
     _: *mut c_void,
-  ) -> Status {
+  ) -> efi::Status {
     unimplemented!()
   }
 
-  extern "efiapi" fn calculate_crc32_unimplemented(_: *mut c_void, _: usize, _: *mut u32) -> Status {
+  extern "efiapi" fn calculate_crc32_unimplemented(_: *mut c_void, _: usize, _: *mut u32) -> efi::Status {
     unimplemented!()
   }
 
@@ -404,20 +426,20 @@ impl EfiBootServicesTable {
 
   extern "efiapi" fn create_event_ex_unimplemented(
     _: u32,
-    _: Tpl,
-    _: Option<r_efi::system::EventNotify>,
+    _: efi::Tpl,
+    _: Option<efi::EventNotify>,
     _: *const c_void,
-    _: *const Guid,
-    _: *mut Event,
-  ) -> Status {
+    _: *const efi::Guid,
+    _: *mut efi::Event,
+  ) -> efi::Status {
     unimplemented!()
   }
 
   pub fn init_boot_services_table() -> EfiBootServicesTable {
-    let mut bs = BootServices {
-      hdr: TableHeader {
-        signature: r_efi::system::BOOT_SERVICES_SIGNATURE,
-        revision: r_efi::system::BOOT_SERVICES_REVISION,
+    let mut bs = efi::BootServices {
+      hdr: efi::TableHeader {
+        signature: efi::BOOT_SERVICES_SIGNATURE,
+        revision: efi::BOOT_SERVICES_REVISION,
         header_size: 0,
         crc32: 0,
         reserved: 0,
@@ -468,7 +490,7 @@ impl EfiBootServicesTable {
       create_event_ex: Self::create_event_ex_unimplemented,
     };
 
-    bs.hdr.header_size = size_of::<BootServices>() as u32;
+    bs.hdr.header_size = size_of::<efi::BootServices>() as u32;
     let mut table = EfiBootServicesTable { boot_services: Box::new(bs) };
     table.checksum();
     table
@@ -476,39 +498,39 @@ impl EfiBootServicesTable {
 
   pub fn checksum(&mut self) {
     self.boot_services.hdr.crc32 = 0;
-    let bs_ptr = self.boot_services.as_ref() as *const BootServices as *const u8;
-    let bs_slice = unsafe { from_raw_parts(bs_ptr, size_of::<BootServices>()) };
+    let bs_ptr = self.boot_services.as_ref() as *const efi::BootServices as *const u8;
+    let bs_slice = unsafe { from_raw_parts(bs_ptr, size_of::<efi::BootServices>()) };
     self.boot_services.hdr.crc32 = crc32fast::hash(bs_slice);
   }
 }
 
 pub struct EfiSystemTable {
-  system_table: Box<SystemTable, &'static dyn Allocator>,
-  boot_service: EfiBootServicesTable, // These fields ensure the BootServices and RuntimeServices structure pointers (in
+  system_table: Box<efi::SystemTable, &'static dyn Allocator>,
+  boot_service: EfiBootServicesTable, // These fields ensure the efi::BootServices and efi::RuntimeServices structure pointers (in
   runtime_service: EfiRuntimeServicesTable, // the system_table) have the same lifetime as the EfiSystemTable.
 }
 
 impl EfiSystemTable {
-  pub fn as_ptr(&self) -> *const SystemTable {
-    self.system_table.as_ref() as *const SystemTable
+  pub fn as_ptr(&self) -> *const efi::SystemTable {
+    self.system_table.as_ref() as *const efi::SystemTable
   }
 
-  pub fn as_mut_ptr(&self) -> *mut SystemTable {
-    self.as_ptr() as *mut SystemTable
+  pub fn as_mut_ptr(&self) -> *mut efi::SystemTable {
+    self.as_ptr() as *mut efi::SystemTable
   }
 
-  pub fn boot_services(&mut self) -> &mut BootServices {
+  pub fn boot_services(&mut self) -> &mut efi::BootServices {
     unsafe { self.system_table.boot_services.as_mut().expect("BootServices uninitialized") }
   }
 
-  pub fn runtime_services(&mut self) -> &mut RuntimeServices {
+  pub fn runtime_services(&mut self) -> &mut efi::RuntimeServices {
     unsafe { self.system_table.runtime_services.as_mut().expect("RuntimeServices uninitialized") }
   }
 
   pub fn checksum(&mut self) {
     self.system_table.hdr.crc32 = 0;
-    let st_ptr = self.system_table.as_ref() as *const SystemTable as *const u8;
-    let st_slice = unsafe { from_raw_parts(st_ptr, size_of::<SystemTable>()) };
+    let st_ptr = self.system_table.as_ref() as *const efi::SystemTable as *const u8;
+    let st_slice = unsafe { from_raw_parts(st_ptr, size_of::<efi::SystemTable>()) };
     self.system_table.hdr.crc32 = crc32fast::hash(st_slice);
   }
 
@@ -519,14 +541,14 @@ impl EfiSystemTable {
   }
 }
 
-impl AsMut<SystemTable> for EfiSystemTable {
-  fn as_mut(&mut self) -> &mut SystemTable {
+impl AsMut<efi::SystemTable> for EfiSystemTable {
+  fn as_mut(&mut self) -> &mut efi::SystemTable {
     self.system_table.as_mut()
   }
 }
 
-impl AsRef<SystemTable> for EfiSystemTable {
-  fn as_ref(&self) -> &SystemTable {
+impl AsRef<efi::SystemTable> for EfiSystemTable {
+  fn as_ref(&self) -> &efi::SystemTable {
     self.system_table.as_ref()
   }
 }
@@ -536,10 +558,10 @@ unsafe impl Sync for EfiSystemTable {}
 unsafe impl Send for EfiSystemTable {}
 
 pub fn init_system_table() {
-  let mut st = SystemTable {
-    hdr: TableHeader {
-      signature: r_efi::system::SYSTEM_TABLE_SIGNATURE,
-      revision: r_efi::system::SYSTEM_TABLE_REVISION,
+  let mut st = efi::SystemTable {
+    hdr: efi::TableHeader {
+      signature: efi::SYSTEM_TABLE_SIGNATURE,
+      revision: efi::SYSTEM_TABLE_REVISION,
       header_size: 0,
       crc32: 0,
       reserved: 0,
@@ -562,7 +584,7 @@ pub fn init_system_table() {
   st.boot_services = bs.boot_services.as_mut();
   st.runtime_services = rt.runtime_services.as_mut();
 
-  st.hdr.header_size = size_of::<SystemTable>() as u32;
+  st.hdr.header_size = size_of::<efi::SystemTable>() as u32;
 
   let mut table = EfiSystemTable {
     system_table: Box::new_in(st, &EFI_RUNTIME_SERVICES_DATA_ALLOCATOR),

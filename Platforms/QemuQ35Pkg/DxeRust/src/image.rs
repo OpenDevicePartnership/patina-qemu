@@ -6,8 +6,8 @@ use core::{
   slice::from_raw_parts,
 };
 
-use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, string::String, vec, vec::Vec};
-use r_efi::system;
+use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, string::String, vec::Vec};
+use r_efi::efi;
 use r_pi::hob::{Hob, HobList};
 use uefi_device_path_lib::copy_device_path_to_boxed_slice;
 use uefi_protocol_db_lib::DXE_CORE_HANDLE;
@@ -37,15 +37,15 @@ const ENTRY_POINT_STACK_SIZE: usize = 0x100000;
 
 // dummy function used to initialize PrivateImageData.entry_point.
 extern "efiapi" fn unimplemented_entry_point(
-  _handle: r_efi::efi::Handle,
-  _system_table: *mut r_efi::efi::SystemTable,
-) -> r_efi::efi::Status {
+  _handle: efi::Handle,
+  _system_table: *mut efi::SystemTable,
+) -> efi::Status {
   unimplemented!()
 }
 
 // dummy function used to initialize image_info.Unload.
-extern "efiapi" fn unimplemented_unload(_handle: r_efi::efi::Handle) -> r_efi::efi::Status {
-  r_efi::efi::Status::SUCCESS
+extern "efiapi" fn unimplemented_unload(_handle: efi::Handle) -> efi::Status {
+  efi::Status::SUCCESS
 }
 
 // define a wrapper for allocators that supports specified alignments.
@@ -107,19 +107,19 @@ unsafe impl Stack for ImageStack {
 // This struct tracks private data associated with a particular image handle.
 struct PrivateImageData {
   image_buffer: Box<[u8], AlignedAllocWrapper>,
-  image_info: Box<r_efi::efi::protocols::loaded_image::Protocol>,
+  image_info: Box<efi::protocols::loaded_image::Protocol>,
   hii_resource_section: Option<Box<[u8], AlignedAllocWrapper>>,
   image_type: u16,
-  entry_point: r_efi::efi::ImageEntryPoint,
+  entry_point: efi::ImageEntryPoint,
   filename: Option<String>,
   started: bool,
-  exit_data: Option<(usize, *mut r_efi::efi::Char16)>,
+  exit_data: Option<(usize, *mut efi::Char16)>,
   image_info_ptr: *mut c_void,
   image_device_path_ptr: *mut c_void,
 }
 
 impl PrivateImageData {
-  fn new(image_info: r_efi::efi::protocols::loaded_image::Protocol) -> Self {
+  fn new(image_info: efi::protocols::loaded_image::Protocol) -> Self {
     PrivateImageData {
       image_buffer: Box::new_in([0; 0], AlignedAllocWrapper::new(1, &Global)),
       image_info: Box::new(image_info),
@@ -150,11 +150,11 @@ impl PrivateImageData {
 
 // This struct tracks global data used by the imaging subsystem.
 struct DxeCoreGlobalImageData {
-  dxe_core_image_handle: r_efi::efi::Handle,
-  system_table: *mut r_efi::efi::SystemTable,
-  private_image_data: BTreeMap<r_efi::efi::Handle, PrivateImageData>,
-  current_running_image: Option<r_efi::efi::Handle>,
-  image_start_contexts: Vec<*const Yielder<r_efi::efi::Handle, r_efi::efi::Status>>,
+  dxe_core_image_handle: efi::Handle,
+  system_table: *mut efi::SystemTable,
+  private_image_data: BTreeMap<efi::Handle, PrivateImageData>,
+  current_running_image: Option<efi::Handle>,
+  image_start_contexts: Vec<*const Yielder<efi::Handle, efi::Status>>,
 }
 
 impl DxeCoreGlobalImageData {
@@ -162,7 +162,7 @@ impl DxeCoreGlobalImageData {
     DxeCoreGlobalImageData {
       dxe_core_image_handle: core::ptr::null_mut(),
       system_table: core::ptr::null_mut(),
-      private_image_data: BTreeMap::<r_efi::efi::Handle, PrivateImageData>::new(),
+      private_image_data: BTreeMap::<efi::Handle, PrivateImageData>::new(),
       current_running_image: None,
       image_start_contexts: Vec::new(),
     }
@@ -175,12 +175,12 @@ unsafe impl Sync for DxeCoreGlobalImageData {}
 unsafe impl Send for DxeCoreGlobalImageData {}
 
 static PRIVATE_IMAGE_DATA: tpl_lock::TplMutex<DxeCoreGlobalImageData> =
-  tpl_lock::TplMutex::new(system::TPL_NOTIFY, DxeCoreGlobalImageData::new(), "ImageLock");
+  tpl_lock::TplMutex::new(efi::TPL_NOTIFY, DxeCoreGlobalImageData::new(), "ImageLock");
 
 // helper routine that returns an empty loaded_image::Protocol struct.
-fn empty_image_info() -> r_efi::efi::protocols::loaded_image::Protocol {
-  r_efi::efi::protocols::loaded_image::Protocol {
-    revision: r_efi::efi::protocols::loaded_image::REVISION,
+fn empty_image_info() -> efi::protocols::loaded_image::Protocol {
+  efi::protocols::loaded_image::Protocol {
+    revision: efi::protocols::loaded_image::REVISION,
     parent_handle: core::ptr::null_mut(),
     system_table: core::ptr::null_mut(),
     device_handle: core::ptr::null_mut(),
@@ -190,8 +190,8 @@ fn empty_image_info() -> r_efi::efi::protocols::loaded_image::Protocol {
     load_options: core::ptr::null_mut(),
     image_base: core::ptr::null_mut(),
     image_size: 0,
-    image_code_type: r_efi::efi::BOOT_SERVICES_CODE,
-    image_data_type: r_efi::efi::BOOT_SERVICES_DATA,
+    image_code_type: efi::BOOT_SERVICES_CODE,
+    image_data_type: efi::BOOT_SERVICES_DATA,
     unload: unimplemented_unload,
   }
 }
@@ -225,14 +225,14 @@ fn install_dxe_core_image(hob_list: &HobList) {
   let mut private_image_data = PrivateImageData::new(image_info);
   private_image_data.entry_point = entry_point;
 
-  let image_info_ptr = private_image_data.image_info.as_ref() as *const r_efi::efi::protocols::loaded_image::Protocol;
+  let image_info_ptr = private_image_data.image_info.as_ref() as *const efi::protocols::loaded_image::Protocol;
   let image_info_ptr = image_info_ptr as *mut c_void;
   private_image_data.image_info_ptr = image_info_ptr;
 
   // install the loaded_image protocol on a new handle.
   let handle = match core_install_protocol_interface(
     Some(DXE_CORE_HANDLE),
-    r_efi::efi::protocols::loaded_image::PROTOCOL_GUID,
+    efi::protocols::loaded_image::PROTOCOL_GUID,
     image_info_ptr,
   ) {
     Err(err) => panic!("Failed to install dxe_rust core image handle: {:?}", err),
@@ -250,23 +250,21 @@ fn install_dxe_core_image(hob_list: &HobList) {
 // associated PrivateImageData structures.
 fn core_load_pe_image(
   image: &[u8],
-  mut image_info: r_efi::efi::protocols::loaded_image::Protocol,
-) -> Result<PrivateImageData, r_efi::efi::Status> {
+  mut image_info: efi::protocols::loaded_image::Protocol,
+) -> Result<PrivateImageData, efi::Status> {
   // parse and validate the header and retrieve the image data from it.
-  let pe_info = uefi_pe32_lib::pe32_get_image_info(image).map_err(|_| r_efi::efi::Status::UNSUPPORTED)?;
+  let pe_info = uefi_pe32_lib::pe32_get_image_info(image).map_err(|_| efi::Status::UNSUPPORTED)?;
 
   // based on the image type, determine the correct allocator and code/data types.
   let (allocator, code_type, data_type) = match pe_info.image_type {
-    EFI_IMAGE_SUBSYSTEM_EFI_APPLICATION => {
-      (&EFI_LOADER_CODE_ALLOCATOR, r_efi::efi::LOADER_CODE, r_efi::efi::LOADER_DATA)
-    }
+    EFI_IMAGE_SUBSYSTEM_EFI_APPLICATION => (&EFI_LOADER_CODE_ALLOCATOR, efi::LOADER_CODE, efi::LOADER_DATA),
     EFI_IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER => {
-      (&EFI_BOOT_SERVICES_CODE_ALLOCATOR, r_efi::efi::BOOT_SERVICES_CODE, r_efi::efi::BOOT_SERVICES_DATA)
+      (&EFI_BOOT_SERVICES_CODE_ALLOCATOR, efi::BOOT_SERVICES_CODE, efi::BOOT_SERVICES_DATA)
     }
     EFI_IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER => {
-      (&EFI_RUNTIME_SERVICES_CODE_ALLOCATOR, r_efi::efi::RUNTIME_SERVICES_CODE, r_efi::efi::RUNTIME_SERVICES_DATA)
+      (&EFI_RUNTIME_SERVICES_CODE_ALLOCATOR, efi::RUNTIME_SERVICES_CODE, efi::RUNTIME_SERVICES_DATA)
     }
-    _ => return Err(r_efi::efi::Status::UNSUPPORTED),
+    _ => return Err(efi::Status::UNSUPPORTED),
   };
 
   let alignment = pe_info.section_alignment as usize;
@@ -285,16 +283,16 @@ fn core_load_pe_image(
   let loaded_image = &mut private_info.image_buffer;
 
   //load the image into the new loaded image buffer
-  uefi_pe32_lib::pe32_load_image(image, loaded_image).map_err(|_| r_efi::efi::Status::LOAD_ERROR)?;
+  uefi_pe32_lib::pe32_load_image(image, loaded_image).map_err(|_| efi::Status::LOAD_ERROR)?;
 
   //relocate the image to the address at which it was loaded.
   let loaded_image_addr = private_info.image_info.image_base as usize;
-  uefi_pe32_lib::pe32_relocate_image(loaded_image_addr, loaded_image).map_err(|_| r_efi::efi::Status::LOAD_ERROR)?;
+  uefi_pe32_lib::pe32_relocate_image(loaded_image_addr, loaded_image).map_err(|_| efi::Status::LOAD_ERROR)?;
 
   // update the entry point. Transmute is required here to cast the raw function address to the ImageEntryPoint function pointer type.
   private_info.entry_point = unsafe { transmute(loaded_image_addr + pe_info.entry_point_offset) };
 
-  let result = uefi_pe32_lib::pe32_load_resource_section(image).map_err(|_| r_efi::efi::Status::LOAD_ERROR)?;
+  let result = uefi_pe32_lib::pe32_load_resource_section(image).map_err(|_| efi::Status::LOAD_ERROR)?;
 
   if let Some((resource_section_offset, resource_section_size)) = result {
     private_info.allocate_resource_section(resource_section_size, alignment, &allocator);
@@ -316,14 +314,14 @@ fn core_load_pe_image(
 /// One of `device_path` or `image` must be specified.
 /// returns the image handle of the freshly loaded image.
 pub fn core_load_image(
-  parent_image_handle: r_efi::efi::Handle,
-  device_path: *mut r_efi::efi::protocols::device_path::Protocol,
+  parent_image_handle: efi::Handle,
+  device_path: *mut efi::protocols::device_path::Protocol,
   image: Option<&[u8]>,
-) -> Result<r_efi::efi::Handle, r_efi::efi::Status> {
+) -> Result<efi::Handle, efi::Status> {
   PROTOCOL_DB.validate_handle(parent_image_handle)?;
 
   if image.is_none() && device_path.is_null() {
-    return Err(r_efi::efi::Status::INVALID_PARAMETER);
+    return Err(efi::Status::INVALID_PARAMETER);
   }
 
   //TODO: we only support loading from a slice for now. device path support
@@ -349,7 +347,7 @@ pub fn core_load_image(
 
   let mut private_info = core_load_pe_image(image, image_info)?;
 
-  let image_info_ptr = private_info.image_info.as_ref() as *const r_efi::efi::protocols::loaded_image::Protocol;
+  let image_info_ptr = private_info.image_info.as_ref() as *const efi::protocols::loaded_image::Protocol;
   let image_info_ptr = image_info_ptr as *mut c_void;
 
   println!(
@@ -361,8 +359,7 @@ pub fn core_load_image(
 
   // install the loaded_image protocol for this freshly loaded image on a new
   // handle.
-  let handle =
-    core_install_protocol_interface(None, r_efi::efi::protocols::loaded_image::PROTOCOL_GUID, image_info_ptr)?;
+  let handle = core_install_protocol_interface(None, efi::protocols::loaded_image::PROTOCOL_GUID, image_info_ptr)?;
 
   // install the loaded_image device path protocol for the new image. If input device path is not null, then make a
   // permanent copy on the heap.
@@ -375,14 +372,14 @@ pub fn core_load_image(
 
   core_install_protocol_interface(
     Some(handle),
-    r_efi::efi::protocols::loaded_image_device_path::PROTOCOL_GUID,
+    efi::protocols::loaded_image_device_path::PROTOCOL_GUID,
     loaded_image_device_path as *mut c_void,
   )?;
 
   if let Some(res_section) = &private_info.hii_resource_section {
     core_install_protocol_interface(
       Some(handle),
-      r_efi::efi::protocols::hii_package_list::PROTOCOL_GUID,
+      efi::protocols::hii_package_list::PROTOCOL_GUID,
       res_section.as_ref().as_ptr() as *mut c_void,
     )?;
   }
@@ -413,15 +410,15 @@ pub fn core_load_image(
 //  * image_handle - pointer to the returned image handle that is created on
 //                   successful image load.
 extern "efiapi" fn load_image(
-  _boot_policy: r_efi::efi::Boolean,
-  parent_image_handle: r_efi::efi::Handle,
-  device_path: *mut r_efi::efi::protocols::device_path::Protocol,
+  _boot_policy: efi::Boolean,
+  parent_image_handle: efi::Handle,
+  device_path: *mut efi::protocols::device_path::Protocol,
   source_buffer: *mut c_void,
   source_size: usize,
-  image_handle: *mut r_efi::efi::Handle,
-) -> r_efi::efi::Status {
+  image_handle: *mut efi::Handle,
+) -> efi::Status {
   if image_handle.is_null() {
-    return r_efi::efi::Status::INVALID_PARAMETER;
+    return efi::Status::INVALID_PARAMETER;
   }
 
   let image = if source_buffer.is_null() {
@@ -435,7 +432,7 @@ extern "efiapi" fn load_image(
     Ok(handle) => unsafe { image_handle.write(handle) },
   }
 
-  r_efi::efi::Status::SUCCESS
+  efi::Status::SUCCESS
 }
 
 // Transfers control to the entry point of an image that was loaded by
@@ -446,10 +443,10 @@ extern "efiapi" fn load_image(
 //                    if exit_data is null, this is parameter is ignored.
 // * exit_data - pointer to receive a data buffer with exit data, if any.
 extern "efiapi" fn start_image(
-  image_handle: r_efi::efi::Handle,
+  image_handle: efi::Handle,
   exit_data_size: *mut usize,
-  exit_data: *mut *mut r_efi::efi::Char16,
-) -> r_efi::efi::Status {
+  exit_data: *mut *mut efi::Char16,
+) -> efi::Status {
   let status = core_start_image(image_handle);
 
   // retrieve any exit data that was provided by the entry point.
@@ -465,14 +462,14 @@ extern "efiapi" fn start_image(
   }
 
   let image_type = PRIVATE_IMAGE_DATA.lock().private_image_data.get(&image_handle).unwrap().image_type;
-  if status != r_efi::efi::Status::SUCCESS || image_type == EFI_IMAGE_SUBSYSTEM_EFI_APPLICATION {
+  if status != efi::Status::SUCCESS || image_type == EFI_IMAGE_SUBSYSTEM_EFI_APPLICATION {
     let _result = core_unload_image(image_handle, true);
   }
 
   status
 }
 
-pub fn core_start_image(image_handle: r_efi::efi::Handle) -> r_efi::efi::Status {
+pub fn core_start_image(image_handle: efi::Handle) -> efi::Status {
   // allocate a buffer for the entry point stack.
   let stack = ImageStack::new(ENTRY_POINT_STACK_SIZE);
 
@@ -537,11 +534,11 @@ pub fn core_start_image(image_handle: r_efi::efi::Handle) -> r_efi::efi::Status 
   status
 }
 
-pub fn core_unload_image(image_handle: r_efi::efi::Handle, force_unload: bool) -> r_efi::efi::Status {
+pub fn core_unload_image(image_handle: efi::Handle, force_unload: bool) -> efi::Status {
   let mut private_data = PRIVATE_IMAGE_DATA.lock();
   let private_image_data = match private_data.private_image_data.get(&image_handle) {
     Some(data) => data,
-    None => return r_efi::efi::Status::INVALID_PARAMETER,
+    None => return efi::Status::INVALID_PARAMETER,
   };
 
   // if the image has been started, request that it unload, and don't unload it if
@@ -556,12 +553,12 @@ pub fn core_unload_image(image_handle: r_efi::efi::Handle, force_unload: bool) -
       #[allow(unused_unsafe)]
       unsafe {
         let status = (private_image_data.image_info.unload)(image_handle);
-        if status != r_efi::efi::Status::SUCCESS {
+        if status != efi::Status::SUCCESS {
           return status;
         }
       }
     } else if !force_unload {
-      return r_efi::efi::Status::UNSUPPORTED;
+      return efi::Status::UNSUPPORTED;
     }
   }
 
@@ -597,7 +594,7 @@ pub fn core_unload_image(image_handle: r_efi::efi::Handle, force_unload: bool) -
   // remove the image and device path protocols from the image handle.
   if let Err(err) = PROTOCOL_DB.uninstall_protocol_interface(
     image_handle,
-    r_efi::efi::protocols::loaded_image::PROTOCOL_GUID,
+    efi::protocols::loaded_image::PROTOCOL_GUID,
     private_image_data.image_info_ptr,
   ) {
     return err;
@@ -605,16 +602,16 @@ pub fn core_unload_image(image_handle: r_efi::efi::Handle, force_unload: bool) -
 
   if let Err(err) = PROTOCOL_DB.uninstall_protocol_interface(
     image_handle,
-    r_efi::efi::protocols::loaded_image_device_path::PROTOCOL_GUID,
+    efi::protocols::loaded_image_device_path::PROTOCOL_GUID,
     private_image_data.image_device_path_ptr,
   ) {
     return err;
   }
 
-  r_efi::efi::Status::SUCCESS
+  efi::Status::SUCCESS
 }
 
-extern "efiapi" fn unload_image(image_handle: r_efi::efi::Handle) -> r_efi::efi::Status {
+extern "efiapi" fn unload_image(image_handle: efi::Handle) -> efi::Status {
   core_unload_image(image_handle, false)
 }
 
@@ -626,15 +623,15 @@ extern "efiapi" fn unload_image(image_handle: r_efi::efi::Handle) -> r_efi::efi:
 //                    null.
 // * exit_data - optional buffer of data provided by the caller.
 extern "efiapi" fn exit(
-  image_handle: r_efi::efi::Handle,
-  status: r_efi::efi::Status,
+  image_handle: efi::Handle,
+  status: efi::Status,
   exit_data_size: usize,
-  exit_data: *mut r_efi::efi::Char16,
-) -> r_efi::efi::Status {
+  exit_data: *mut efi::Char16,
+) -> efi::Status {
   // check the currently running image.
   let mut private_data = PRIVATE_IMAGE_DATA.lock();
   if Some(image_handle) != private_data.current_running_image {
-    return r_efi::efi::Status::INVALID_PARAMETER;
+    return efi::Status::INVALID_PARAMETER;
   }
 
   // save the exit data, if present, into the private_image_data for this
@@ -663,14 +660,14 @@ extern "efiapi" fn exit(
   yielder.suspend(status);
 
   //should never reach here, but rust doesn't know that.
-  r_efi::efi::Status::ACCESS_DENIED
+  efi::Status::ACCESS_DENIED
 }
 
 /// Initializes image services for the DXE core.
 pub fn init_image_support(hob_list: &HobList, system_table: &mut EfiSystemTable) {
   // initialize system table entry in private global.
   let mut private_data = PRIVATE_IMAGE_DATA.lock();
-  private_data.system_table = system_table.as_ptr() as *mut r_efi::efi::SystemTable;
+  private_data.system_table = system_table.as_ptr() as *mut efi::SystemTable;
   drop(private_data);
 
   // install the image protocol for the dxe_core.

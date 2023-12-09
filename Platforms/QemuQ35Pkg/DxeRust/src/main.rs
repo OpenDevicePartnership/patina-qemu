@@ -10,12 +10,7 @@ use r_pi::{
   dxe_services::{GcdIoType, GcdMemoryType},
   hob::{self, Hob, HobList, MemoryAllocation, MemoryAllocationModule, PhaseHandoffInformationTable},
 };
-use uefi_protocol_db_lib::{
-  DXE_CORE_HANDLE, EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE, EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE,
-  EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE, EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE, EFI_LOADER_CODE_ALLOCATOR_HANDLE,
-  EFI_LOADER_DATA_ALLOCATOR_HANDLE, EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE,
-  EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE, RESERVED_MEMORY_ALLOCATOR_HANDLE,
-};
+use uefi_protocol_db_lib;
 use uuid::uuid;
 
 use core::{ffi::c_void, ops::Range, panic::PanicInfo, str::FromStr};
@@ -32,14 +27,7 @@ use dxe_rust::{
   systemtables::{init_system_table, SYSTEM_TABLE},
   GCD,
 };
-use r_efi::{
-  efi,
-  system::{
-    BootServices, ACPI_MEMORY_NVS, ACPI_RECLAIM_MEMORY, BOOT_SERVICES_CODE, BOOT_SERVICES_DATA, LOADER_CODE,
-    LOADER_DATA, MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP,
-    RESERVED_MEMORY_TYPE, RUNTIME_SERVICES_CODE, RUNTIME_SERVICES_DATA,
-  },
-};
+use r_efi::efi;
 use uefi_gcd_lib::gcd;
 use x86_64::{
   align_down, align_up,
@@ -99,7 +87,14 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
         GcdMemoryType::SystemMemory,
         free_memory_start as usize,
         free_memory_size as usize,
-        MEMORY_UC | MEMORY_WC | MEMORY_WT | MEMORY_WB | MEMORY_WP | MEMORY_RP | MEMORY_XP | MEMORY_RO,
+        efi::MEMORY_UC
+          | efi::MEMORY_WC
+          | efi::MEMORY_WT
+          | efi::MEMORY_WB
+          | efi::MEMORY_WP
+          | efi::MEMORY_RP
+          | efi::MEMORY_XP
+          | efi::MEMORY_RO,
       )
       .expect("Failed to add initial region to GCD.");
     // Mark the first page of memory as non-existent
@@ -230,16 +225,16 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
       }) => {
         if let Ok(descriptor) = core_get_memory_space_descriptor(desc.memory_base_address) {
           let allocator_handle = match desc.memory_type {
-            RESERVED_MEMORY_TYPE => RESERVED_MEMORY_ALLOCATOR_HANDLE,
-            LOADER_CODE => EFI_LOADER_CODE_ALLOCATOR_HANDLE,
-            LOADER_DATA => EFI_LOADER_DATA_ALLOCATOR_HANDLE,
-            BOOT_SERVICES_CODE => EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE,
-            BOOT_SERVICES_DATA => EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE,
-            RUNTIME_SERVICES_CODE => EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE,
-            RUNTIME_SERVICES_DATA => EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE,
-            ACPI_RECLAIM_MEMORY => EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE,
-            ACPI_MEMORY_NVS => EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE,
-            _ => DXE_CORE_HANDLE,
+            efi::RESERVED_MEMORY_TYPE => uefi_protocol_db_lib::RESERVED_MEMORY_ALLOCATOR_HANDLE,
+            efi::LOADER_CODE => uefi_protocol_db_lib::EFI_LOADER_CODE_ALLOCATOR_HANDLE,
+            efi::LOADER_DATA => uefi_protocol_db_lib::EFI_LOADER_DATA_ALLOCATOR_HANDLE,
+            efi::BOOT_SERVICES_CODE => uefi_protocol_db_lib::EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE,
+            efi::BOOT_SERVICES_DATA => uefi_protocol_db_lib::EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE,
+            efi::RUNTIME_SERVICES_CODE => uefi_protocol_db_lib::EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE,
+            efi::RUNTIME_SERVICES_DATA => uefi_protocol_db_lib::EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE,
+            efi::ACPI_RECLAIM_MEMORY => uefi_protocol_db_lib::EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE,
+            efi::ACPI_MEMORY_NVS => uefi_protocol_db_lib::EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE,
+            _ => uefi_protocol_db_lib::DXE_CORE_HANDLE,
           };
           let result = GCD.allocate_memory_space(
             gcd::AllocateType::Address(desc.memory_base_address as usize),
@@ -273,7 +268,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
           GcdMemoryType::MemoryMappedIo,
           0,
           *length as usize,
-          EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE,
+          uefi_protocol_db_lib::EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE,
           None,
         );
         if let Err(_) = result {
@@ -319,7 +314,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
   }
 
   let mut st = SYSTEM_TABLE.lock();
-  let bs = st.as_mut().unwrap().boot_services() as *mut BootServices;
+  let bs = st.as_mut().unwrap().boot_services() as *mut efi::BootServices;
   drop(st);
   tpl_lock::init_boot_services(bs);
 

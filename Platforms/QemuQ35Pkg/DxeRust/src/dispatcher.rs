@@ -1,7 +1,7 @@
 use core::ffi::c_void;
 
 use alloc::{collections::BTreeSet, vec::Vec};
-use r_efi::{efi, protocols};
+use r_efi::efi;
 use r_pi::fw_fs::{ffs, FfsFileRawType, FfsSectionType, FirmwareVolume, FirmwareVolumeBlockProtocol};
 use serial_print_dxe::println;
 use tpl_lock::TplMutex;
@@ -44,7 +44,7 @@ const ALL_ARCH_DEPEX: &[Opcode] = &[
 
 struct PendingDriver {
   file: ffs::File,
-  device_path: *mut protocols::device_path::Protocol,
+  device_path: *mut efi::protocols::device_path::Protocol,
   depex: Option<Depex>,
 }
 

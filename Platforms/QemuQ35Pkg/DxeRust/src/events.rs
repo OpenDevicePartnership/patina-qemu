@@ -6,50 +6,43 @@ use core::{
 
 use alloc::vec;
 
-use r_efi::system::{BootServices, EVT_NOTIFY_SIGNAL, TPL_APPLICATION, TPL_CALLBACK, TPL_HIGH_LEVEL};
+use r_efi::efi;
 
-use r_pi::{
-  cpu_arch,
-  timer::{TimerArchProtocol, TIMER_ARCH_PROTOCOL_GUID},
-};
+use r_pi::{cpu_arch, timer};
 use uefi_event_lib::{SpinLockedEventDb, TimerDelay};
 
 use crate::protocols::PROTOCOL_DB;
 
 pub static EVENT_DB: SpinLockedEventDb = SpinLockedEventDb::new();
 
-static CURRENT_TPL: AtomicUsize = AtomicUsize::new(TPL_APPLICATION);
+static CURRENT_TPL: AtomicUsize = AtomicUsize::new(efi::TPL_APPLICATION);
 static SYSTEM_TIME: AtomicU64 = AtomicU64::new(0);
 static CPU_ARCH_PTR: AtomicPtr<cpu_arch::Protocol> = AtomicPtr::new(core::ptr::null_mut());
 static EVENT_NOTIFIES_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
 extern "efiapi" fn create_event(
   event_type: u32,
-  notify_tpl: r_efi::efi::Tpl,
-  notify_function: Option<r_efi::system::EventNotify>,
+  notify_tpl: efi::Tpl,
+  notify_function: Option<efi::EventNotify>,
   notify_context: *mut c_void,
-  event: *mut r_efi::efi::Event,
-) -> r_efi::efi::Status {
+  event: *mut efi::Event,
+) -> efi::Status {
   if event.is_null() {
-    return r_efi::efi::Status::INVALID_PARAMETER;
+    return efi::Status::INVALID_PARAMETER;
   }
 
   let notify_context = if !notify_context.is_null() { Some(notify_context) } else { None };
 
   let (event_type, event_group) = match event_type {
-    r_efi::efi::EVT_SIGNAL_EXIT_BOOT_SERVICES => {
-      (r_efi::efi::EVT_NOTIFY_SIGNAL, Some(r_efi::efi::EVENT_GROUP_EXIT_BOOT_SERVICES))
-    }
-    r_efi::efi::EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE => {
-      (r_efi::efi::EVT_NOTIFY_SIGNAL, Some(r_efi::efi::EVENT_GROUP_VIRTUAL_ADDRESS_CHANGE))
-    }
+    efi::EVT_SIGNAL_EXIT_BOOT_SERVICES => (efi::EVT_NOTIFY_SIGNAL, Some(efi::EVENT_GROUP_EXIT_BOOT_SERVICES)),
+    efi::EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE => (efi::EVT_NOTIFY_SIGNAL, Some(efi::EVENT_GROUP_VIRTUAL_ADDRESS_CHANGE)),
     other => (other, None),
   };
 
   match EVENT_DB.create_event(event_type, notify_tpl, notify_function, notify_context, event_group) {
     Ok(new_event) => {
       unsafe { *event = new_event };
-      r_efi::efi::Status::SUCCESS
+      efi::Status::SUCCESS
     }
     Err(err) => err,
   }
@@ -57,21 +50,21 @@ extern "efiapi" fn create_event(
 
 extern "efiapi" fn create_event_ex(
   event_type: u32,
-  notify_tpl: r_efi::efi::Tpl,
-  notify_function: Option<r_efi::system::EventNotify>,
+  notify_tpl: efi::Tpl,
+  notify_function: Option<efi::EventNotify>,
   notify_context: *const c_void,
-  event_group: *const r_efi::efi::Guid,
-  event: *mut r_efi::efi::Event,
-) -> r_efi::efi::Status {
+  event_group: *const efi::Guid,
+  event: *mut efi::Event,
+) -> efi::Status {
   if event.is_null() {
-    return r_efi::efi::Status::INVALID_PARAMETER;
+    return efi::Status::INVALID_PARAMETER;
   }
 
   let notify_context = if !notify_context.is_null() { Some(notify_context as *mut c_void) } else { None };
 
   match event_type {
-    r_efi::efi::EVT_SIGNAL_EXIT_BOOT_SERVICES | r_efi::efi::EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE => {
-      return r_efi::efi::Status::INVALID_PARAMETER
+    efi::EVT_SIGNAL_EXIT_BOOT_SERVICES | efi::EVT_SIGNAL_VIRTUAL_ADDRESS_CHANGE => {
+      return efi::Status::INVALID_PARAMETER
     }
     _ => (),
   }
@@ -81,22 +74,22 @@ extern "efiapi" fn create_event_ex(
   match EVENT_DB.create_event(event_type, notify_tpl, notify_function, notify_context, event_group) {
     Ok(new_event) => {
       unsafe { *event = new_event };
-      r_efi::efi::Status::SUCCESS
+      efi::Status::SUCCESS
     }
     Err(err) => err,
   }
 }
 
-pub extern "efiapi" fn close_event(event: r_efi::efi::Event) -> r_efi::efi::Status {
+pub extern "efiapi" fn close_event(event: efi::Event) -> efi::Status {
   match EVENT_DB.close_event(event) {
-    Ok(()) => r_efi::efi::Status::SUCCESS,
+    Ok(()) => efi::Status::SUCCESS,
     Err(err) => err,
   }
 }
 
-pub extern "efiapi" fn signal_event(event: r_efi::efi::Event) -> r_efi::efi::Status {
+pub extern "efiapi" fn signal_event(event: efi::Event) -> efi::Status {
   let status = match EVENT_DB.signal_event(event) {
-    Ok(()) => r_efi::efi::Status::SUCCESS,
+    Ok(()) => efi::Status::SUCCESS,
     Err(err) => err,
   };
 
@@ -104,7 +97,7 @@ pub extern "efiapi" fn signal_event(event: r_efi::efi::Event) -> r_efi::efi::Sta
   //pending events as a side effect of the locking implementation calling raise/restore
   //TPL. The spec doesn't require this; but it's likely that code out there depends
   //on it. So emulate that here with an artificial raise/restore.
-  let old_tpl = raise_tpl(TPL_HIGH_LEVEL);
+  let old_tpl = raise_tpl(efi::TPL_HIGH_LEVEL);
   restore_tpl(old_tpl);
 
   status
@@ -112,15 +105,15 @@ pub extern "efiapi" fn signal_event(event: r_efi::efi::Event) -> r_efi::efi::Sta
 
 extern "efiapi" fn wait_for_event(
   number_of_events: usize,
-  event_array: *mut r_efi::efi::Event,
+  event_array: *mut efi::Event,
   out_index: *mut usize,
-) -> r_efi::efi::Status {
+) -> efi::Status {
   if number_of_events == 0 || event_array.is_null() || out_index.is_null() {
-    return r_efi::efi::Status::INVALID_PARAMETER;
+    return efi::Status::INVALID_PARAMETER;
   }
 
-  if CURRENT_TPL.load(Ordering::SeqCst) != TPL_APPLICATION {
-    return r_efi::efi::Status::UNSUPPORTED;
+  if CURRENT_TPL.load(Ordering::SeqCst) != efi::TPL_APPLICATION {
+    return efi::Status::UNSUPPORTED;
   }
 
   //get the events list as a slice
@@ -130,7 +123,7 @@ extern "efiapi" fn wait_for_event(
   loop {
     for (index, event) in event_list.iter().enumerate() {
       match check_event(*event) {
-        r_efi::efi::Status::NOT_READY => (),
+        efi::Status::NOT_READY => (),
         status => {
           unsafe { *out_index = index };
           return status;
@@ -140,20 +133,20 @@ extern "efiapi" fn wait_for_event(
   }
 }
 
-pub extern "efiapi" fn check_event(event: r_efi::efi::Event) -> r_efi::efi::Status {
+pub extern "efiapi" fn check_event(event: efi::Event) -> efi::Status {
   let event_type = match EVENT_DB.get_event_type(event) {
     Ok(event_type) => event_type,
     Err(err) => return err,
   };
 
   if event_type.is_notify_signal() {
-    return r_efi::efi::Status::INVALID_PARAMETER;
+    return efi::Status::INVALID_PARAMETER;
   }
 
   match EVENT_DB.read_and_clear_signalled(event) {
     Ok(signalled) => {
       if signalled {
-        return r_efi::efi::Status::SUCCESS;
+        return efi::Status::SUCCESS;
       }
     }
     Err(err) => return err,
@@ -165,26 +158,22 @@ pub extern "efiapi" fn check_event(event: r_efi::efi::Event) -> r_efi::efi::Stat
   }
 
   // raise/restore TPL to allow notifies to occur at the appropriate level.
-  let old_tpl = raise_tpl(TPL_HIGH_LEVEL);
+  let old_tpl = raise_tpl(efi::TPL_HIGH_LEVEL);
   restore_tpl(old_tpl);
 
   match EVENT_DB.read_and_clear_signalled(event) {
     Ok(signalled) => {
       if signalled {
-        return r_efi::efi::Status::SUCCESS;
+        return efi::Status::SUCCESS;
       }
     }
     Err(err) => return err,
   }
 
-  r_efi::efi::Status::NOT_READY
+  efi::Status::NOT_READY
 }
 
-pub extern "efiapi" fn set_timer(
-  event: r_efi::efi::Event,
-  timer_type: r_efi::system::TimerDelay,
-  trigger_time: u64,
-) -> r_efi::efi::Status {
+pub extern "efiapi" fn set_timer(event: efi::Event, timer_type: efi::TimerDelay, trigger_time: u64) -> efi::Status {
   let timer_type = match TimerDelay::try_from(timer_type) {
     Err(err) => return err,
     Ok(timer_type) => timer_type,
@@ -197,13 +186,13 @@ pub extern "efiapi" fn set_timer(
   };
 
   match EVENT_DB.set_timer(event, timer_type, trigger_time, period) {
-    Ok(()) => r_efi::efi::Status::SUCCESS,
+    Ok(()) => efi::Status::SUCCESS,
     Err(err) => err,
   }
 }
 
-pub extern "efiapi" fn raise_tpl(new_tpl: r_efi::efi::Tpl) -> r_efi::efi::Tpl {
-  assert!(new_tpl <= TPL_HIGH_LEVEL, "Invalid attempt to raise TPL above TPL_HIGH_LEVEL");
+pub extern "efiapi" fn raise_tpl(new_tpl: efi::Tpl) -> efi::Tpl {
+  assert!(new_tpl <= efi::TPL_HIGH_LEVEL, "Invalid attempt to raise TPL above TPL_HIGH_LEVEL");
 
   let prev_tpl = CURRENT_TPL.fetch_max(new_tpl, Ordering::SeqCst);
 
@@ -214,13 +203,13 @@ pub extern "efiapi" fn raise_tpl(new_tpl: r_efi::efi::Tpl) -> r_efi::efi::Tpl {
     prev_tpl
   );
 
-  if (new_tpl == TPL_HIGH_LEVEL) && (prev_tpl < TPL_HIGH_LEVEL) {
+  if (new_tpl == efi::TPL_HIGH_LEVEL) && (prev_tpl < efi::TPL_HIGH_LEVEL) {
     set_interrupt_state(false);
   }
   prev_tpl
 }
 
-pub extern "efiapi" fn restore_tpl(new_tpl: r_efi::efi::Tpl) {
+pub extern "efiapi" fn restore_tpl(new_tpl: efi::Tpl) {
   let prev_tpl = CURRENT_TPL.fetch_min(new_tpl, Ordering::SeqCst);
 
   assert!(
@@ -246,7 +235,7 @@ pub extern "efiapi" fn restore_tpl(new_tpl: r_efi::efi::Tpl) {
     };
 
     for event in events {
-      if event.notify_tpl < TPL_HIGH_LEVEL {
+      if event.notify_tpl < efi::TPL_HIGH_LEVEL {
         set_interrupt_state(true);
       } else {
         set_interrupt_state(false);
@@ -267,14 +256,14 @@ pub extern "efiapi" fn restore_tpl(new_tpl: r_efi::efi::Tpl) {
     }
   }
 
-  if new_tpl < TPL_HIGH_LEVEL {
+  if new_tpl < efi::TPL_HIGH_LEVEL {
     set_interrupt_state(true);
   }
   CURRENT_TPL.store(new_tpl, Ordering::SeqCst);
 }
 
 extern "efiapi" fn timer_tick(time: u64) {
-  let old_tpl = raise_tpl(TPL_HIGH_LEVEL);
+  let old_tpl = raise_tpl(efi::TPL_HIGH_LEVEL);
   SYSTEM_TIME.fetch_add(time, Ordering::SeqCst);
   let current_time = SYSTEM_TIME.load(Ordering::SeqCst);
   EVENT_DB.timer_tick(current_time);
@@ -295,10 +284,10 @@ fn set_interrupt_state(enable: bool) {
   }
 }
 
-extern "efiapi" fn timer_available_callback(event: r_efi::efi::Event, _context: *mut c_void) {
-  match PROTOCOL_DB.locate_protocol(TIMER_ARCH_PROTOCOL_GUID) {
+extern "efiapi" fn timer_available_callback(event: efi::Event, _context: *mut c_void) {
+  match PROTOCOL_DB.locate_protocol(timer::TIMER_ARCH_PROTOCOL_GUID) {
     Ok(timer_arch_ptr) => {
-      let timer_arch_ptr = timer_arch_ptr as *mut TimerArchProtocol;
+      let timer_arch_ptr = timer_arch_ptr as *mut timer::TimerArchProtocol;
       let timer_arch = unsafe { &*(timer_arch_ptr) };
       (timer_arch.register_handler)(timer_arch_ptr, timer_tick);
       EVENT_DB.close_event(event).unwrap();
@@ -307,7 +296,7 @@ extern "efiapi" fn timer_available_callback(event: r_efi::efi::Event, _context: 
   }
 }
 
-extern "efiapi" fn cpu_arch_available(event: r_efi::efi::Event, _context: *mut c_void) {
+extern "efiapi" fn cpu_arch_available(event: efi::Event, _context: *mut c_void) {
   match PROTOCOL_DB.locate_protocol(cpu_arch::PROTOCOL) {
     Ok(cpu_arch_ptr) => {
       CPU_ARCH_PTR.store(cpu_arch_ptr as *mut cpu_arch::Protocol, Ordering::SeqCst);
@@ -317,7 +306,7 @@ extern "efiapi" fn cpu_arch_available(event: r_efi::efi::Event, _context: *mut c
   }
 }
 
-pub fn init_events_support(bs: &mut BootServices) {
+pub fn init_events_support(bs: &mut efi::BootServices) {
   bs.create_event = create_event;
   bs.create_event_ex = create_event_ex;
   bs.close_event = close_event;
@@ -330,7 +319,7 @@ pub fn init_events_support(bs: &mut BootServices) {
 
   //set up call back for cpu arch protocol installation.
   let event = EVENT_DB
-    .create_event(EVT_NOTIFY_SIGNAL, TPL_CALLBACK, Some(cpu_arch_available), None, None)
+    .create_event(efi::EVT_NOTIFY_SIGNAL, efi::TPL_CALLBACK, Some(cpu_arch_available), None, None)
     .expect("Failed to create timer available callback.");
 
   PROTOCOL_DB
@@ -339,10 +328,10 @@ pub fn init_events_support(bs: &mut BootServices) {
 
   //set up call back for timer arch protocol installation.
   let event = EVENT_DB
-    .create_event(EVT_NOTIFY_SIGNAL, TPL_CALLBACK, Some(timer_available_callback), None, None)
+    .create_event(efi::EVT_NOTIFY_SIGNAL, efi::TPL_CALLBACK, Some(timer_available_callback), None, None)
     .expect("Failed to create timer available callback.");
 
   PROTOCOL_DB
-    .register_protocol_notify(TIMER_ARCH_PROTOCOL_GUID, event)
+    .register_protocol_notify(timer::TIMER_ARCH_PROTOCOL_GUID, event)
     .expect("Failed to register protocol notify on timer arch callback.");
 }

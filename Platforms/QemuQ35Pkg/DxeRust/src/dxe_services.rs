@@ -7,17 +7,8 @@ use core::{
 };
 use uefi_gcd_lib::gcd;
 
-use r_efi::{
-  efi::{self, Guid, Handle, PhysicalAddress, Status},
-  system::{self, TableHeader, BOOT_SERVICES_REVISION, BOOT_SERVICES_SIGNATURE, EVT_NOTIFY_SIGNAL, TPL_CALLBACK},
-};
-use r_pi::{
-  cpu_arch,
-  dxe_services::{
-    DxeServicesTable, GcdAllocateType, GcdIoType, GcdMemoryType, IoSpaceDescriptor, MemorySpaceDescriptor,
-    DEX_SERVICES_TABLE_GUID,
-  },
-};
+use r_efi::efi;
+use r_pi::{cpu_arch, dxe_services};
 
 use serial_print_dxe::println;
 
@@ -35,58 +26,58 @@ static CPU_ARCH_PTR: AtomicPtr<cpu_arch::Protocol> = AtomicPtr::new(core::ptr::n
 
 fn result_to_efi_status(err: gcd::Error) -> efi::Status {
   match err {
-    uefi_gcd_lib::gcd::Error::AccessDenied => Status::ACCESS_DENIED,
-    uefi_gcd_lib::gcd::Error::InvalidParameter => Status::INVALID_PARAMETER,
-    uefi_gcd_lib::gcd::Error::NotFound => Status::NOT_FOUND,
-    uefi_gcd_lib::gcd::Error::NotInitialized => Status::NOT_READY,
-    uefi_gcd_lib::gcd::Error::OutOfResources => Status::OUT_OF_RESOURCES,
-    uefi_gcd_lib::gcd::Error::Unsupported => Status::UNSUPPORTED,
+    uefi_gcd_lib::gcd::Error::AccessDenied => efi::Status::ACCESS_DENIED,
+    uefi_gcd_lib::gcd::Error::InvalidParameter => efi::Status::INVALID_PARAMETER,
+    uefi_gcd_lib::gcd::Error::NotFound => efi::Status::NOT_FOUND,
+    uefi_gcd_lib::gcd::Error::NotInitialized => efi::Status::NOT_READY,
+    uefi_gcd_lib::gcd::Error::OutOfResources => efi::Status::OUT_OF_RESOURCES,
+    uefi_gcd_lib::gcd::Error::Unsupported => efi::Status::UNSUPPORTED,
   }
 }
 
 extern "efiapi" fn add_memory_space(
-  gcd_memory_type: GcdMemoryType,
-  base_address: PhysicalAddress,
+  gcd_memory_type: dxe_services::GcdMemoryType,
+  base_address: efi::PhysicalAddress,
   length: u64,
   capabilities: u64,
-) -> Status {
+) -> efi::Status {
   let result = unsafe { GCD.add_memory_space(gcd_memory_type, base_address as usize, length as usize, capabilities) };
 
   match result {
-    Ok(_) => Status::SUCCESS,
+    Ok(_) => efi::Status::SUCCESS,
     Err(err) => result_to_efi_status(err),
   }
 }
 
 extern "efiapi" fn allocate_memory_space(
-  gcd_allocate_type: GcdAllocateType,
-  gcd_memory_type: GcdMemoryType,
+  gcd_allocate_type: dxe_services::GcdAllocateType,
+  gcd_memory_type: dxe_services::GcdMemoryType,
   alignment: u32,
   length: u64,
-  base_address: *mut PhysicalAddress,
-  image_handle: Handle,
-  device_handle: Handle,
-) -> Status {
+  base_address: *mut efi::PhysicalAddress,
+  image_handle: efi::Handle,
+  device_handle: efi::Handle,
+) -> efi::Status {
   if base_address.is_null() {
-    return Status::INVALID_PARAMETER;
+    return efi::Status::INVALID_PARAMETER;
   }
 
   let allocate_type = match gcd_allocate_type {
-    GcdAllocateType::Address => {
+    dxe_services::GcdAllocateType::Address => {
       let desired_address = unsafe { *base_address };
       gcd::AllocateType::Address(desired_address as usize)
     }
-    GcdAllocateType::AnySearchBottomUp => gcd::AllocateType::BottomUp(None),
-    GcdAllocateType::AnySearchTopDown => gcd::AllocateType::TopDown(None),
-    GcdAllocateType::MaxAddressSearchBottomUp => {
+    dxe_services::GcdAllocateType::AnySearchBottomUp => gcd::AllocateType::BottomUp(None),
+    dxe_services::GcdAllocateType::AnySearchTopDown => gcd::AllocateType::TopDown(None),
+    dxe_services::GcdAllocateType::MaxAddressSearchBottomUp => {
       let limit = unsafe { *base_address };
       gcd::AllocateType::BottomUp(Some(limit as usize))
     }
-    GcdAllocateType::MaxAddressSearchTopDown => {
+    dxe_services::GcdAllocateType::MaxAddressSearchTopDown => {
       let limit = unsafe { *base_address };
       gcd::AllocateType::TopDown(Some(limit as usize))
     }
-    _ => return Status::INVALID_PARAMETER,
+    _ => return efi::Status::INVALID_PARAMETER,
   };
 
   let result = GCD.allocate_memory_space(
@@ -101,35 +92,35 @@ extern "efiapi" fn allocate_memory_space(
   match result {
     Ok(allocated_addr) => {
       unsafe { base_address.write(allocated_addr as u64) };
-      Status::SUCCESS
+      efi::Status::SUCCESS
     }
     Err(err) => result_to_efi_status(err),
   }
 }
 
-extern "efiapi" fn free_memory_space(base_address: PhysicalAddress, length: u64) -> Status {
+extern "efiapi" fn free_memory_space(base_address: efi::PhysicalAddress, length: u64) -> efi::Status {
   let result = GCD.free_memory_space(base_address as usize, length as usize);
 
   match result {
-    Ok(_) => Status::SUCCESS,
+    Ok(_) => efi::Status::SUCCESS,
     Err(err) => result_to_efi_status(err),
   }
 }
 
-extern "efiapi" fn remove_memory_space(base_address: PhysicalAddress, length: u64) -> Status {
+extern "efiapi" fn remove_memory_space(base_address: efi::PhysicalAddress, length: u64) -> efi::Status {
   let result = GCD.remove_memory_space(base_address as usize, length as usize);
   match result {
-    Ok(_) => Status::SUCCESS,
+    Ok(_) => efi::Status::SUCCESS,
     Err(err) => result_to_efi_status(err),
   }
 }
 
 extern "efiapi" fn get_memory_space_descriptor(
-  base_address: PhysicalAddress,
-  descriptor: *mut MemorySpaceDescriptor,
-) -> Status {
+  base_address: efi::PhysicalAddress,
+  descriptor: *mut dxe_services::MemorySpaceDescriptor,
+) -> efi::Status {
   if descriptor.is_null() {
-    return Status::INVALID_PARAMETER;
+    return efi::Status::INVALID_PARAMETER;
   }
 
   match core_get_memory_space_descriptor(base_address) {
@@ -138,16 +129,19 @@ extern "efiapi" fn get_memory_space_descriptor(
       descriptor.write(target_descriptor);
     },
   }
-  Status::SUCCESS
+  efi::Status::SUCCESS
 }
 
-pub fn core_get_memory_space_descriptor(base_address: PhysicalAddress) -> Result<MemorySpaceDescriptor, efi::Status> {
+pub fn core_get_memory_space_descriptor(
+  base_address: efi::PhysicalAddress,
+) -> Result<dxe_services::MemorySpaceDescriptor, efi::Status> {
   //Note: this would be more efficient if it was done in the GCD; rather than retrieving all the descriptors and
   //searching them here. It is done this way for simplicity - it can be optimized if it proves too slow.
 
   //allocate an empty vector with enough space for all the descriptors with some padding (in the event)
   //that extra descriptors come into being after creation but before usage.
-  let mut descriptors: Vec<MemorySpaceDescriptor> = Vec::with_capacity(GCD.memory_descriptor_count() + 10);
+  let mut descriptors: Vec<dxe_services::MemorySpaceDescriptor> =
+    Vec::with_capacity(GCD.memory_descriptor_count() + 10);
   let result = GCD.get_memory_descriptors(&mut descriptors);
 
   if let Err(err) = result {
@@ -160,11 +154,15 @@ pub fn core_get_memory_space_descriptor(base_address: PhysicalAddress) -> Result
   if let Some(descriptor) = target_descriptor {
     Ok(*descriptor)
   } else {
-    Err(Status::NOT_FOUND)
+    Err(efi::Status::NOT_FOUND)
   }
 }
 
-extern "efiapi" fn set_memory_space_attributes(base_address: PhysicalAddress, length: u64, attributes: u64) -> Status {
+extern "efiapi" fn set_memory_space_attributes(
+  base_address: efi::PhysicalAddress,
+  length: u64,
+  attributes: u64,
+) -> efi::Status {
   let result = GCD.set_memory_space_attributes(base_address as usize, length as usize, attributes);
   if let Err(err) = result {
     return result_to_efi_status(err);
@@ -179,16 +177,16 @@ extern "efiapi" fn set_memory_space_attributes(base_address: PhysicalAddress, le
 }
 
 extern "efiapi" fn set_memory_space_capabilities(
-  base_address: PhysicalAddress,
+  base_address: efi::PhysicalAddress,
   length: u64,
   capabilities: u64,
-) -> Status {
+) -> efi::Status {
   let result = GCD.set_memory_space_capabilities(base_address as usize, length as usize, capabilities);
   if let Err(err) = result {
     return result_to_efi_status(err);
   }
 
-  let result = cpu_set_memory_space_attributes(base_address, length, capabilities & !system::MEMORY_RUNTIME);
+  let result = cpu_set_memory_space_attributes(base_address, length, capabilities & !efi::MEMORY_RUNTIME);
   if let Err(err) = result {
     return err;
   }
@@ -198,15 +196,16 @@ extern "efiapi" fn set_memory_space_capabilities(
 
 extern "efiapi" fn get_memory_space_map(
   number_of_descriptors: *mut usize,
-  memory_space_map: *mut *mut MemorySpaceDescriptor,
-) -> Status {
+  memory_space_map: *mut *mut dxe_services::MemorySpaceDescriptor,
+) -> efi::Status {
   if number_of_descriptors.is_null() || memory_space_map.is_null() {
-    return Status::INVALID_PARAMETER;
+    return efi::Status::INVALID_PARAMETER;
   }
 
   //allocate an empty vector with enough space for all the descriptors with some padding (in the event)
   //that extra descriptors come into being after creation but before usage.
-  let mut descriptors: Vec<MemorySpaceDescriptor> = Vec::with_capacity(GCD.memory_descriptor_count() + 10);
+  let mut descriptors: Vec<dxe_services::MemorySpaceDescriptor> =
+    Vec::with_capacity(GCD.memory_descriptor_count() + 10);
   let result = GCD.get_memory_descriptors(&mut descriptors);
 
   if let Err(err) = result {
@@ -214,55 +213,59 @@ extern "efiapi" fn get_memory_space_map(
   }
 
   //caller is supposed to free the handle buffer using free pool, so we need to allocate it using allocate pool.
-  let buffer_size = descriptors.len() * mem::size_of::<MemorySpaceDescriptor>();
-  match core_allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, buffer_size) {
+  let buffer_size = descriptors.len() * mem::size_of::<dxe_services::MemorySpaceDescriptor>();
+  match core_allocate_pool(efi::BOOT_SERVICES_DATA, buffer_size) {
     Err(err) => err,
     Ok(allocation) => unsafe {
-      memory_space_map.write(allocation as *mut MemorySpaceDescriptor);
+      memory_space_map.write(allocation as *mut dxe_services::MemorySpaceDescriptor);
       number_of_descriptors.write(descriptors.len());
       slice::from_raw_parts_mut(*memory_space_map, descriptors.len()).copy_from_slice(&descriptors);
-      Status::SUCCESS
+      efi::Status::SUCCESS
     },
   }
 }
 
-extern "efiapi" fn add_io_space(gcd_io_type: GcdIoType, base_address: PhysicalAddress, length: u64) -> Status {
+extern "efiapi" fn add_io_space(
+  gcd_io_type: dxe_services::GcdIoType,
+  base_address: efi::PhysicalAddress,
+  length: u64,
+) -> efi::Status {
   let result = GCD.add_io_space(gcd_io_type, base_address as usize, length as usize);
   match result {
-    Ok(_) => Status::SUCCESS,
+    Ok(_) => efi::Status::SUCCESS,
     Err(err) => result_to_efi_status(err),
   }
 }
 
 extern "efiapi" fn allocate_io_space(
-  gcd_allocate_type: GcdAllocateType,
-  gcd_io_type: GcdIoType,
+  gcd_allocate_type: dxe_services::GcdAllocateType,
+  gcd_io_type: dxe_services::GcdIoType,
   alignment: u32,
   length: u64,
-  base_address: *mut PhysicalAddress,
-  image_handle: Handle,
-  device_handle: Handle,
-) -> Status {
+  base_address: *mut efi::PhysicalAddress,
+  image_handle: efi::Handle,
+  device_handle: efi::Handle,
+) -> efi::Status {
   if base_address.is_null() {
-    return Status::INVALID_PARAMETER;
+    return efi::Status::INVALID_PARAMETER;
   }
 
   let allocate_type = match gcd_allocate_type {
-    GcdAllocateType::Address => {
+    dxe_services::GcdAllocateType::Address => {
       let desired_address = unsafe { *base_address };
       gcd::AllocateType::Address(desired_address as usize)
     }
-    GcdAllocateType::AnySearchBottomUp => gcd::AllocateType::BottomUp(None),
-    GcdAllocateType::AnySearchTopDown => gcd::AllocateType::TopDown(None),
-    GcdAllocateType::MaxAddressSearchBottomUp => {
+    dxe_services::GcdAllocateType::AnySearchBottomUp => gcd::AllocateType::BottomUp(None),
+    dxe_services::GcdAllocateType::AnySearchTopDown => gcd::AllocateType::TopDown(None),
+    dxe_services::GcdAllocateType::MaxAddressSearchBottomUp => {
       let limit = unsafe { *base_address };
       gcd::AllocateType::BottomUp(Some(limit as usize))
     }
-    GcdAllocateType::MaxAddressSearchTopDown => {
+    dxe_services::GcdAllocateType::MaxAddressSearchTopDown => {
       let limit = unsafe { *base_address };
       gcd::AllocateType::TopDown(Some(limit as usize))
     }
-    _ => return Status::INVALID_PARAMETER,
+    _ => return efi::Status::INVALID_PARAMETER,
   };
 
   let result = GCD.allocate_io_space(
@@ -277,39 +280,39 @@ extern "efiapi" fn allocate_io_space(
   match result {
     Ok(allocated_addr) => {
       unsafe { base_address.write(allocated_addr as u64) };
-      Status::SUCCESS
+      efi::Status::SUCCESS
     }
     Err(err) => result_to_efi_status(err),
   }
 }
 
-extern "efiapi" fn free_io_space(base_address: PhysicalAddress, length: u64) -> Status {
+extern "efiapi" fn free_io_space(base_address: efi::PhysicalAddress, length: u64) -> efi::Status {
   let result = GCD.free_io_space(base_address as usize, length as usize);
 
   match result {
-    Ok(_) => Status::SUCCESS,
+    Ok(_) => efi::Status::SUCCESS,
     Err(err) => result_to_efi_status(err),
   }
 }
 
-extern "efiapi" fn remove_io_space(base_address: PhysicalAddress, length: u64) -> Status {
+extern "efiapi" fn remove_io_space(base_address: efi::PhysicalAddress, length: u64) -> efi::Status {
   let result = GCD.remove_io_space(base_address as usize, length as usize);
   match result {
-    Ok(_) => Status::SUCCESS,
+    Ok(_) => efi::Status::SUCCESS,
     Err(err) => result_to_efi_status(err),
   }
 }
 
 extern "efiapi" fn get_io_space_descriptor(
-  base_address: PhysicalAddress,
-  descriptor: *mut IoSpaceDescriptor,
-) -> Status {
+  base_address: efi::PhysicalAddress,
+  descriptor: *mut dxe_services::IoSpaceDescriptor,
+) -> efi::Status {
   //Note: this would be more efficient if it was done in the GCD; rather than retrieving all the descriptors and
   //searching them here. It is done this way for simplicity - it can be optimized if it proves too slow.
 
   //allocate an empty vector with enough space for all the descriptors with some padding (in the event)
   //that extra descriptors come into being after creation but before usage.
-  let mut descriptors: Vec<IoSpaceDescriptor> = Vec::with_capacity(GCD.io_descriptor_count() + 10);
+  let mut descriptors: Vec<dxe_services::IoSpaceDescriptor> = Vec::with_capacity(GCD.io_descriptor_count() + 10);
   let result = GCD.get_io_descriptors(&mut descriptors);
 
   if let Err(err) = result {
@@ -321,22 +324,22 @@ extern "efiapi" fn get_io_space_descriptor(
 
   if let Some(target_descriptor) = target_descriptor {
     unsafe { descriptor.write(*target_descriptor) };
-    Status::SUCCESS
+    efi::Status::SUCCESS
   } else {
-    Status::NOT_FOUND
+    efi::Status::NOT_FOUND
   }
 }
 
 extern "efiapi" fn get_io_space_map(
   number_of_descriptors: *mut u32,
-  io_space_map: *mut *mut IoSpaceDescriptor,
-) -> Status {
+  io_space_map: *mut *mut dxe_services::IoSpaceDescriptor,
+) -> efi::Status {
   if number_of_descriptors.is_null() || io_space_map.is_null() {
-    return Status::INVALID_PARAMETER;
+    return efi::Status::INVALID_PARAMETER;
   }
   //allocate an empty vector with enough space for all the descriptors with some padding (in the event)
   //that extra descriptors come into being after creation but before usage.
-  let mut descriptors: Vec<IoSpaceDescriptor> = Vec::with_capacity(GCD.io_descriptor_count() + 10);
+  let mut descriptors: Vec<dxe_services::IoSpaceDescriptor> = Vec::with_capacity(GCD.io_descriptor_count() + 10);
   let result = GCD.get_io_descriptors(&mut descriptors);
 
   if let Err(err) = result {
@@ -344,32 +347,32 @@ extern "efiapi" fn get_io_space_map(
   }
 
   //caller is supposed to free the handle buffer using free pool, so we need to allocate it using allocate pool.
-  let buffer_size = descriptors.len() * mem::size_of::<IoSpaceDescriptor>();
+  let buffer_size = descriptors.len() * mem::size_of::<dxe_services::IoSpaceDescriptor>();
 
-  match core_allocate_pool(r_efi::efi::BOOT_SERVICES_DATA, buffer_size) {
+  match core_allocate_pool(efi::BOOT_SERVICES_DATA, buffer_size) {
     Err(err) => err,
     Ok(allocation) => unsafe {
-      io_space_map.write(allocation as *mut IoSpaceDescriptor);
+      io_space_map.write(allocation as *mut dxe_services::IoSpaceDescriptor);
       number_of_descriptors.write(descriptors.len() as u32);
       slice::from_raw_parts_mut(*io_space_map, descriptors.len()).copy_from_slice(&descriptors);
-      Status::SUCCESS
+      efi::Status::SUCCESS
     },
   }
 }
 
-extern "efiapi" fn dispatch() -> Status {
+extern "efiapi" fn dispatch() -> efi::Status {
   match core_dispatcher() {
     Err(err) => err,
     Ok(()) => efi::Status::SUCCESS,
   }
 }
 
-extern "efiapi" fn schedule(_firmware_volume_handle: Handle, _file_name: *const Guid) -> Status {
+extern "efiapi" fn schedule(_firmware_volume_handle: efi::Handle, _file_name: *const efi::Guid) -> efi::Status {
   todo!();
   //Status::UNSUPPORTED
 }
 
-extern "efiapi" fn trust(_firmware_volume_handle: Handle, _file_name: *const Guid) -> Status {
+extern "efiapi" fn trust(_firmware_volume_handle: efi::Handle, _file_name: *const efi::Guid) -> efi::Status {
   todo!();
   //Status::UNSUPPORTED
 }
@@ -377,8 +380,8 @@ extern "efiapi" fn trust(_firmware_volume_handle: Handle, _file_name: *const Gui
 extern "efiapi" fn process_firmware_volume(
   _firmware_volume_header: *const c_void,
   _size: u32,
-  _firmware_volume_handle: *mut Handle,
-) -> Status {
+  _firmware_volume_handle: *mut efi::Handle,
+) -> efi::Status {
   todo!();
   //Status::UNSUPPORTED
 }
@@ -386,7 +389,7 @@ extern "efiapi" fn process_firmware_volume(
 // This routine passes attribute changes into the CPU architectural protocol so that the CPU attribute states for memory
 // are consistent with the GCD view. If the CPU arch protocol is not available yet, then this routine does nothing.
 fn cpu_set_memory_space_attributes(
-  base_address: PhysicalAddress,
+  base_address: efi::PhysicalAddress,
   length: u64,
   attributes: u64,
 ) -> Result<(), efi::Status> {
@@ -411,7 +414,7 @@ fn cpu_set_memory_space_attributes(
 
 //This call back is invoked when the CPU Architectural protocol is installed. It updates the global atomic CPU_ARCH_PTR
 //to point to the CPU architectural protocol interface.
-extern "efiapi" fn cpu_arch_available(event: r_efi::efi::Event, _context: *mut c_void) {
+extern "efiapi" fn cpu_arch_available(event: efi::Event, _context: *mut c_void) {
   match PROTOCOL_DB.locate_protocol(cpu_arch::PROTOCOL) {
     Ok(cpu_arch_ptr) => {
       CPU_ARCH_PTR.store(cpu_arch_ptr as *mut cpu_arch::Protocol, Ordering::SeqCst);
@@ -422,11 +425,11 @@ extern "efiapi" fn cpu_arch_available(event: r_efi::efi::Event, _context: *mut c
 }
 
 pub fn init_dxe_services(system_table: &mut EfiSystemTable) {
-  let mut dxe_system_table = DxeServicesTable {
-    header: TableHeader {
-      signature: BOOT_SERVICES_SIGNATURE,
-      revision: BOOT_SERVICES_REVISION,
-      header_size: mem::size_of::<DxeServicesTable>() as u32,
+  let mut dxe_system_table = dxe_services::DxeServicesTable {
+    header: efi::TableHeader {
+      signature: efi::BOOT_SERVICES_SIGNATURE,
+      revision: efi::BOOT_SERVICES_REVISION,
+      header_size: mem::size_of::<dxe_services::DxeServicesTable>() as u32,
       crc32: 0,
       reserved: 0,
     },
@@ -449,22 +452,23 @@ pub fn init_dxe_services(system_table: &mut EfiSystemTable) {
     process_firmware_volume,
     set_memory_space_capabilities,
   };
-  let dxe_system_table_ptr = &dxe_system_table as *const DxeServicesTable;
-  let crc32 =
-    unsafe { crc32fast::hash(from_raw_parts(dxe_system_table_ptr as *const u8, mem::size_of::<DxeServicesTable>())) };
+  let dxe_system_table_ptr = &dxe_system_table as *const dxe_services::DxeServicesTable;
+  let crc32 = unsafe {
+    crc32fast::hash(from_raw_parts(dxe_system_table_ptr as *const u8, mem::size_of::<dxe_services::DxeServicesTable>()))
+  };
   dxe_system_table.header.crc32 = crc32;
 
   let dxe_system_table = Box::new_in(dxe_system_table, &EFI_RUNTIME_SERVICES_DATA_ALLOCATOR);
 
   let _ = misc_boot_services::core_install_configuration_table(
-    DEX_SERVICES_TABLE_GUID,
+    dxe_services::DEX_SERVICES_TABLE_GUID,
     unsafe { (Box::into_raw(dxe_system_table) as *mut c_void).as_mut() },
     system_table,
   );
 
   //set up call back for cpu arch protocol installation.
   let event = EVENT_DB
-    .create_event(EVT_NOTIFY_SIGNAL, TPL_CALLBACK, Some(cpu_arch_available), None, None)
+    .create_event(efi::EVT_NOTIFY_SIGNAL, efi::TPL_CALLBACK, Some(cpu_arch_available), None, None)
     .expect("Failed to create timer available callback.");
 
   PROTOCOL_DB
