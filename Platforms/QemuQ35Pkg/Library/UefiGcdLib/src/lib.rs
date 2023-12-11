@@ -13,7 +13,7 @@
 //!```
 //! # extern crate std;
 //! # extern crate alloc;
-//! use r_pi::dxe_services::GcdMemoryType;
+//! use r_pi::dxe_services;
 //! use uefi_gcd_lib::gcd::{AllocateType, SpinLockedGcd};
 //! # const MEMORY_BLOCK_SLICE_SIZE:usize = 4096*4096;
 //! # unsafe fn get_memory(size: usize) -> &'static mut [u8] {
@@ -31,16 +31,16 @@
 //! /* base_address is *mut u8 pointing to memory space to add */
 //! /* memory_space_size is the size of the memory space to add */
 //! unsafe {
-//!   GCD.add_memory_space(GcdMemoryType::SystemMemory, base_address, MEMORY_BLOCK_SLICE_SIZE, 0).unwrap();
+//!   GCD.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, base_address, MEMORY_BLOCK_SLICE_SIZE, 0).unwrap();
 //! }
 //!
 //! let allocation_addr = GCD.allocate_memory_space(
-//!   AllocateType::BottomUp(None), //allocate_type
-//!   GcdMemoryType::SystemMemory,  //memory_type
-//!   0,                            //alignment
-//!   10,                           //size
-//!   1 as _,                       //Image Handle (fake)
-//!   None                          //Device Handle
+//!   AllocateType::BottomUp(None),               //allocate_type
+//!   dxe_services::GcdMemoryType::SystemMemory,  //memory_type
+//!   0,                                          //alignment
+//!   10,                                         //size
+//!   1 as _,                                     //Image Handle (fake)
+//!   None                                        //Device Handle
 //! ).unwrap();
 //!
 //! assert!(base_address <= (allocation_addr as usize));

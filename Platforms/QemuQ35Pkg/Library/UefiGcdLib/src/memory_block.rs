@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
-use r_efi::efi::Handle;
-use r_pi::dxe_services::{GcdMemoryType, MemorySpaceDescriptor};
+use r_efi::efi;
+use r_pi::dxe_services;
 
 use crate::error;
 
@@ -13,15 +13,15 @@ pub enum Error {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MemoryBlock {
-  Unallocated(MemorySpaceDescriptor),
-  Allocated(MemorySpaceDescriptor),
+  Unallocated(dxe_services::MemorySpaceDescriptor),
+  Allocated(dxe_services::MemorySpaceDescriptor),
 }
 
 #[derive(Debug)]
 pub enum StateTransition {
-  Add(GcdMemoryType, u64),
+  Add(dxe_services::GcdMemoryType, u64),
   Remove,
-  Allocate(Handle, Option<Handle>),
+  Allocate(efi::Handle, Option<efi::Handle>),
   Free,
   SetAttributes(u64),
   SetCapabilities(u64),
@@ -154,10 +154,11 @@ impl MemoryBlock {
     }
   }
 
-  pub fn add_transition(&mut self, memory_type: GcdMemoryType, capabilities: u64) -> Result<(), Error> {
+  pub fn add_transition(&mut self, memory_type: dxe_services::GcdMemoryType, capabilities: u64) -> Result<(), Error> {
     match self {
       Self::Unallocated(md)
-        if md.memory_type == GcdMemoryType::NonExistent && memory_type != GcdMemoryType::NonExistent =>
+        if md.memory_type == dxe_services::GcdMemoryType::NonExistent
+          && memory_type != dxe_services::GcdMemoryType::NonExistent =>
       {
         md.memory_type = memory_type;
         md.capabilities = capabilities;
@@ -169,8 +170,8 @@ impl MemoryBlock {
 
   pub fn remove_transition(&mut self) -> Result<(), Error> {
     match self {
-      Self::Unallocated(md) if md.memory_type != GcdMemoryType::NonExistent => {
-        md.memory_type = GcdMemoryType::NonExistent;
+      Self::Unallocated(md) if md.memory_type != dxe_services::GcdMemoryType::NonExistent => {
+        md.memory_type = dxe_services::GcdMemoryType::NonExistent;
         md.capabilities = 0;
         Ok(())
       }
@@ -178,9 +179,18 @@ impl MemoryBlock {
     }
   }
 
-  pub fn allocate_transition(&mut self, image_handle: Handle, device_handle: Option<Handle>) -> Result<(), Error> {
+  pub fn allocate_transition(
+    &mut self,
+    image_handle: efi::Handle,
+    device_handle: Option<efi::Handle>,
+  ) -> Result<(), Error> {
     match self {
-      Self::Unallocated(md) if !matches!(md.memory_type, GcdMemoryType::NonExistent | GcdMemoryType::Unaccepted) => {
+      Self::Unallocated(md)
+        if !matches!(
+          md.memory_type,
+          dxe_services::GcdMemoryType::NonExistent | dxe_services::GcdMemoryType::Unaccepted
+        ) =>
+      {
         md.image_handle = image_handle;
         if let Some(device_handle) = device_handle {
           md.device_handle = device_handle;
@@ -194,9 +204,9 @@ impl MemoryBlock {
 
   pub fn free_transition(&mut self) -> Result<(), Error> {
     match self {
-      Self::Allocated(md) if md.memory_type != GcdMemoryType::NonExistent => {
-        md.image_handle = 0 as Handle;
-        md.device_handle = 0 as Handle;
+      Self::Allocated(md) if md.memory_type != dxe_services::GcdMemoryType::NonExistent => {
+        md.image_handle = 0 as efi::Handle;
+        md.device_handle = 0 as efi::Handle;
         *self = Self::Unallocated(*md);
         Ok(())
       }
@@ -206,7 +216,7 @@ impl MemoryBlock {
 
   pub fn attribute_transition(&mut self, attributes: u64) -> Result<(), Error> {
     match self {
-      Self::Allocated(md) | Self::Unallocated(md) if md.memory_type != GcdMemoryType::NonExistent => {
+      Self::Allocated(md) | Self::Unallocated(md) if md.memory_type != dxe_services::GcdMemoryType::NonExistent => {
         if (md.capabilities | attributes) != md.capabilities {
           Err(Error::InvalidStateTransition)
         } else {
@@ -220,7 +230,7 @@ impl MemoryBlock {
 
   pub fn capabilities_transition(&mut self, capabilities: u64) -> Result<(), Error> {
     match self {
-      Self::Allocated(md) | Self::Unallocated(md) if md.memory_type != GcdMemoryType::NonExistent => {
+      Self::Allocated(md) | Self::Unallocated(md) if md.memory_type != dxe_services::GcdMemoryType::NonExistent => {
         if (capabilities | md.attributes) != capabilities {
           Err(Error::InvalidStateTransition)
         } else {
@@ -249,16 +259,16 @@ impl MemoryBlock {
   }
 }
 
-impl AsRef<MemorySpaceDescriptor> for MemoryBlock {
-  fn as_ref(&self) -> &MemorySpaceDescriptor {
+impl AsRef<dxe_services::MemorySpaceDescriptor> for MemoryBlock {
+  fn as_ref(&self) -> &dxe_services::MemorySpaceDescriptor {
     match self {
       MemoryBlock::Unallocated(msd) | MemoryBlock::Allocated(msd) => msd,
     }
   }
 }
 
-impl AsMut<MemorySpaceDescriptor> for MemoryBlock {
-  fn as_mut(&mut self) -> &mut MemorySpaceDescriptor {
+impl AsMut<dxe_services::MemorySpaceDescriptor> for MemoryBlock {
+  fn as_mut(&mut self) -> &mut dxe_services::MemorySpaceDescriptor {
     match self {
       MemoryBlock::Unallocated(msd) | MemoryBlock::Allocated(msd) => msd,
     }

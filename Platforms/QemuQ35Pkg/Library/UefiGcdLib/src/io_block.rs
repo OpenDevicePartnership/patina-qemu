@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
-use r_efi::efi::Handle;
-use r_pi::dxe_services::{GcdIoType, IoSpaceDescriptor};
+use r_efi::efi;
+use r_pi::dxe_services;
 
 use crate::error;
 
@@ -13,15 +13,15 @@ pub enum Error {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IoBlock {
-  Unallocated(IoSpaceDescriptor),
-  Allocated(IoSpaceDescriptor),
+  Unallocated(dxe_services::IoSpaceDescriptor),
+  Allocated(dxe_services::IoSpaceDescriptor),
 }
 
 #[derive(Debug)]
 pub enum StateTransition {
-  Add(GcdIoType),
+  Add(dxe_services::GcdIoType),
   Remove,
-  Allocate(Handle, Option<Handle>),
+  Allocate(efi::Handle, Option<efi::Handle>),
   Free,
 }
 
@@ -148,9 +148,11 @@ impl IoBlock {
     }
   }
 
-  pub fn add_transition(&mut self, io_type: GcdIoType) -> Result<(), Error> {
+  pub fn add_transition(&mut self, io_type: dxe_services::GcdIoType) -> Result<(), Error> {
     match self {
-      Self::Unallocated(id) if id.io_type == GcdIoType::NonExistent && io_type != GcdIoType::NonExistent => {
+      Self::Unallocated(id)
+        if id.io_type == dxe_services::GcdIoType::NonExistent && io_type != dxe_services::GcdIoType::NonExistent =>
+      {
         id.io_type = io_type;
         Ok(())
       }
@@ -160,17 +162,21 @@ impl IoBlock {
 
   pub fn remove_transition(&mut self) -> Result<(), Error> {
     match self {
-      Self::Unallocated(id) if id.io_type != GcdIoType::NonExistent => {
-        id.io_type = GcdIoType::NonExistent;
+      Self::Unallocated(id) if id.io_type != dxe_services::GcdIoType::NonExistent => {
+        id.io_type = dxe_services::GcdIoType::NonExistent;
         Ok(())
       }
       _ => Err(Error::InvalidStateTransition),
     }
   }
 
-  pub fn allocate_transition(&mut self, image_handle: Handle, device_handle: Option<Handle>) -> Result<(), Error> {
+  pub fn allocate_transition(
+    &mut self,
+    image_handle: efi::Handle,
+    device_handle: Option<efi::Handle>,
+  ) -> Result<(), Error> {
     match self {
-      Self::Unallocated(id) if id.io_type != GcdIoType::NonExistent => {
+      Self::Unallocated(id) if id.io_type != dxe_services::GcdIoType::NonExistent => {
         id.image_handle = image_handle;
         if let Some(device_handle) = device_handle {
           id.device_handle = device_handle;
@@ -184,9 +190,9 @@ impl IoBlock {
 
   pub fn free_transition(&mut self) -> Result<(), Error> {
     match self {
-      Self::Allocated(id) if id.io_type != GcdIoType::NonExistent => {
-        id.image_handle = 0 as Handle;
-        id.device_handle = 0 as Handle;
+      Self::Allocated(id) if id.io_type != dxe_services::GcdIoType::NonExistent => {
+        id.image_handle = 0 as efi::Handle;
+        id.device_handle = 0 as efi::Handle;
         *self = Self::Unallocated(*id);
         Ok(())
       }
@@ -210,16 +216,16 @@ impl IoBlock {
   }
 }
 
-impl AsRef<IoSpaceDescriptor> for IoBlock {
-  fn as_ref(&self) -> &IoSpaceDescriptor {
+impl AsRef<dxe_services::IoSpaceDescriptor> for IoBlock {
+  fn as_ref(&self) -> &dxe_services::IoSpaceDescriptor {
     match self {
       IoBlock::Unallocated(msd) | IoBlock::Allocated(msd) => msd,
     }
   }
 }
 
-impl AsMut<IoSpaceDescriptor> for IoBlock {
-  fn as_mut(&mut self) -> &mut IoSpaceDescriptor {
+impl AsMut<dxe_services::IoSpaceDescriptor> for IoBlock {
+  fn as_mut(&mut self) -> &mut dxe_services::IoSpaceDescriptor {
     match self {
       IoBlock::Unallocated(msd) | IoBlock::Allocated(msd) => msd,
     }

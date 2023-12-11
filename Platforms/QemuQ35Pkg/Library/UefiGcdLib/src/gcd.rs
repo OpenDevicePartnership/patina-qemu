@@ -1,14 +1,8 @@
 use core::{mem, ptr};
 
 use alloc::{boxed::Box, slice, vec, vec::Vec};
-use r_efi::{
-  efi::Handle,
-  system::{self, MEMORY_RO, MEMORY_RP, MEMORY_UC, MEMORY_UCE, MEMORY_WB, MEMORY_WC, MEMORY_WP, MEMORY_WT, MEMORY_XP},
-};
-use r_pi::{
-  dxe_services::{GcdIoType, GcdMemoryType, IoSpaceDescriptor, MemorySpaceDescriptor},
-  hob,
-};
+use r_efi::efi;
+use r_pi::{dxe_services, hob};
 
 use crate::{ensure, error};
 
@@ -63,47 +57,47 @@ struct GcdAttributeConversionEntry {
 const ATTRIBUTE_CONVERSION_TABLE: [GcdAttributeConversionEntry; 15] = [
   GcdAttributeConversionEntry {
     attribute: hob::EFI_RESOURCE_ATTRIBUTE_UNCACHEABLE,
-    capability: MEMORY_UC,
+    capability: efi::MEMORY_UC,
     memory: true,
   },
   GcdAttributeConversionEntry {
     attribute: hob::EFI_RESOURCE_ATTRIBUTE_UNCACHED_EXPORTED,
-    capability: MEMORY_UCE,
+    capability: efi::MEMORY_UCE,
     memory: true,
   },
   GcdAttributeConversionEntry {
     attribute: hob::EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE,
-    capability: MEMORY_WC,
+    capability: efi::MEMORY_WC,
     memory: true,
   },
   GcdAttributeConversionEntry {
     attribute: hob::EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE,
-    capability: MEMORY_WT,
+    capability: efi::MEMORY_WT,
     memory: true,
   },
   GcdAttributeConversionEntry {
     attribute: hob::EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE,
-    capability: MEMORY_WB,
+    capability: efi::MEMORY_WB,
     memory: true,
   },
   GcdAttributeConversionEntry {
     attribute: hob::EFI_RESOURCE_ATTRIBUTE_READ_PROTECTABLE,
-    capability: MEMORY_RP,
+    capability: efi::MEMORY_RP,
     memory: true,
   },
   GcdAttributeConversionEntry {
     attribute: hob::EFI_RESOURCE_ATTRIBUTE_WRITE_PROTECTABLE,
-    capability: MEMORY_WP,
+    capability: efi::MEMORY_WP,
     memory: true,
   },
   GcdAttributeConversionEntry {
     attribute: hob::EFI_RESOURCE_ATTRIBUTE_EXECUTION_PROTECTABLE,
-    capability: MEMORY_XP,
+    capability: efi::MEMORY_XP,
     memory: true,
   },
   GcdAttributeConversionEntry {
     attribute: hob::EFI_RESOURCE_ATTRIBUTE_READ_ONLY_PROTECTABLE,
-    capability: MEMORY_RO,
+    capability: efi::MEMORY_RO,
     memory: true,
   },
   GcdAttributeConversionEntry {
@@ -134,7 +128,7 @@ const ATTRIBUTE_CONVERSION_TABLE: [GcdAttributeConversionEntry; 15] = [
   GcdAttributeConversionEntry { attribute: 0, capability: 0, memory: false },
 ];
 
-pub fn get_capabilities(gcd_mem_type: GcdMemoryType, attributes: u64) -> u64 {
+pub fn get_capabilities(gcd_mem_type: dxe_services::GcdMemoryType, attributes: u64) -> u64 {
   let mut capabilities = 0;
 
   for conversion in ATTRIBUTE_CONVERSION_TABLE.iter() {
@@ -143,7 +137,8 @@ pub fn get_capabilities(gcd_mem_type: GcdMemoryType, attributes: u64) -> u64 {
     }
 
     if (conversion.memory
-      || (gcd_mem_type != GcdMemoryType::SystemMemory && gcd_mem_type != GcdMemoryType::MoreReliable))
+      || (gcd_mem_type != dxe_services::GcdMemoryType::SystemMemory
+        && gcd_mem_type != dxe_services::GcdMemoryType::MoreReliable))
       && (attributes & (conversion.attribute as u64) != 0)
     {
       capabilities |= conversion.capability;
@@ -174,16 +169,19 @@ impl GCD {
 
   unsafe fn init_memory_blocks(
     &mut self,
-    memory_type: GcdMemoryType,
+    memory_type: dxe_services::GcdMemoryType,
     base_address: usize,
     len: usize,
     capabilities: u64,
   ) -> Result<usize, Error> {
     ensure!(self.maximum_address != 0, Error::NotInitialized);
-    ensure!(memory_type == GcdMemoryType::SystemMemory && len >= MEMORY_BLOCK_SLICE_SIZE, Error::OutOfResources);
+    ensure!(
+      memory_type == dxe_services::GcdMemoryType::SystemMemory && len >= MEMORY_BLOCK_SLICE_SIZE,
+      Error::OutOfResources
+    );
 
-    let unallocated_memory_space = MemoryBlock::Unallocated(MemorySpaceDescriptor {
-      memory_type: GcdMemoryType::NonExistent,
+    let unallocated_memory_space = MemoryBlock::Unallocated(dxe_services::MemorySpaceDescriptor {
+      memory_type: dxe_services::GcdMemoryType::NonExistent,
       base_address: 0,
       length: self.maximum_address as u64,
       ..Default::default()
@@ -198,7 +196,7 @@ impl GCD {
 
     self.allocate_memory_space(
       AllocateType::Address(base_address),
-      GcdMemoryType::SystemMemory,
+      dxe_services::GcdMemoryType::SystemMemory,
       0,
       MEMORY_BLOCK_SLICE_SIZE,
       1 as _,
@@ -216,7 +214,7 @@ impl GCD {
   /// UEFI Platform Initialization Specification, Release 1.8, Section II-7.2.4.1
   pub unsafe fn add_memory_space(
     &mut self,
-    memory_type: GcdMemoryType,
+    memory_type: dxe_services::GcdMemoryType,
     base_address: usize,
     len: usize,
     capabilities: u64,
@@ -234,7 +232,7 @@ impl GCD {
       Err(i) => i - 1,
     };
 
-    ensure!(memory_blocks[idx].as_ref().memory_type == GcdMemoryType::NonExistent, Error::AccessDenied);
+    ensure!(memory_blocks[idx].as_ref().memory_type == dxe_services::GcdMemoryType::NonExistent, Error::AccessDenied);
 
     match Self::split_state_transition_at_idx(
       memory_blocks,
@@ -286,15 +284,15 @@ impl GCD {
   pub fn allocate_memory_space(
     &mut self,
     allocate_type: AllocateType,
-    memory_type: GcdMemoryType,
+    memory_type: dxe_services::GcdMemoryType,
     alignment: u32,
     len: usize,
-    image_handle: Handle,
-    device_handle: Option<Handle>,
+    image_handle: efi::Handle,
+    device_handle: Option<efi::Handle>,
   ) -> Result<usize, Error> {
     ensure!(self.maximum_address != 0, Error::NotInitialized);
     ensure!(
-      len > 0 && image_handle > ptr::null_mut() && memory_type != GcdMemoryType::Unaccepted,
+      len > 0 && image_handle > ptr::null_mut() && memory_type != dxe_services::GcdMemoryType::Unaccepted,
       Error::InvalidParameter
     );
 
@@ -319,11 +317,11 @@ impl GCD {
 
   fn allocate_bottom_up(
     &mut self,
-    memory_type: GcdMemoryType,
+    memory_type: dxe_services::GcdMemoryType,
     alignment: u32,
     len: usize,
-    image_handle: Handle,
-    device_handle: Option<Handle>,
+    image_handle: efi::Handle,
+    device_handle: Option<efi::Handle>,
     max_address: usize,
   ) -> Result<usize, Error> {
     ensure!(len > 0, Error::InvalidParameter);
@@ -363,11 +361,11 @@ impl GCD {
 
   fn allocate_top_down(
     &mut self,
-    memory_type: GcdMemoryType,
+    memory_type: dxe_services::GcdMemoryType,
     alignment: u32,
     len: usize,
-    image_handle: Handle,
-    device_handle: Option<Handle>,
+    image_handle: efi::Handle,
+    device_handle: Option<efi::Handle>,
     min_address: usize,
   ) -> Result<usize, Error> {
     ensure!(len > 0, Error::InvalidParameter);
@@ -408,11 +406,11 @@ impl GCD {
 
   fn allocate_address(
     &mut self,
-    memory_type: GcdMemoryType,
+    memory_type: dxe_services::GcdMemoryType,
     alignment: u32,
     len: usize,
-    image_handle: Handle,
-    device_handle: Option<Handle>,
+    image_handle: efi::Handle,
+    device_handle: Option<efi::Handle>,
     address: usize,
   ) -> Result<usize, Error> {
     ensure!(len > 0, Error::InvalidParameter);
@@ -535,7 +533,7 @@ impl GCD {
   /// Since GCD is used to service heap expansion requests and thus should avoid allocations,
   /// Caller is required to initialize a vector of sufficient capacity to hold the descriptors
   /// and provide a mutable reference to it.
-  pub fn get_memory_descriptors(&mut self, buffer: &mut Vec<MemorySpaceDescriptor>) -> Result<(), Error> {
+  pub fn get_memory_descriptors(&mut self, buffer: &mut Vec<dxe_services::MemorySpaceDescriptor>) -> Result<(), Error> {
     ensure!(self.maximum_address != 0, Error::NotInitialized);
     ensure!(buffer.capacity() >= self.memory_descriptor_count(), Error::InvalidParameter);
     ensure!(buffer.is_empty(), Error::InvalidParameter);
@@ -644,8 +642,8 @@ impl IoGCD {
       SortedSlice::new(unsafe { Box::into_raw(vec![0_u8; IO_BLOCK_SLICE_SIZE].into_boxed_slice()).as_mut().unwrap() });
 
     io_blocks
-      .add(IoBlock::Unallocated(IoSpaceDescriptor {
-        io_type: GcdIoType::NonExistent,
+      .add(IoBlock::Unallocated(dxe_services::IoSpaceDescriptor {
+        io_type: dxe_services::GcdIoType::NonExistent,
         base_address: 0,
         length: self.maximum_address as u64,
         ..Default::default()
@@ -656,10 +654,10 @@ impl IoGCD {
 
     Ok(())
     /*
-    ensure!(memory_type == GcdMemoryType::SystemMemory && len >= MEMORY_BLOCK_SLICE_SIZE, Error::OutOfResources);
+    ensure!(memory_type == dxe_services::GcdMemoryType::SystemMemory && len >= MEMORY_BLOCK_SLICE_SIZE, Error::OutOfResources);
 
-    let unallocated_memory_space = MemoryBlock::Unallocated(MemorySpaceDescriptor {
-      memory_type: GcdMemoryType::NonExistent,
+    let unallocated_memory_space = MemoryBlock::Unallocated(dxe_services::MemorySpaceDescriptor {
+      memory_type: dxe_services::GcdMemoryType::NonExistent,
       base_address: 0,
       length: self.maximum_address as u64,
       ..Default::default()
@@ -674,7 +672,7 @@ impl IoGCD {
 
     self.allocate_memory_space(
       AllocateType::Address(base_address),
-      GcdMemoryType::SystemMemory,
+      dxe_services::GcdMemoryType::SystemMemory,
       0,
       MEMORY_BLOCK_SLICE_SIZE,
       1 as _,
@@ -686,7 +684,12 @@ impl IoGCD {
   ///
   /// # Documentation
   /// UEFI Platform Initialization Specification, Release 1.8, Section II-7.2.4.9
-  pub fn add_io_space(&mut self, io_type: GcdIoType, base_address: usize, len: usize) -> Result<usize, Error> {
+  pub fn add_io_space(
+    &mut self,
+    io_type: dxe_services::GcdIoType,
+    base_address: usize,
+    len: usize,
+  ) -> Result<usize, Error> {
     ensure!(self.maximum_address != 0, Error::NotInitialized);
     ensure!(len > 0, Error::InvalidParameter);
     ensure!(base_address + len <= self.maximum_address, Error::Unsupported);
@@ -704,7 +707,7 @@ impl IoGCD {
       Err(i) => i - 1,
     };
 
-    ensure!(io_blocks[idx].as_ref().io_type == GcdIoType::NonExistent, Error::AccessDenied);
+    ensure!(io_blocks[idx].as_ref().io_type == dxe_services::GcdIoType::NonExistent, Error::AccessDenied);
 
     match Self::split_state_transition_at_idx(io_blocks, idx, base_address, len, IoStateTransition::Add(io_type)) {
       Ok(idx) => Ok(idx),
@@ -754,11 +757,11 @@ impl IoGCD {
   pub fn allocate_io_space(
     &mut self,
     allocate_type: AllocateType,
-    io_type: GcdIoType,
+    io_type: dxe_services::GcdIoType,
     alignment: u32,
     len: usize,
-    image_handle: Handle,
-    device_handle: Option<Handle>,
+    image_handle: efi::Handle,
+    device_handle: Option<efi::Handle>,
   ) -> Result<usize, Error> {
     ensure!(self.maximum_address != 0, Error::NotInitialized);
     ensure!(len > 0 && image_handle > ptr::null_mut(), Error::InvalidParameter);
@@ -779,11 +782,11 @@ impl IoGCD {
 
   fn allocate_bottom_up(
     &mut self,
-    io_type: GcdIoType,
+    io_type: dxe_services::GcdIoType,
     alignment: u32,
     len: usize,
-    image_handle: Handle,
-    device_handle: Option<Handle>,
+    image_handle: efi::Handle,
+    device_handle: Option<efi::Handle>,
     max_address: usize,
   ) -> Result<usize, Error> {
     ensure!(len > 0, Error::InvalidParameter);
@@ -827,11 +830,11 @@ impl IoGCD {
 
   fn allocate_top_down(
     &mut self,
-    io_type: GcdIoType,
+    io_type: dxe_services::GcdIoType,
     alignment: u32,
     len: usize,
-    image_handle: Handle,
-    device_handle: Option<Handle>,
+    image_handle: efi::Handle,
+    device_handle: Option<efi::Handle>,
     min_address: usize,
   ) -> Result<usize, Error> {
     ensure!(len > 0, Error::InvalidParameter);
@@ -876,11 +879,11 @@ impl IoGCD {
 
   fn allocate_address(
     &mut self,
-    io_type: GcdIoType,
+    io_type: dxe_services::GcdIoType,
     alignment: u32,
     len: usize,
-    image_handle: Handle,
-    device_handle: Option<Handle>,
+    image_handle: efi::Handle,
+    device_handle: Option<efi::Handle>,
     address: usize,
   ) -> Result<usize, Error> {
     ensure!(len > 0, Error::InvalidParameter);
@@ -945,7 +948,7 @@ impl IoGCD {
   /// Since GCD is used to service heap expansion requests and thus should avoid allocations,
   /// Caller is required to initialize a vector of sufficient capacity to hold the descriptors
   /// and provide a mutable reference to it.
-  pub fn get_io_descriptors(&mut self, buffer: &mut Vec<IoSpaceDescriptor>) -> Result<(), Error> {
+  pub fn get_io_descriptors(&mut self, buffer: &mut Vec<dxe_services::IoSpaceDescriptor>) -> Result<(), Error> {
     ensure!(self.maximum_address != 0, Error::NotInitialized);
     ensure!(buffer.capacity() >= self.io_descriptor_count(), Error::InvalidParameter);
     ensure!(buffer.is_empty(), Error::InvalidParameter);
@@ -1035,11 +1038,11 @@ impl SpinLockedGcd {
   pub const fn new() -> Self {
     Self {
       memory: tpl_lock::TplMutex::new(
-        system::TPL_HIGH_LEVEL,
+        efi::TPL_HIGH_LEVEL,
         GCD { maximum_address: 0, memory_blocks: None },
         "GcdMemLock",
       ),
-      io: tpl_lock::TplMutex::new(system::TPL_HIGH_LEVEL, IoGCD { maximum_address: 0, io_blocks: None }, "GcdIoLock"),
+      io: tpl_lock::TplMutex::new(efi::TPL_HIGH_LEVEL, IoGCD { maximum_address: 0, io_blocks: None }, "GcdIoLock"),
     }
   }
 
@@ -1054,7 +1057,7 @@ impl SpinLockedGcd {
   /// See [`GCD::add_memory_space`]
   pub unsafe fn add_memory_space(
     &self,
-    memory_type: GcdMemoryType,
+    memory_type: dxe_services::GcdMemoryType,
     base_address: usize,
     len: usize,
     capabilities: u64,
@@ -1071,11 +1074,11 @@ impl SpinLockedGcd {
   pub fn allocate_memory_space(
     &self,
     allocate_type: AllocateType,
-    memory_type: GcdMemoryType,
+    memory_type: dxe_services::GcdMemoryType,
     alignment: u32,
     len: usize,
-    image_handle: Handle,
-    device_handle: Option<Handle>,
+    image_handle: efi::Handle,
+    device_handle: Option<efi::Handle>,
   ) -> Result<usize, Error> {
     self.memory.lock().allocate_memory_space(allocate_type, memory_type, alignment, len, image_handle, device_handle)
   }
@@ -1096,7 +1099,7 @@ impl SpinLockedGcd {
   }
 
   /// Acquires lock and delegates to [`GCD::get_memory_descriptors`]
-  pub fn get_memory_descriptors(&self, buffer: &mut Vec<MemorySpaceDescriptor>) -> Result<(), Error> {
+  pub fn get_memory_descriptors(&self, buffer: &mut Vec<dxe_services::MemorySpaceDescriptor>) -> Result<(), Error> {
     self.memory.lock().get_memory_descriptors(buffer)
   }
 
@@ -1106,7 +1109,12 @@ impl SpinLockedGcd {
   }
 
   /// Acquires lock and delegates to [`IoGCD::add_io_space`]
-  pub fn add_io_space(&self, io_type: GcdIoType, base_address: usize, len: usize) -> Result<usize, Error> {
+  pub fn add_io_space(
+    &self,
+    io_type: dxe_services::GcdIoType,
+    base_address: usize,
+    len: usize,
+  ) -> Result<usize, Error> {
     self.io.lock().add_io_space(io_type, base_address, len)
   }
 
@@ -1119,11 +1127,11 @@ impl SpinLockedGcd {
   pub fn allocate_io_space(
     &self,
     allocate_type: AllocateType,
-    io_type: GcdIoType,
+    io_type: dxe_services::GcdIoType,
     alignment: u32,
     len: usize,
-    image_handle: Handle,
-    device_handle: Option<Handle>,
+    image_handle: efi::Handle,
+    device_handle: Option<efi::Handle>,
   ) -> Result<usize, Error> {
     self.io.lock().allocate_io_space(allocate_type, io_type, alignment, len, image_handle, device_handle)
   }
@@ -1134,7 +1142,7 @@ impl SpinLockedGcd {
   }
 
   /// Acquires lock and delegates to [`IoGCD::get_io_descriptors`]
-  pub fn get_io_descriptors(&self, buffer: &mut Vec<IoSpaceDescriptor>) -> Result<(), Error> {
+  pub fn get_io_descriptors(&self, buffer: &mut Vec<dxe_services::IoSpaceDescriptor>) -> Result<(), Error> {
     self.io.lock().get_io_descriptors(buffer)
   }
 
@@ -1169,14 +1177,16 @@ mod tests {
 
     assert_eq!(
       Err(Error::OutOfResources),
-      unsafe { gcd.add_memory_space(GcdMemoryType::Reserved, address, MEMORY_BLOCK_SLICE_SIZE, 0) },
+      unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::Reserved, address, MEMORY_BLOCK_SLICE_SIZE, 0) },
       "First add memory space should be a system memory."
     );
     assert_eq!(0, gcd.memory_descriptor_count());
 
     assert_eq!(
       Err(Error::OutOfResources),
-      unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, address, MEMORY_BLOCK_SLICE_SIZE - 1, 0) },
+      unsafe {
+        gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, address, MEMORY_BLOCK_SLICE_SIZE - 1, 0)
+      },
       "First add memory space with system memory should contain enough space to contain the block list."
     );
     assert_eq!(0, gcd.memory_descriptor_count());
@@ -1186,18 +1196,18 @@ mod tests {
   fn test_add_memory_space_with_all_memory_type() {
     let (mut gcd, _) = create_gcd();
 
-    assert_eq!(Ok(0), unsafe { gcd.add_memory_space(GcdMemoryType::Reserved, 0, 1, 0) });
-    assert_eq!(Ok(1), unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 1, 1, 0) });
-    assert_eq!(Ok(2), unsafe { gcd.add_memory_space(GcdMemoryType::Persistent, 2, 1, 0) });
-    assert_eq!(Ok(3), unsafe { gcd.add_memory_space(GcdMemoryType::MoreReliable, 3, 1, 0) });
-    assert_eq!(Ok(4), unsafe { gcd.add_memory_space(GcdMemoryType::Unaccepted, 4, 1, 0) });
-    assert_eq!(Ok(5), unsafe { gcd.add_memory_space(GcdMemoryType::MemoryMappedIo, 5, 1, 0) });
+    assert_eq!(Ok(0), unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::Reserved, 0, 1, 0) });
+    assert_eq!(Ok(1), unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 1, 1, 0) });
+    assert_eq!(Ok(2), unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::Persistent, 2, 1, 0) });
+    assert_eq!(Ok(3), unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::MoreReliable, 3, 1, 0) });
+    assert_eq!(Ok(4), unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::Unaccepted, 4, 1, 0) });
+    assert_eq!(Ok(5), unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::MemoryMappedIo, 5, 1, 0) });
 
     let snapshot = copy_memory_block(&gcd);
 
     assert_eq!(
       Err(Error::InvalidParameter),
-      unsafe { gcd.add_memory_space(GcdMemoryType::NonExistent, 10, 1, 0) },
+      unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::NonExistent, 10, 1, 0) },
       "Can't manually add NonExistent memory space manually."
     );
 
@@ -1209,7 +1219,9 @@ mod tests {
   fn test_add_memory_space_with_0_len_block() {
     let (mut gcd, _) = create_gcd();
     let snapshot = copy_memory_block(&gcd);
-    assert_eq!(Err(Error::InvalidParameter), unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0, 0, 0) });
+    assert_eq!(Err(Error::InvalidParameter), unsafe {
+      gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 0, 0, 0)
+    });
     assert_eq!(snapshot, copy_memory_block(&gcd));
   }
 
@@ -1220,7 +1232,7 @@ mod tests {
 
     let mut n = 0;
     while gcd.memory_descriptor_count() < MEMORY_BLOCK_SLICE_LEN {
-      assert!(unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, addr + n, 1, n as u64) }.is_ok());
+      assert!(unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, addr + n, 1, n as u64) }.is_ok());
       n += 1;
     }
 
@@ -1229,7 +1241,7 @@ mod tests {
 
     assert_eq!(
       Err(Error::OutOfResources),
-      unsafe { gcd.add_memory_space(GcdMemoryType::Reserved, 30_000, 1000, 0) },
+      unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::Reserved, 30_000, 1000, 0) },
       "Should return out of memory if there is no space in memory blocks."
     );
 
@@ -1243,13 +1255,13 @@ mod tests {
     let snapshot = copy_memory_block(&gcd);
 
     assert_eq!(Err(Error::Unsupported), unsafe {
-      gcd.add_memory_space(GcdMemoryType::SystemMemory, gcd.maximum_address + 1, 1, 0)
+      gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, gcd.maximum_address + 1, 1, 0)
     });
     assert_eq!(Err(Error::Unsupported), unsafe {
-      gcd.add_memory_space(GcdMemoryType::SystemMemory, gcd.maximum_address, 1, 0)
+      gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, gcd.maximum_address, 1, 0)
     });
     assert_eq!(Err(Error::Unsupported), unsafe {
-      gcd.add_memory_space(GcdMemoryType::SystemMemory, gcd.maximum_address - 1, 2, 0)
+      gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, gcd.maximum_address - 1, 2, 0)
     });
 
     assert_eq!(snapshot, copy_memory_block(&gcd));
@@ -1259,23 +1271,23 @@ mod tests {
   fn test_add_memory_space_in_range_already_added() {
     let (mut gcd, _) = create_gcd();
     // Add block to test the boundary on.
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 1000, 10, 0) }.unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 1000, 10, 0) }.unwrap();
 
     let snapshot = copy_memory_block(&gcd);
 
     assert_eq!(
       Err(Error::AccessDenied),
-      unsafe { gcd.add_memory_space(GcdMemoryType::Reserved, 1002, 5, 0) },
+      unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::Reserved, 1002, 5, 0) },
       "Can't add inside a range previously added."
     );
     assert_eq!(
       Err(Error::AccessDenied),
-      unsafe { gcd.add_memory_space(GcdMemoryType::Reserved, 998, 5, 0) },
+      unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::Reserved, 998, 5, 0) },
       "Can't add partially inside a range previously added (Start)."
     );
     assert_eq!(
       Err(Error::AccessDenied),
-      unsafe { gcd.add_memory_space(GcdMemoryType::Reserved, 1009, 5, 0) },
+      unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::Reserved, 1009, 5, 0) },
       "Can't add partially inside a range previously added (End)."
     );
 
@@ -1286,18 +1298,18 @@ mod tests {
   fn test_add_memory_space_in_range_already_allocated() {
     let (mut gcd, address) = create_gcd();
     // Add unallocated block after allocated one.
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, address - 100, 100, 0) }.unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, address - 100, 100, 0) }.unwrap();
 
     let snapshot = copy_memory_block(&gcd);
 
     assert_eq!(
       Err(Error::AccessDenied),
-      unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, address, 5, 0) },
+      unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, address, 5, 0) },
       "Can't add inside a range previously allocated."
     );
     assert_eq!(
       Err(Error::AccessDenied),
-      unsafe { gcd.add_memory_space(GcdMemoryType::Reserved, address - 100, 200, 0) },
+      unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::Reserved, address - 100, 200, 0) },
       "Can't add partially inside a range previously allocated."
     );
 
@@ -1308,11 +1320,11 @@ mod tests {
   fn test_add_memory_space_block_merging() {
     let (mut gcd, _) = create_gcd();
 
-    assert_eq!(Ok(1), unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 1000, 10, 0) });
+    assert_eq!(Ok(1), unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 1000, 10, 0) });
     let block_count = gcd.memory_descriptor_count();
 
     // Test merging when added after
-    match unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 1010, 10, 0) } {
+    match unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 1010, 10, 0) } {
       Ok(idx) => {
         let mb = gcd.memory_blocks.as_ref().unwrap()[idx];
         assert_eq!(1000, mb.as_ref().base_address);
@@ -1323,7 +1335,7 @@ mod tests {
     }
 
     // Test merging when added before
-    match unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 990, 10, 0) } {
+    match unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 990, 10, 0) } {
       Ok(idx) => {
         let mb = gcd.memory_blocks.as_ref().unwrap()[idx];
         assert_eq!(990, mb.as_ref().base_address);
@@ -1334,12 +1346,12 @@ mod tests {
     }
 
     assert!(
-      unsafe { gcd.add_memory_space(GcdMemoryType::Reserved, 1020, 10, 0) }.is_ok(),
+      unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::Reserved, 1020, 10, 0) }.is_ok(),
       "A different memory type should note result in a merge."
     );
     assert_eq!(block_count + 1, gcd.memory_descriptor_count());
     assert!(
-      unsafe { gcd.add_memory_space(GcdMemoryType::Reserved, 1030, 10, 1) }.is_ok(),
+      unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::Reserved, 1030, 10, 1) }.is_ok(),
       "A different capabilities should note result in a merge."
     );
     assert_eq!(block_count + 2, gcd.memory_descriptor_count());
@@ -1350,7 +1362,7 @@ mod tests {
   #[test]
   fn test_add_memory_space_state() {
     let (mut gcd, _) = create_gcd();
-    match unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 100, 10, 123) } {
+    match unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 100, 10, 123) } {
       Ok(idx) => {
         let mb = gcd.memory_blocks.as_ref().unwrap()[idx];
         match mb {
@@ -1382,7 +1394,7 @@ mod tests {
     let (mut gcd, _) = create_gcd();
 
     // Add memory space to remove in a valid area.
-    assert!(unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0, 10, 0) }.is_ok());
+    assert!(unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 0, 10, 0) }.is_ok());
 
     let snapshot = copy_memory_block(&gcd);
     assert_eq!(Err(Error::InvalidParameter), gcd.remove_memory_space(5, 0));
@@ -1400,7 +1412,10 @@ mod tests {
   fn test_remove_memory_space_outside_processor_range() {
     let (mut gcd, _) = create_gcd();
     // Add memory space to remove in a valid area.
-    assert!(unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, gcd.maximum_address - 10, 10, 0) }.is_ok());
+    assert!(unsafe {
+      gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, gcd.maximum_address - 10, 10, 0)
+    }
+    .is_ok());
 
     let snapshot = copy_memory_block(&gcd);
 
@@ -1422,7 +1437,7 @@ mod tests {
   fn test_remove_memory_space_in_range_not_added() {
     let (mut gcd, _) = create_gcd();
     // Add memory space to remove in a valid area.
-    assert!(unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 100, 10, 0) }.is_ok());
+    assert!(unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 100, 10, 0) }.is_ok());
 
     let snapshot = copy_memory_block(&gcd);
 
@@ -1469,10 +1484,12 @@ mod tests {
     let (mut gcd, address) = create_gcd();
     let addr = address + MEMORY_BLOCK_SLICE_SIZE;
 
-    assert!(unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, addr, 10, 0 as u64) }.is_ok());
+    assert!(unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, addr, 10, 0 as u64) }.is_ok());
     let mut n = 1;
     while gcd.memory_descriptor_count() < MEMORY_BLOCK_SLICE_LEN {
-      assert!(unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, addr + 10 + n, 1, n as u64) }.is_ok());
+      assert!(
+        unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, addr + 10 + n, 1, n as u64) }.is_ok()
+      );
       n += 1;
     }
 
@@ -1491,7 +1508,7 @@ mod tests {
   #[test]
   fn test_remove_memory_space_block_merging() {
     let (mut gcd, address) = create_gcd();
-    assert!(unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 1, address - 2, 0) }.is_ok());
+    assert!(unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 1, address - 2, 0) }.is_ok());
 
     let block_count = gcd.memory_descriptor_count();
 
@@ -1523,7 +1540,7 @@ mod tests {
   #[test]
   fn test_remove_memory_space_state() {
     let (mut gcd, address) = create_gcd();
-    assert!(unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0, address, 123) }.is_ok());
+    assert!(unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 0, address, 123) }.is_ok());
 
     match gcd.remove_memory_space(0, 10) {
       Ok(_) => {
@@ -1548,7 +1565,14 @@ mod tests {
     let mut gcd = GCD::new(48);
     assert_eq!(
       Err(Error::NotFound),
-      gcd.allocate_memory_space(AllocateType::Address(0), GcdMemoryType::SystemMemory, 0, 10, 1 as _, None)
+      gcd.allocate_memory_space(
+        AllocateType::Address(0),
+        dxe_services::GcdMemoryType::SystemMemory,
+        0,
+        10,
+        1 as _,
+        None
+      )
     );
   }
 
@@ -1558,7 +1582,14 @@ mod tests {
     let snapshot = copy_memory_block(&gcd);
     assert_eq!(
       Err(Error::InvalidParameter),
-      gcd.allocate_memory_space(AllocateType::BottomUp(None), GcdMemoryType::Reserved, 0, 0, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::BottomUp(None),
+        dxe_services::GcdMemoryType::Reserved,
+        0,
+        0,
+        1 as _,
+        None
+      ),
     );
     assert_eq!(snapshot, copy_memory_block(&gcd));
   }
@@ -1569,7 +1600,14 @@ mod tests {
     let snapshot = copy_memory_block(&gcd);
     assert_eq!(
       Err(Error::InvalidParameter),
-      gcd.allocate_memory_space(AllocateType::BottomUp(None), GcdMemoryType::Reserved, 0, 10, ptr::null_mut(), None),
+      gcd.allocate_memory_space(
+        AllocateType::BottomUp(None),
+        dxe_services::GcdMemoryType::Reserved,
+        0,
+        10,
+        ptr::null_mut(),
+        None
+      ),
     );
     assert_eq!(snapshot, copy_memory_block(&gcd));
   }
@@ -1583,7 +1621,7 @@ mod tests {
       Err(Error::Unsupported),
       gcd.allocate_memory_space(
         AllocateType::Address(gcd.maximum_address - 100),
-        GcdMemoryType::Reserved,
+        dxe_services::GcdMemoryType::Reserved,
         0,
         1000,
         1 as _,
@@ -1594,7 +1632,7 @@ mod tests {
       Err(Error::Unsupported),
       gcd.allocate_memory_space(
         AllocateType::Address(gcd.maximum_address + 100),
-        GcdMemoryType::Reserved,
+        dxe_services::GcdMemoryType::Reserved,
         0,
         1000,
         1 as _,
@@ -1609,12 +1647,12 @@ mod tests {
   fn test_allocate_memory_space_with_all_memory_type() {
     let (mut gcd, _) = create_gcd();
     for (i, memory_type) in [
-      GcdMemoryType::Reserved,
-      GcdMemoryType::SystemMemory,
-      GcdMemoryType::Persistent,
-      GcdMemoryType::MemoryMappedIo,
-      GcdMemoryType::MoreReliable,
-      GcdMemoryType::Unaccepted,
+      dxe_services::GcdMemoryType::Reserved,
+      dxe_services::GcdMemoryType::SystemMemory,
+      dxe_services::GcdMemoryType::Persistent,
+      dxe_services::GcdMemoryType::MemoryMappedIo,
+      dxe_services::GcdMemoryType::MoreReliable,
+      dxe_services::GcdMemoryType::Unaccepted,
     ]
     .into_iter()
     .enumerate()
@@ -1622,7 +1660,7 @@ mod tests {
       unsafe { gcd.add_memory_space(memory_type, i * 10, 10, 0) }.unwrap();
       let res = gcd.allocate_memory_space(AllocateType::Address(i * 10), memory_type, 0, 10, 1 as _, None);
       match memory_type {
-        GcdMemoryType::Unaccepted => assert_eq!(Err(Error::InvalidParameter), res),
+        dxe_services::GcdMemoryType::Unaccepted => assert_eq!(Err(Error::InvalidParameter), res),
         _ => assert!(res.is_ok()),
       }
     }
@@ -1631,11 +1669,20 @@ mod tests {
   #[test]
   fn test_allocate_memory_space_when_memory_blocks_full() {
     let (mut gcd, address) = create_gcd();
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0, address, 0) }.unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 0, address, 0) }.unwrap();
 
     let mut n = 1;
     while gcd.memory_descriptor_count() < MEMORY_BLOCK_SLICE_LEN {
-      gcd.allocate_memory_space(AllocateType::BottomUp(None), GcdMemoryType::SystemMemory, 0, 1, n as _, None).unwrap();
+      gcd
+        .allocate_memory_space(
+          AllocateType::BottomUp(None),
+          dxe_services::GcdMemoryType::SystemMemory,
+          0,
+          1,
+          n as _,
+          None,
+        )
+        .unwrap();
       n += 1;
     }
 
@@ -1644,7 +1691,14 @@ mod tests {
 
     assert_eq!(
       Err(Error::OutOfResources),
-      gcd.allocate_memory_space(AllocateType::BottomUp(None), GcdMemoryType::SystemMemory, 0, 1, 1 as _, None)
+      gcd.allocate_memory_space(
+        AllocateType::BottomUp(None),
+        dxe_services::GcdMemoryType::SystemMemory,
+        0,
+        1,
+        1 as _,
+        None
+      )
     );
 
     assert_eq!(memory_blocks_snapshot, copy_memory_block(&gcd));
@@ -1655,9 +1709,10 @@ mod tests {
     let (mut gcd, _) = create_gcd();
 
     // Add memory space of len 100 to multiple space.
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0, 100, 0) }.unwrap();
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 1000, 100, 0) }.unwrap();
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, gcd.maximum_address - 100, 100, 0) }.unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 0, 100, 0) }.unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 1000, 100, 0) }.unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, gcd.maximum_address - 100, 100, 0) }
+      .unwrap();
 
     let memory_blocks_snapshot = copy_memory_block(&gcd);
 
@@ -1671,7 +1726,7 @@ mod tests {
     ] {
       assert_eq!(
         Err(Error::NotFound),
-        gcd.allocate_memory_space(allocate_type, GcdMemoryType::SystemMemory, 0, 1000, 1 as _, None),
+        gcd.allocate_memory_space(allocate_type, dxe_services::GcdMemoryType::SystemMemory, 0, 1000, 1 as _, None),
         "Assert fail with allocate type: {allocate_type:?}"
       );
     }
@@ -1682,41 +1737,90 @@ mod tests {
   #[test]
   fn test_allocate_memory_space_alignment() {
     let (mut gcd, _) = create_gcd();
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0, 0x1000, 0) }.unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 0, 0x1000, 0) }.unwrap();
 
     assert_eq!(
       Ok(0),
-      gcd.allocate_memory_space(AllocateType::BottomUp(None), GcdMemoryType::SystemMemory, 0, 0x0f, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::BottomUp(None),
+        dxe_services::GcdMemoryType::SystemMemory,
+        0,
+        0x0f,
+        1 as _,
+        None
+      ),
       "Allocate bottom up without alignment"
     );
     assert_eq!(
       Ok(0x10),
-      gcd.allocate_memory_space(AllocateType::BottomUp(None), GcdMemoryType::SystemMemory, 4, 0x10, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::BottomUp(None),
+        dxe_services::GcdMemoryType::SystemMemory,
+        4,
+        0x10,
+        1 as _,
+        None
+      ),
       "Allocate bottom up with alignment of 4 bits (find first address that is aligned)"
     );
     assert_eq!(
       Ok(0x20),
-      gcd.allocate_memory_space(AllocateType::BottomUp(None), GcdMemoryType::SystemMemory, 4, 100, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::BottomUp(None),
+        dxe_services::GcdMemoryType::SystemMemory,
+        4,
+        100,
+        1 as _,
+        None
+      ),
       "Allocate bottom up with alignment of 4 bits (already aligned)"
     );
     assert_eq!(
       Ok(0xff1),
-      gcd.allocate_memory_space(AllocateType::TopDown(None), GcdMemoryType::SystemMemory, 0, 0x0f, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::TopDown(None),
+        dxe_services::GcdMemoryType::SystemMemory,
+        0,
+        0x0f,
+        1 as _,
+        None
+      ),
       "Allocate top down without alignment"
     );
     assert_eq!(
       Ok(0xfe0),
-      gcd.allocate_memory_space(AllocateType::TopDown(None), GcdMemoryType::SystemMemory, 4, 0x0f, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::TopDown(None),
+        dxe_services::GcdMemoryType::SystemMemory,
+        4,
+        0x0f,
+        1 as _,
+        None
+      ),
       "Allocate top down with alignment of 4 bits (find first address that is aligned)"
     );
     assert_eq!(
       Ok(0xf00),
-      gcd.allocate_memory_space(AllocateType::TopDown(None), GcdMemoryType::SystemMemory, 4, 0xe0, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::TopDown(None),
+        dxe_services::GcdMemoryType::SystemMemory,
+        4,
+        0xe0,
+        1 as _,
+        None
+      ),
       "Allocate top down with alignment of 4 bits (already aligned)"
     );
     assert_eq!(
       Ok(0xa00),
-      gcd.allocate_memory_space(AllocateType::Address(0xa00), GcdMemoryType::SystemMemory, 4, 100, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::Address(0xa00),
+        dxe_services::GcdMemoryType::SystemMemory,
+        4,
+        100,
+        1 as _,
+        None
+      ),
       "Allocate Address with alignment of 4 bits (already aligned)"
     );
 
@@ -1725,7 +1829,14 @@ mod tests {
 
     assert_eq!(
       Err(Error::NotFound),
-      gcd.allocate_memory_space(AllocateType::Address(0xa0f), GcdMemoryType::SystemMemory, 4, 100, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::Address(0xa0f),
+        dxe_services::GcdMemoryType::SystemMemory,
+        4,
+        100,
+        1 as _,
+        None
+      ),
     );
 
     assert_eq!(memory_blocks_snapshot, copy_memory_block(&gcd));
@@ -1734,27 +1845,29 @@ mod tests {
   #[test]
   fn test_allocate_memory_space_block_merging() {
     let (mut gcd, _) = create_gcd();
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0x1000, 0x1000, 0) }.unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 0x1000, 0x1000, 0) }.unwrap();
 
     for allocate_type in [AllocateType::BottomUp(None), AllocateType::TopDown(None)] {
       let block_count = gcd.memory_descriptor_count();
       assert!(
-        gcd.allocate_memory_space(allocate_type, GcdMemoryType::SystemMemory, 0, 1, 1 as _, None).is_ok(),
+        gcd.allocate_memory_space(allocate_type, dxe_services::GcdMemoryType::SystemMemory, 0, 1, 1 as _, None).is_ok(),
         "{allocate_type:?}"
       );
       assert_eq!(block_count + 1, gcd.memory_descriptor_count());
       assert!(
-        gcd.allocate_memory_space(allocate_type, GcdMemoryType::SystemMemory, 0, 1, 1 as _, None).is_ok(),
+        gcd.allocate_memory_space(allocate_type, dxe_services::GcdMemoryType::SystemMemory, 0, 1, 1 as _, None).is_ok(),
         "{allocate_type:?}"
       );
       assert_eq!(block_count + 1, gcd.memory_descriptor_count());
       assert!(
-        gcd.allocate_memory_space(allocate_type, GcdMemoryType::SystemMemory, 0, 1, 2 as _, None).is_ok(),
+        gcd.allocate_memory_space(allocate_type, dxe_services::GcdMemoryType::SystemMemory, 0, 1, 2 as _, None).is_ok(),
         "{allocate_type:?}: A different image handle should not result in a merge."
       );
       assert_eq!(block_count + 2, gcd.memory_descriptor_count());
       assert!(
-        gcd.allocate_memory_space(allocate_type, GcdMemoryType::SystemMemory, 0, 1, 2 as _, Some(1 as _)).is_ok(),
+        gcd
+          .allocate_memory_space(allocate_type, dxe_services::GcdMemoryType::SystemMemory, 0, 1, 2 as _, Some(1 as _))
+          .is_ok(),
         "{allocate_type:?}: A different device handle should not result in a merge."
       );
       assert_eq!(block_count + 3, gcd.memory_descriptor_count());
@@ -1765,7 +1878,7 @@ mod tests {
       Ok(0x1000 + 4),
       gcd.allocate_memory_space(
         AllocateType::Address(0x1000 + 4),
-        GcdMemoryType::SystemMemory,
+        dxe_services::GcdMemoryType::SystemMemory,
         0,
         1,
         2 as _,
@@ -1782,25 +1895,53 @@ mod tests {
   fn test_allocate_memory_space_with_address_not_added() {
     let (mut gcd, _) = create_gcd();
 
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0x100, 10, 0) }.unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 0x100, 10, 0) }.unwrap();
 
     let snapshot = copy_memory_block(&gcd);
 
     assert_eq!(
       Err(Error::NotFound),
-      gcd.allocate_memory_space(AllocateType::Address(0x100), GcdMemoryType::SystemMemory, 0, 11, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::Address(0x100),
+        dxe_services::GcdMemoryType::SystemMemory,
+        0,
+        11,
+        1 as _,
+        None
+      ),
     );
     assert_eq!(
       Err(Error::NotFound),
-      gcd.allocate_memory_space(AllocateType::Address(0x95), GcdMemoryType::SystemMemory, 0, 10, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::Address(0x95),
+        dxe_services::GcdMemoryType::SystemMemory,
+        0,
+        10,
+        1 as _,
+        None
+      ),
     );
     assert_eq!(
       Err(Error::NotFound),
-      gcd.allocate_memory_space(AllocateType::Address(110), GcdMemoryType::SystemMemory, 0, 5, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::Address(110),
+        dxe_services::GcdMemoryType::SystemMemory,
+        0,
+        5,
+        1 as _,
+        None
+      ),
     );
     assert_eq!(
       Err(Error::NotFound),
-      gcd.allocate_memory_space(AllocateType::Address(0), GcdMemoryType::SystemMemory, 0, 5, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::Address(0),
+        dxe_services::GcdMemoryType::SystemMemory,
+        0,
+        5,
+        1 as _,
+        None
+      ),
     );
 
     assert_eq!(snapshot, copy_memory_block(&gcd));
@@ -1811,7 +1952,14 @@ mod tests {
     let (mut gcd, address) = create_gcd();
     assert_eq!(
       Err(Error::NotFound),
-      gcd.allocate_memory_space(AllocateType::Address(address), GcdMemoryType::SystemMemory, 0, 5, 1 as _, None),
+      gcd.allocate_memory_space(
+        AllocateType::Address(address),
+        dxe_services::GcdMemoryType::SystemMemory,
+        0,
+        5,
+        1 as _,
+        None
+      ),
     );
   }
 
@@ -1833,11 +1981,12 @@ mod tests {
   fn test_free_memory_space_outside_processor_range() {
     let (mut gcd, _) = create_gcd();
 
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, gcd.maximum_address - 100, 100, 0) }.unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, gcd.maximum_address - 100, 100, 0) }
+      .unwrap();
     gcd
       .allocate_memory_space(
         AllocateType::Address(gcd.maximum_address - 100),
-        GcdMemoryType::SystemMemory,
+        dxe_services::GcdMemoryType::SystemMemory,
         0,
         100,
         1 as _,
@@ -1857,8 +2006,17 @@ mod tests {
   #[test]
   fn test_free_memory_space_in_range_not_allocated() {
     let (mut gcd, _) = create_gcd();
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 1000, 100, 0) }.unwrap();
-    gcd.allocate_memory_space(AllocateType::Address(1000), GcdMemoryType::SystemMemory, 0, 100, 1 as _, None).unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 1000, 100, 0) }.unwrap();
+    gcd
+      .allocate_memory_space(
+        AllocateType::Address(1000),
+        dxe_services::GcdMemoryType::SystemMemory,
+        0,
+        100,
+        1 as _,
+        None,
+      )
+      .unwrap();
 
     assert_eq!(Err(Error::NotFound), gcd.free_memory_space(1050, 100));
     assert_eq!(Err(Error::NotFound), gcd.free_memory_space(950, 100));
@@ -1869,12 +2027,14 @@ mod tests {
   fn test_free_memory_space_when_memory_block_full() {
     let (mut gcd, _) = create_gcd();
 
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0, 100, 0) }.unwrap();
-    gcd.allocate_memory_space(AllocateType::Address(0), GcdMemoryType::SystemMemory, 0, 100, 1 as _, None).unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 0, 100, 0) }.unwrap();
+    gcd
+      .allocate_memory_space(AllocateType::Address(0), dxe_services::GcdMemoryType::SystemMemory, 0, 100, 1 as _, None)
+      .unwrap();
 
     let mut n = 1;
     while gcd.memory_descriptor_count() < MEMORY_BLOCK_SLICE_LEN {
-      unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 1000 + n, 1, n as u64) }.unwrap();
+      unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 1000 + n, 1, n as u64) }.unwrap();
       n += 1;
     }
     let memory_blocks_snapshot = copy_memory_block(&gcd);
@@ -1888,8 +2048,10 @@ mod tests {
   fn test_free_memory_space_merging() {
     let (mut gcd, _) = create_gcd();
 
-    unsafe { gcd.add_memory_space(GcdMemoryType::SystemMemory, 0, 1000, 0) }.unwrap();
-    gcd.allocate_memory_space(AllocateType::Address(0), GcdMemoryType::SystemMemory, 0, 1000, 1 as _, None).unwrap();
+    unsafe { gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 0, 1000, 0) }.unwrap();
+    gcd
+      .allocate_memory_space(AllocateType::Address(0), dxe_services::GcdMemoryType::SystemMemory, 0, 1000, 1 as _, None)
+      .unwrap();
 
     let block_count = gcd.memory_descriptor_count();
     assert_eq!(Ok(()), gcd.free_memory_space(0, 100), "Free beginning of a block.");
@@ -1929,7 +2091,7 @@ mod tests {
     let address = mem.as_ptr() as usize;
     let mut gcd = GCD::new(48);
     unsafe {
-      gcd.add_memory_space(GcdMemoryType::SystemMemory, address, MEMORY_BLOCK_SLICE_SIZE, 0).unwrap();
+      gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, address, MEMORY_BLOCK_SLICE_SIZE, 0).unwrap();
     }
     (gcd, address)
   }
@@ -1973,11 +2135,17 @@ mod tests {
 
     assert_eq!(GCD.memory.lock().maximum_address, 0);
 
-    let add_result = unsafe { GCD.add_memory_space(GcdMemoryType::SystemMemory, 0, 100, 0) };
+    let add_result = unsafe { GCD.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, 0, 100, 0) };
     assert_eq!(add_result, Err(Error::NotInitialized));
 
-    let allocate_result =
-      GCD.allocate_memory_space(AllocateType::Address(0), GcdMemoryType::SystemMemory, 0, 10, 1 as _, None);
+    let allocate_result = GCD.allocate_memory_space(
+      AllocateType::Address(0),
+      dxe_services::GcdMemoryType::SystemMemory,
+      0,
+      10,
+      1 as _,
+      None,
+    );
     assert_eq!(allocate_result, Err(Error::NotInitialized));
 
     let free_result = GCD.free_memory_space(0, 10);
@@ -1997,7 +2165,7 @@ mod tests {
     let address = mem.as_ptr() as usize;
     GCD.init(48, 16);
     unsafe {
-      GCD.add_memory_space(GcdMemoryType::SystemMemory, address, MEMORY_BLOCK_SLICE_SIZE, 0).unwrap();
+      GCD.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, address, MEMORY_BLOCK_SLICE_SIZE, 0).unwrap();
     }
   }
 }
