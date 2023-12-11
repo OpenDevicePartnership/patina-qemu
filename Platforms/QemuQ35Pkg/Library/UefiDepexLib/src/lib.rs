@@ -7,17 +7,17 @@
 //! static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 //!
 //! let efi_var_arch_prot_uuid = Uuid::from_str("1e5668e2-8481-11d4-bcf1-0080c73c8881").unwrap();
-//! let efi_var_arch_prot_guid: Guid = unsafe { core::mem::transmute(*efi_var_arch_prot_uuid.as_bytes()) };
+//! let efi_var_arch_prot_guid: efi::Guid = unsafe { core::mem::transmute(*efi_var_arch_prot_uuid.as_bytes()) };
 //! let efi_var_write_arch_prot_uuid = Uuid::from_str("6441f818-6362-eb44-5700-7dba31dd2453").unwrap();
-//! let efi_var_write_arch_prot_guid: Guid = unsafe { core::mem::transmute(*efi_var_write_arch_prot_uuid.as_bytes()) };
+//! let efi_var_write_arch_prot_guid: efi::Guid = unsafe { core::mem::transmute(*efi_var_write_arch_prot_uuid.as_bytes()) };
 //! let efi_tcg_prot_uuid = Uuid::from_str("f541796d-a62e-4954-a775-9584f61b9cdd").unwrap();
-//! let efi_tcg_prot_guid: Guid = unsafe { core::mem::transmute(*efi_tcg_prot_uuid.as_bytes()) };
+//! let efi_tcg_prot_guid: efi::Guid = unsafe { core::mem::transmute(*efi_tcg_prot_uuid.as_bytes()) };
 //! let efi_tree_prot_uuid = Uuid::from_str("607f766c-7455-42be-930b-e4d76db2720f").unwrap();
-//! let efi_tree_prot_guid: Guid = unsafe { core::mem::transmute(*efi_tree_prot_uuid.as_bytes()) };
+//! let efi_tree_prot_guid: efi::Guid = unsafe { core::mem::transmute(*efi_tree_prot_uuid.as_bytes()) };
 //! let efi_pcd_prot_uuid = Uuid::from_str("13a3f0f6-264a-3ef0-f2e0-dec512342f34").unwrap();
-//! let efi_pcd_prot_guid: Guid = unsafe { core::mem::transmute(*efi_pcd_prot_uuid.as_bytes()) };
+//! let efi_pcd_prot_guid: efi::Guid = unsafe { core::mem::transmute(*efi_pcd_prot_uuid.as_bytes()) };
 //! let efi_device_path_utilities_prot_uuid = Uuid::from_str("0379be4e-d706-437d-b037-edb82fb772a4").unwrap();
-//! let efi_device_path_utilities_prot_guid: Guid = unsafe { core::mem::transmute(*efi_device_path_utilities_prot_uuid.as_bytes()) };
+//! let efi_device_path_utilities_prot_guid: efi::Guid = unsafe { core::mem::transmute(*efi_device_path_utilities_prot_uuid.as_bytes()) };
 //!
 //! let interface: *mut c_void = 0x1234 as *mut c_void;
 //! SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, efi_var_arch_prot_guid, interface).unwrap();
@@ -266,7 +266,7 @@ impl Iterator for DepexParser {
 mod tests {
   extern crate std;
   use core::{ffi::c_void, str::FromStr};
-  use r_efi::efi::Guid;
+  use r_efi::efi;
   use std::println;
   use uefi_protocol_db_lib::SpinLockedProtocolDb;
   use uuid::Uuid;
@@ -391,21 +391,21 @@ mod tests {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
     let efi_pcd_prot_uuid = Uuid::from_str("13a3f0f6-264a-3ef0-f2e0-dec512342f34").unwrap();
-    let efi_pcd_prot_guid: Guid = guid_from_uuid(&efi_pcd_prot_uuid);
+    let efi_pcd_prot_guid: efi::Guid = guid_from_uuid(&efi_pcd_prot_uuid);
     let efi_device_path_utilities_prot_uuid = Uuid::from_str("0379be4e-d706-437d-b037-edb82fb772a4").unwrap();
-    let efi_device_path_utilities_prot_guid: Guid = guid_from_uuid(&efi_device_path_utilities_prot_uuid);
+    let efi_device_path_utilities_prot_guid: efi::Guid = guid_from_uuid(&efi_device_path_utilities_prot_uuid);
     let efi_hii_string_prot_uuid = Uuid::from_str("0fd96974-23aa-4cdc-b9cb-98d17750322a").unwrap();
-    let efi_hii_string_prot_guid: Guid = guid_from_uuid(&efi_hii_string_prot_uuid);
+    let efi_hii_string_prot_guid: efi::Guid = guid_from_uuid(&efi_hii_string_prot_uuid);
     let efi_hii_db_prot_uuid = Uuid::from_str("ef9fc172-a1b2-4693-b327-6d32fc416042").unwrap();
-    let efi_hii_db_prot_guid: Guid = guid_from_uuid(&efi_hii_db_prot_uuid);
+    let efi_hii_db_prot_guid: efi::Guid = guid_from_uuid(&efi_hii_db_prot_uuid);
     let efi_hii_config_routing_prot_uuid = Uuid::from_str("587e72d7-cc50-4f79-8209-ca291fc1a10f").unwrap();
-    let efi_hii_config_routing_prot_guid: Guid = guid_from_uuid(&efi_hii_config_routing_prot_uuid);
+    let efi_hii_config_routing_prot_guid: efi::Guid = guid_from_uuid(&efi_hii_config_routing_prot_uuid);
     let efi_reset_arch_prot_uuid = Uuid::from_str("27cfac88-46cc-11d4-9a38-0090273fc14d").unwrap();
-    let efi_reset_arch_prot_guid: Guid = guid_from_uuid(&efi_reset_arch_prot_uuid);
+    let efi_reset_arch_prot_guid: efi::Guid = guid_from_uuid(&efi_reset_arch_prot_uuid);
     let efi_var_write_arch_prot_uuid = Uuid::from_str("6441f818-6362-eb44-5700-7dba31dd2453").unwrap();
-    let efi_var_write_arch_prot_guid: Guid = guid_from_uuid(&efi_var_write_arch_prot_uuid);
+    let efi_var_write_arch_prot_guid: efi::Guid = guid_from_uuid(&efi_var_write_arch_prot_uuid);
     let efi_var_arch_prot_uuid = Uuid::from_str("1e5668e2-8481-11d4-bcf1-0080c73c8881").unwrap();
-    let efi_var_arch_prot_guid: Guid = guid_from_uuid(&efi_var_arch_prot_uuid);
+    let efi_var_arch_prot_guid: efi::Guid = guid_from_uuid(&efi_var_arch_prot_uuid);
 
     let interface: *mut c_void = 0x1234 as *mut c_void;
     SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, efi_pcd_prot_guid, interface).unwrap();
@@ -454,17 +454,17 @@ mod tests {
     static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
     let efi_var_arch_prot_uuid = Uuid::from_str("1e5668e2-8481-11d4-bcf1-0080c73c8881").unwrap();
-    let efi_var_arch_prot_guid: Guid = guid_from_uuid(&efi_var_arch_prot_uuid);
+    let efi_var_arch_prot_guid: efi::Guid = guid_from_uuid(&efi_var_arch_prot_uuid);
     let efi_var_write_arch_prot_uuid = Uuid::from_str("6441f818-6362-eb44-5700-7dba31dd2453").unwrap();
-    let efi_var_write_arch_prot_guid: Guid = guid_from_uuid(&efi_var_write_arch_prot_uuid);
+    let efi_var_write_arch_prot_guid: efi::Guid = guid_from_uuid(&efi_var_write_arch_prot_uuid);
     let efi_tcg_prot_uuid = Uuid::from_str("f541796d-a62e-4954-a775-9584f61b9cdd").unwrap();
-    let efi_tcg_prot_guid: Guid = guid_from_uuid(&efi_tcg_prot_uuid);
+    let efi_tcg_prot_guid: efi::Guid = guid_from_uuid(&efi_tcg_prot_uuid);
     let efi_tree_prot_uuid = Uuid::from_str("607f766c-7455-42be-930b-e4d76db2720f").unwrap();
-    let efi_tree_prot_guid: Guid = guid_from_uuid(&efi_tree_prot_uuid);
+    let efi_tree_prot_guid: efi::Guid = guid_from_uuid(&efi_tree_prot_uuid);
     let efi_pcd_prot_uuid = Uuid::from_str("13a3f0f6-264a-3ef0-f2e0-dec512342f34").unwrap();
-    let efi_pcd_prot_guid: Guid = guid_from_uuid(&efi_pcd_prot_uuid);
+    let efi_pcd_prot_guid: efi::Guid = guid_from_uuid(&efi_pcd_prot_uuid);
     let efi_device_path_utilities_prot_uuid = Uuid::from_str("0379be4e-d706-437d-b037-edb82fb772a4").unwrap();
-    let efi_device_path_utilities_prot_guid: Guid = guid_from_uuid(&efi_device_path_utilities_prot_uuid);
+    let efi_device_path_utilities_prot_guid: efi::Guid = guid_from_uuid(&efi_device_path_utilities_prot_uuid);
 
     let interface: *mut c_void = 0x1234 as *mut c_void;
     SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, efi_var_arch_prot_guid, interface).unwrap();
