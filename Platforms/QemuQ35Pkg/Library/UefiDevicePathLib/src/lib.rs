@@ -16,6 +16,8 @@ extern crate alloc;
 use alloc::{boxed::Box, vec};
 use core::{ptr::slice_from_raw_parts, slice::from_raw_parts};
 
+use r_efi::efi;
+
 /// Returns the count of nodes and size (in bytes) of the given device path.
 ///
 /// count and size outputs both include the terminating end node.
@@ -29,38 +31,38 @@ use core::{ptr::slice_from_raw_parts, slice::from_raw_parts};
 /// ```
 /// #![feature(pointer_byte_offsets)]
 /// use uefi_device_path_lib::device_path_node_count;
-/// use r_efi::protocols::device_path::{End, Hardware, TYPE_END, TYPE_HARDWARE};
+/// use r_efi::efi;
 /// let device_path_bytes = [
-///   TYPE_HARDWARE,
-///   Hardware::SUBTYPE_PCI,
+///   efi::protocols::device_path::TYPE_HARDWARE,
+///   efi::protocols::device_path::Hardware::SUBTYPE_PCI,
 ///   0x6,  //length[0]
 ///   0x0,  //length[1]
 ///   0x0,  //func
 ///   0x1C, //device
-///   TYPE_HARDWARE,
-///   Hardware::SUBTYPE_PCI,
+///   efi::protocols::device_path::TYPE_HARDWARE,
+///   efi::protocols::device_path::Hardware::SUBTYPE_PCI,
 ///   0x6, //length[0]
 ///   0x0, //length[1]
 ///   0x0, //func
 ///   0x0, //device
-///   TYPE_HARDWARE,
-///   Hardware::SUBTYPE_PCI,
+///   efi::protocols::device_path::TYPE_HARDWARE,
+///   efi::protocols::device_path::Hardware::SUBTYPE_PCI,
 ///   0x6, //length[0]
 ///   0x0, //length[1]
 ///   0x2, //func
 ///   0x0, //device
-///   TYPE_END,
-///   End::SUBTYPE_ENTIRE,
+///   efi::protocols::device_path::TYPE_END,
+///   efi::protocols::device_path::End::SUBTYPE_ENTIRE,
 ///   0x4,  //length[0]
 ///   0x00, //length[1]
 /// ];
-/// let device_path_ptr = device_path_bytes.as_ptr() as *const r_efi::protocols::device_path::Protocol;
+/// let device_path_ptr = device_path_bytes.as_ptr() as *const efi::protocols::device_path::Protocol;
 /// let (nodes, length) = device_path_node_count(device_path_ptr);
 /// assert_eq!(nodes, 4);
 /// assert_eq!(length, device_path_bytes.len());
 /// ```
 ///
-pub fn device_path_node_count(device_path: *const r_efi::protocols::device_path::Protocol) -> (usize, usize) {
+pub fn device_path_node_count(device_path: *const efi::protocols::device_path::Protocol) -> (usize, usize) {
   let mut node_count = 0;
   let mut dev_path_size: usize = 0;
   let mut current_node_ptr = device_path;
@@ -70,7 +72,7 @@ pub fn device_path_node_count(device_path: *const r_efi::protocols::device_path:
     node_count += 1;
     dev_path_size += current_length;
 
-    if current_node.r#type == r_efi::efi::protocols::device_path::TYPE_END {
+    if current_node.r#type == efi::protocols::device_path::TYPE_END {
       break;
     }
     current_node_ptr = unsafe { current_node_ptr.byte_offset(current_length.try_into().unwrap()) };
@@ -79,7 +81,7 @@ pub fn device_path_node_count(device_path: *const r_efi::protocols::device_path:
 }
 
 /// Copies the device path from the given pointer into a Boxed [u8] slice.
-pub fn copy_device_path_to_boxed_slice(device_path: *const r_efi::protocols::device_path::Protocol) -> Box<[u8]> {
+pub fn copy_device_path_to_boxed_slice(device_path: *const efi::protocols::device_path::Protocol) -> Box<[u8]> {
   let (_, byte_count) = device_path_node_count(device_path);
   let mut dest_path = vec![0u8; byte_count];
   unsafe {
@@ -107,74 +109,74 @@ pub fn copy_device_path_to_boxed_slice(device_path: *const r_efi::protocols::dev
 /// #![feature(pointer_byte_offsets)]
 /// use uefi_device_path_lib::{device_path_node_count, remaining_device_path};
 /// use core::mem::size_of;
-/// use r_efi::protocols::device_path::{End, Hardware, TYPE_END, TYPE_HARDWARE};
+/// use r_efi::efi;
 /// let device_path_a_bytes = [
-///   TYPE_HARDWARE,
-///   Hardware::SUBTYPE_PCI,
+///   efi::protocols::device_path::TYPE_HARDWARE,
+///   efi::protocols::device_path::Hardware::SUBTYPE_PCI,
 ///   0x6,  //length[0]
 ///   0x0,  //length[1]
 ///   0x0,  //func
 ///   0x1C, //device
-///   TYPE_HARDWARE,
-///   Hardware::SUBTYPE_PCI,
+///   efi::protocols::device_path::TYPE_HARDWARE,
+///   efi::protocols::device_path::Hardware::SUBTYPE_PCI,
 ///   0x6, //length[0]
 ///   0x0, //length[1]
 ///   0x0, //func
 ///   0x0, //device
-///   TYPE_END,
-///   End::SUBTYPE_ENTIRE,
+///   efi::protocols::device_path::TYPE_END,
+///   efi::protocols::device_path::End::SUBTYPE_ENTIRE,
 ///   0x4,  //length[0]
 ///   0x00, //length[1]
 /// ];
-/// let device_path_a = device_path_a_bytes.as_ptr() as *const r_efi::protocols::device_path::Protocol;
+/// let device_path_a = device_path_a_bytes.as_ptr() as *const efi::protocols::device_path::Protocol;
 /// let device_path_b_bytes = [
-///   TYPE_HARDWARE,
-///   Hardware::SUBTYPE_PCI,
+///   efi::protocols::device_path::TYPE_HARDWARE,
+///   efi::protocols::device_path::Hardware::SUBTYPE_PCI,
 ///   0x6,  //length[0]
 ///   0x0,  //length[1]
 ///   0x0,  //func
 ///   0x1C, //device
-///   TYPE_HARDWARE,
-///   Hardware::SUBTYPE_PCI,
+///   efi::protocols::device_path::TYPE_HARDWARE,
+///   efi::protocols::device_path::Hardware::SUBTYPE_PCI,
 ///   0x6, //length[0]
 ///   0x0, //length[1]
 ///   0x0, //func
 ///   0x0, //device
-///   TYPE_HARDWARE,
-///   Hardware::SUBTYPE_PCI,
+///   efi::protocols::device_path::TYPE_HARDWARE,
+///   efi::protocols::device_path::Hardware::SUBTYPE_PCI,
 ///   0x6, //length[0]
 ///   0x0, //length[1]
 ///   0x2, //func
 ///   0x0, //device
-///   TYPE_END,
-///   End::SUBTYPE_ENTIRE,
+///   efi::protocols::device_path::TYPE_END,
+///   efi::protocols::device_path::End::SUBTYPE_ENTIRE,
 ///   0x4,  //length[0]
 ///   0x00, //length[1]
 /// ];
-/// let device_path_b = device_path_b_bytes.as_ptr() as *const r_efi::protocols::device_path::Protocol;
+/// let device_path_b = device_path_b_bytes.as_ptr() as *const efi::protocols::device_path::Protocol;
 /// let device_path_c_bytes = [
-///   TYPE_HARDWARE,
-///   Hardware::SUBTYPE_PCI,
+///   efi::protocols::device_path::TYPE_HARDWARE,
+///   efi::protocols::device_path::Hardware::SUBTYPE_PCI,
 ///   0x6,  //length[0]
 ///   0x0,  //length[1]
 ///   0x0,  //func
 ///   0x0A, //device
-///   TYPE_END,
-///   End::SUBTYPE_ENTIRE,
+///   efi::protocols::device_path::TYPE_END,
+///   efi::protocols::device_path::End::SUBTYPE_ENTIRE,
 ///   0x4,  //length[0]
 ///   0x00, //length[1]
 /// ];
-/// let device_path_c = device_path_c_bytes.as_ptr() as *const r_efi::protocols::device_path::Protocol;
+/// let device_path_c = device_path_c_bytes.as_ptr() as *const efi::protocols::device_path::Protocol;
 /// // a is a prefix of b.
 /// let result = remaining_device_path(device_path_a, device_path_b);
 /// assert!(result.is_some());
 /// let result = result.unwrap();
 /// // the remaining device path of b after going past the prefix in a should start at the size of a in bytes minus the size of the end node.
 /// let a_path_length = device_path_node_count(device_path_a);
-/// let offset = a_path_length.1 - size_of::<r_efi::protocols::device_path::End>();
+/// let offset = a_path_length.1 - size_of::<efi::protocols::device_path::End>();
 /// let offset = offset.try_into().unwrap();
 /// let expected_ptr =
-///   unsafe { device_path_b_bytes.as_ptr().byte_offset(offset) } as *const r_efi::protocols::device_path::Protocol;
+///   unsafe { device_path_b_bytes.as_ptr().byte_offset(offset) } as *const efi::protocols::device_path::Protocol;
 /// assert_eq!(result, (expected_ptr, a_path_length.0 - 1));
 
 /// //b is equal to b.
@@ -182,10 +184,10 @@ pub fn copy_device_path_to_boxed_slice(device_path: *const r_efi::protocols::dev
 /// assert!(result.is_some());
 /// let result = result.unwrap();
 /// let b_path_length = device_path_node_count(device_path_b);
-/// let offset = b_path_length.1 - size_of::<r_efi::protocols::device_path::End>();
+/// let offset = b_path_length.1 - size_of::<efi::protocols::device_path::End>();
 /// let offset = offset.try_into().unwrap();
 /// let expected_ptr =
-///   unsafe { device_path_b_bytes.as_ptr().byte_offset(offset) } as *const r_efi::protocols::device_path::Protocol;
+///   unsafe { device_path_b_bytes.as_ptr().byte_offset(offset) } as *const efi::protocols::device_path::Protocol;
 /// assert_eq!(result, (expected_ptr, b_path_length.0 - 1));
 
 /// //a is not a prefix of c.
@@ -199,9 +201,9 @@ pub fn copy_device_path_to_boxed_slice(device_path: *const r_efi::protocols::dev
 ///
 
 pub fn remaining_device_path(
-  a: *const r_efi::protocols::device_path::Protocol,
-  b: *const r_efi::protocols::device_path::Protocol,
-) -> Option<(*const r_efi::protocols::device_path::Protocol, usize)> {
+  a: *const efi::protocols::device_path::Protocol,
+  b: *const efi::protocols::device_path::Protocol,
+) -> Option<(*const efi::protocols::device_path::Protocol, usize)> {
   let mut a_ptr = a;
   let mut b_ptr = b;
   let mut node_count = 0;
@@ -209,8 +211,8 @@ pub fn remaining_device_path(
     let a_node = unsafe { *a_ptr };
     let b_node = unsafe { *b_ptr };
 
-    if a_node.r#type == r_efi::efi::protocols::device_path::TYPE_END
-      && a_node.sub_type == r_efi::efi::protocols::device_path::End::SUBTYPE_ENTIRE
+    if a_node.r#type == efi::protocols::device_path::TYPE_END
+      && a_node.sub_type == efi::protocols::device_path::End::SUBTYPE_ENTIRE
     {
       return Some((b_ptr, node_count));
     }
@@ -235,7 +237,7 @@ pub fn remaining_device_path(
 mod tests {
   use core::mem::size_of;
 
-  use r_efi::protocols::device_path::{End, Hardware, TYPE_END, TYPE_HARDWARE};
+  use efi::protocols::device_path::{End, Hardware, TYPE_END, TYPE_HARDWARE};
 
   use super::*;
 
@@ -266,7 +268,7 @@ mod tests {
       0x4,  //length[0]
       0x00, //length[1]
     ];
-    let device_path_ptr = device_path_bytes.as_ptr() as *const r_efi::protocols::device_path::Protocol;
+    let device_path_ptr = device_path_bytes.as_ptr() as *const efi::protocols::device_path::Protocol;
     let (nodes, length) = device_path_node_count(device_path_ptr);
     assert_eq!(nodes, 4);
     assert_eq!(length, device_path_bytes.len());
@@ -293,7 +295,7 @@ mod tests {
       0x4,  //length[0]
       0x00, //length[1]
     ];
-    let device_path_a = device_path_a_bytes.as_ptr() as *const r_efi::protocols::device_path::Protocol;
+    let device_path_a = device_path_a_bytes.as_ptr() as *const efi::protocols::device_path::Protocol;
     let device_path_b_bytes = [
       TYPE_HARDWARE,
       Hardware::SUBTYPE_PCI,
@@ -318,7 +320,7 @@ mod tests {
       0x4,  //length[0]
       0x00, //length[1]
     ];
-    let device_path_b = device_path_b_bytes.as_ptr() as *const r_efi::protocols::device_path::Protocol;
+    let device_path_b = device_path_b_bytes.as_ptr() as *const efi::protocols::device_path::Protocol;
     let device_path_c_bytes = [
       TYPE_HARDWARE,
       Hardware::SUBTYPE_PCI,
@@ -331,7 +333,7 @@ mod tests {
       0x4,  //length[0]
       0x00, //length[1]
     ];
-    let device_path_c = device_path_c_bytes.as_ptr() as *const r_efi::protocols::device_path::Protocol;
+    let device_path_c = device_path_c_bytes.as_ptr() as *const efi::protocols::device_path::Protocol;
 
     // a is a prefix of b.
     let result = remaining_device_path(device_path_a, device_path_b);
@@ -339,10 +341,10 @@ mod tests {
     let result = result.unwrap();
     // the remaining device path of b after going past the prefix in a should start at the size of a in bytes minus the size of the end node.
     let a_path_length = device_path_node_count(device_path_a);
-    let offset = a_path_length.1 - size_of::<r_efi::protocols::device_path::End>();
+    let offset = a_path_length.1 - size_of::<efi::protocols::device_path::End>();
     let offset = offset.try_into().unwrap();
     let expected_ptr =
-      unsafe { device_path_b_bytes.as_ptr().byte_offset(offset) } as *const r_efi::protocols::device_path::Protocol;
+      unsafe { device_path_b_bytes.as_ptr().byte_offset(offset) } as *const efi::protocols::device_path::Protocol;
     assert_eq!(result, (expected_ptr, a_path_length.0 - 1));
 
     //b is equal to b.
@@ -350,10 +352,10 @@ mod tests {
     assert!(result.is_some());
     let result = result.unwrap();
     let b_path_length = device_path_node_count(device_path_b);
-    let offset = b_path_length.1 - size_of::<r_efi::protocols::device_path::End>();
+    let offset = b_path_length.1 - size_of::<efi::protocols::device_path::End>();
     let offset = offset.try_into().unwrap();
     let expected_ptr =
-      unsafe { device_path_b_bytes.as_ptr().byte_offset(offset) } as *const r_efi::protocols::device_path::Protocol;
+      unsafe { device_path_b_bytes.as_ptr().byte_offset(offset) } as *const efi::protocols::device_path::Protocol;
     assert_eq!(result, (expected_ptr, b_path_length.0 - 1));
 
     //a is not a prefix of c.
