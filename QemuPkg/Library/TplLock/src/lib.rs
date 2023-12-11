@@ -12,8 +12,8 @@
 //!
 //!```
 //! use tpl_lock::TplMutex;
-//! use r_efi::system;
-//! let tpl_mutex = TplMutex::new(system::TPL_HIGH_LEVEL, 1_usize, "test_lock");
+//! use r_efi::efi;
+//! let tpl_mutex = TplMutex::new(efi::TPL_HIGH_LEVEL, 1_usize, "test_lock");
 //! *tpl_mutex.lock() = 2_usize;
 //! assert_eq!(2_usize, *tpl_mutex.lock());
 //!```
@@ -27,9 +27,9 @@ use core::{
   sync::atomic::{AtomicBool, AtomicPtr, Ordering},
 };
 
-use r_efi::{efi, system};
+use r_efi::efi;
 
-static BOOT_SERVICES_PTR: AtomicPtr<system::BootServices> = AtomicPtr::new(core::ptr::null_mut());
+static BOOT_SERVICES_PTR: AtomicPtr<efi::BootServices> = AtomicPtr::new(core::ptr::null_mut());
 
 /// Called to initialize the global TplLock BootServices pointer. Prior to this call, TPL locks are collapsed to a basic
 /// lock with no TPL interaction. Afterwards, all TPL locks will adjust TPL according to the TPL they were initialized
@@ -41,11 +41,11 @@ static BOOT_SERVICES_PTR: AtomicPtr<system::BootServices> = AtomicPtr::new(core:
 // statics (which is a primary use case for this crate), and 2) it would mean that locks could not be instantiated
 // before boot services creation. Since these locks are used in many of the structures that are used to implement boot
 // services, this would introduce a cyclical dependency.
-pub fn init_boot_services(boot_services: *mut system::BootServices) {
+pub fn init_boot_services(boot_services: *mut efi::BootServices) {
   BOOT_SERVICES_PTR.store(boot_services, Ordering::SeqCst);
 }
 
-fn boot_services() -> Option<&'static mut system::BootServices> {
+fn boot_services() -> Option<&'static mut efi::BootServices> {
   let boot_services_ptr = BOOT_SERVICES_PTR.load(Ordering::SeqCst);
   unsafe { boot_services_ptr.as_mut() }
 }
@@ -62,8 +62,8 @@ pub struct TplMutex<T: ?Sized> {
 /// ## Example
 ///```
 /// use tpl_lock::TplMutex;
-/// use r_efi::system;
-/// let tpl_mutex = TplMutex::new(system::TPL_HIGH_LEVEL, 1_usize, "test_lock");
+/// use r_efi::efi;
+/// let tpl_mutex = TplMutex::new(efi::TPL_HIGH_LEVEL, 1_usize, "test_lock");
 ///
 /// *tpl_mutex.lock() = 2_usize; //deref to set
 /// assert_eq!(2_usize, *tpl_mutex.lock()); //deref to read.
@@ -173,10 +173,10 @@ mod tests {
     mem::MaybeUninit,
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
   };
-  use r_efi::{efi, system};
+  use r_efi::efi;
 
   static BOOT_SERVICES_LOCK: AtomicBool = AtomicBool::new(false);
-  static TPL: AtomicUsize = AtomicUsize::new(system::TPL_APPLICATION);
+  static TPL: AtomicUsize = AtomicUsize::new(efi::TPL_APPLICATION);
 
   fn lock_boot_services() {
     loop {
@@ -191,7 +191,7 @@ mod tests {
     BOOT_SERVICES_LOCK.store(false, Ordering::Release);
   }
 
-  extern "efiapi" fn mock_raise_tpl(new_tpl: r_efi::efi::Tpl) -> r_efi::efi::Tpl {
+  extern "efiapi" fn mock_raise_tpl(new_tpl: efi::Tpl) -> efi::Tpl {
     let prev_tpl = TPL.load(Ordering::SeqCst);
 
     assert!(prev_tpl <= new_tpl, "cannot raise tpl to lower than current level.");
@@ -200,7 +200,7 @@ mod tests {
     prev_tpl
   }
 
-  extern "efiapi" fn mock_restore_tpl(new_tpl: r_efi::efi::Tpl) {
+  extern "efiapi" fn mock_restore_tpl(new_tpl: efi::Tpl) {
     let prev_tpl = TPL.load(Ordering::SeqCst);
     assert!(prev_tpl >= new_tpl, "cannot restore tpl to higher than current level.");
 
@@ -218,7 +218,7 @@ mod tests {
   #[test]
   fn tpl_mutex_can_be_created() {
     lock_boot_services();
-    let tpl_mutex = TplMutex::new(system::TPL_HIGH_LEVEL, 1_usize, "test_lock");
+    let tpl_mutex = TplMutex::new(efi::TPL_HIGH_LEVEL, 1_usize, "test_lock");
     *tpl_mutex.lock() = 2_usize;
     assert_eq!(2_usize, *tpl_mutex.lock());
     release_boot_services();
@@ -228,20 +228,20 @@ mod tests {
   fn tpl_mutex_should_change_tpl_if_bs_available() {
     lock_boot_services();
     let mut boot_services = mock_boot_services();
-    let tpl_mutex = TplMutex::new(system::TPL_NOTIFY, 1_usize, "test_lock");
+    let tpl_mutex = TplMutex::new(efi::TPL_NOTIFY, 1_usize, "test_lock");
     init_boot_services(&mut boot_services);
 
     let guard = tpl_mutex.lock();
-    assert_eq!(TPL.load(Ordering::SeqCst), system::TPL_NOTIFY);
+    assert_eq!(TPL.load(Ordering::SeqCst), efi::TPL_NOTIFY);
     drop(guard);
-    assert_eq!(TPL.load(Ordering::SeqCst), system::TPL_APPLICATION);
+    assert_eq!(TPL.load(Ordering::SeqCst), efi::TPL_APPLICATION);
     release_boot_services();
   }
 
   #[test]
   fn tpl_mutex_and_guard_should_support_debug_and_display() {
     lock_boot_services();
-    let tpl_mutex = TplMutex::new(system::TPL_HIGH_LEVEL, 1_usize, "test_lock");
+    let tpl_mutex = TplMutex::new(efi::TPL_HIGH_LEVEL, 1_usize, "test_lock");
     println!("{:?}", tpl_mutex);
     let guard = tpl_mutex.lock();
     println!("{:?}", tpl_mutex);
