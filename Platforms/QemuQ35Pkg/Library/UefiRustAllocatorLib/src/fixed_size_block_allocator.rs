@@ -20,7 +20,7 @@ use core::{
   ptr::{self, slice_from_raw_parts_mut, NonNull},
 };
 use linked_list_allocator::{align_down_size, align_up_size};
-use r_efi::system;
+use r_efi::efi;
 use r_pi::dxe_services::GcdMemoryType;
 use uefi_gcd_lib::gcd::SpinLockedGcd;
 
@@ -704,7 +704,7 @@ impl SpinLockedFixedSizeBlockAllocator {
   pub const fn new(gcd: &'static SpinLockedGcd, allocator_handle: r_efi::efi::Handle) -> Self {
     SpinLockedFixedSizeBlockAllocator {
       inner: tpl_lock::TplMutex::new(
-        system::TPL_HIGH_LEVEL,
+        efi::TPL_HIGH_LEVEL,
         FixedSizeBlockAllocator::new(gcd, allocator_handle),
         "FsbLock",
       ),

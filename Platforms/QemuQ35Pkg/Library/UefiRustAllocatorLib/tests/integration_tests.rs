@@ -1,17 +1,16 @@
 #![feature(allocator_api)]
 #![feature(slice_ptr_get)]
-use r_pi::dxe_services::GcdMemoryType;
+use r_pi::dxe_services;
 use uefi_gcd_lib::gcd::SpinLockedGcd;
 use uefi_rust_allocator_lib::fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator;
 
-use core::alloc::{Allocator, Layout};
-use std::alloc::{GlobalAlloc, System};
+use std::alloc::{Allocator, GlobalAlloc, Layout, System};
 
 fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
   let layout = Layout::from_size_align(size, 0x1000).unwrap();
   let base = unsafe { System.alloc(layout) as u64 };
   unsafe {
-    gcd.add_memory_space(GcdMemoryType::SystemMemory, base as usize, size, 0).unwrap();
+    gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, base as usize, size, 0).unwrap();
   }
   base
 }

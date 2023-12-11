@@ -20,17 +20,16 @@
 //! Declaring a set of UEFI allocators as global static allocators and setting one of them as the system allocator:
 //!
 //! ```no_run
-//! # use r_efi::efi::BOOT_SERVICES_CODE;
-//! # use r_efi::efi::BOOT_SERVICES_DATA;
+//! # use r_efi::efi;
 //! use uefi_gcd_lib::gcd::SpinLockedGcd;
 //! use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 //! static GCD: SpinLockedGcd = SpinLockedGcd::new();
 //! /* Initialize GCD */
 //! //EfiBootServicesCode
-//! pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_CODE, 1 as _);
+//! pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, efi::BOOT_SERVICES_CODE, 1 as _);
 //! //EfiBootServicesData - (use as global allocator)
 //! #[global_allocator]
-//! pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_DATA, 1 as _);
+//! pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, efi::BOOT_SERVICES_DATA, 1 as _);
 //! ```
 //!
 //! Allocating memory in a particular allocator using Box:
@@ -38,11 +37,9 @@
 //! #![feature(allocator_api)]
 //! # use core::alloc::Layout;
 //! # use core::ffi::c_void;
-//! # use r_efi::efi::BOOT_SERVICES_DATA;
-//! # use r_efi::efi::RUNTIME_SERVICES_DATA;
-//! # use std::alloc::System;
-//! # use std::alloc::GlobalAlloc;
-//! # use r_pi::dxe_services::GcdMemoryType;
+//! # use r_efi::efi;
+//! # use std::alloc::{GlobalAlloc, System};
+//! # use r_pi::dxe_services;
 //!
 //! use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 //! use uefi_gcd_lib::gcd::SpinLockedGcd;
@@ -51,7 +48,7 @@
 //! #   let base = unsafe { System.alloc(layout) as u64 };
 //! #   unsafe {
 //! #     gcd.add_memory_space(
-//! #       GcdMemoryType::SystemMemory,
+//! #       dxe_services::GcdMemoryType::SystemMemory,
 //! #       base as usize,
 //! #       size,
 //! #       0).unwrap();
@@ -63,8 +60,8 @@
 //! GCD.init(48,16); //hard-coded processor address size.
 //! let base = init_gcd(&GCD, 0x400000);
 //!
-//! pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, BOOT_SERVICES_DATA, 1 as _);
-//! pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, RUNTIME_SERVICES_DATA, 1 as _);
+//! pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, efi::BOOT_SERVICES_DATA, 1 as _);
+//! pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, efi::RUNTIME_SERVICES_DATA, 1 as _);
 //!
 //! //Allocate a box in Boot Services Data
 //! let boot_box = Box::new_in(5, &EFI_BOOT_SERVICES_DATA_ALLOCATOR);
@@ -78,9 +75,8 @@
 //! ```
 //! # use core::alloc::Layout;
 //! # use core::ffi::c_void;
-//! # use std::alloc::System;
-//! # use std::alloc::GlobalAlloc;
-//! # use r_pi::dxe_services::GcdMemoryType;
+//! # use std::alloc::{GlobalAlloc, System};
+//! # use r_pi::dxe_services;
 //!
 //! use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 //! use uefi_gcd_lib::gcd::SpinLockedGcd;
@@ -89,7 +85,7 @@
 //! #   let base = unsafe { System.alloc(layout) as u64 };
 //! #   unsafe {
 //! #     gcd.add_memory_space(
-//! #       GcdMemoryType::SystemMemory,
+//! #       dxe_services::GcdMemoryType::SystemMemory,
 //! #       base as usize,
 //! #       size,
 //! #       0).unwrap();

@@ -8,6 +8,7 @@
 //!
 //! SPDX-License-Identifier: BSD-2-Clause-Patent
 //!
+use r_efi::efi;
 use uefi_gcd_lib::gcd::SpinLockedGcd;
 
 use crate::fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator;
@@ -23,23 +24,23 @@ const UEFI_POOL_ALIGN: usize = 8; //per UEFI spec.
 
 struct AllocationInfo {
   signature: u32,
-  memory_type: r_efi::system::MemoryType,
+  memory_type: efi::MemoryType,
   layout: Layout,
 }
 
 /// UEFI Allocator
 ///
 /// Wraps a [`SpinLockedFixedSizeBlockAllocator`] to provide additional UEFI-specific functionality:
-/// - Association of a particular [`r_efi::system::MemoryType`] with the allocator
+/// - Association of a particular [`r_efi::efi::MemoryType`] with the allocator
 /// - A pool implementation that allows tracking the layout and memory_type of UEFI pool allocations.
 ///
 /// ## Example:
 /// ```
 /// # use core::alloc::Layout;
 /// # use core::ffi::c_void;
-/// # use std::alloc::System;
-/// # use std::alloc::GlobalAlloc;
-/// # use r_pi::dxe_services::GcdMemoryType;
+/// # use std::alloc::{GlobalAlloc, System};
+/// # use r_efi::efi;
+/// # use r_pi::dxe_services;
 ///
 /// use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 /// use uefi_gcd_lib::gcd::SpinLockedGcd;
@@ -48,7 +49,7 @@ struct AllocationInfo {
 /// #   let base = unsafe { System.alloc(layout) as u64 };
 /// #   unsafe {
 /// #     gcd.add_memory_space(
-/// #       GcdMemoryType::SystemMemory,
+/// #       dxe_services::GcdMemoryType::SystemMemory,
 /// #       base as usize,
 /// #       size,
 /// #       0).unwrap();
@@ -62,31 +63,27 @@ struct AllocationInfo {
 /// //initialize the gcd for this example with some memory from the System allocator.
 /// let base = init_gcd(&GCD, 0x400000);
 ///
-/// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA, 1 as _);
+/// let ua = UefiAllocator::new(&GCD, efi::BOOT_SERVICES_DATA, 1 as _);
 ///
 /// unsafe {
 ///   let mut buffer: *mut c_void = core::ptr::null_mut();
-///   assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == r_efi::efi::Status::SUCCESS);
+///   assert!(ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) == efi::Status::SUCCESS);
 ///   assert!(buffer as u64 > base);
 ///   assert!((buffer as u64) < base + 0x400000);
-///   assert!(ua.free_pool(buffer) == r_efi::efi::Status::SUCCESS);
+///   assert!(ua.free_pool(buffer) == efi::Status::SUCCESS);
 /// }
 /// ```
 ///
 pub struct UefiAllocator {
   allocator: SpinLockedFixedSizeBlockAllocator,
-  memory_type: r_efi::system::MemoryType,
+  memory_type: efi::MemoryType,
 }
 
 impl UefiAllocator {
   /// Creates a new UEFI allocator using the provided `gcd`.
   ///
   /// See [`SpinLockedFixedSizeBlockAllocator::new`]
-  pub const fn new(
-    gcd: &'static SpinLockedGcd,
-    memory_type: r_efi::system::MemoryType,
-    allocator_handle: r_efi::efi::Handle,
-  ) -> Self {
+  pub const fn new(gcd: &'static SpinLockedGcd, memory_type: efi::MemoryType, allocator_handle: efi::Handle) -> Self {
     UefiAllocator { allocator: SpinLockedFixedSizeBlockAllocator::new(gcd, allocator_handle), memory_type }
   }
 
@@ -98,7 +95,7 @@ impl UefiAllocator {
   }
 
   /// Returns the UEFI memory type associated with this allocator.
-  pub fn memory_type(&self) -> r_efi::system::MemoryType {
+  pub fn memory_type(&self) -> efi::MemoryType {
     self.memory_type
   }
 
@@ -113,9 +110,9 @@ impl UefiAllocator {
   /// ```
   /// # use core::alloc::Layout;
   /// # use core::ffi::c_void;
-  /// # use std::alloc::System;
-  /// # use std::alloc::GlobalAlloc;
-  /// # use r_pi::dxe_services::GcdMemoryType;
+  /// # use std::alloc::{GlobalAlloc, System};
+  /// # use r_efi::efi;
+  /// # use r_pi::dxe_services;
   ///
   /// use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
   /// use uefi_gcd_lib::gcd::SpinLockedGcd;
@@ -124,7 +121,7 @@ impl UefiAllocator {
   /// #   let base = unsafe { System.alloc(layout) as u64 };
   /// #   unsafe {
   /// #     gcd.add_memory_space(
-  /// #       GcdMemoryType::SystemMemory,
+  /// #       dxe_services::GcdMemoryType::SystemMemory,
   /// #       base as usize,
   /// #       size,
   /// #       0).unwrap();
@@ -138,14 +135,14 @@ impl UefiAllocator {
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA, 1 as _);
+  /// let ua = UefiAllocator::new(&GCD, efi::BOOT_SERVICES_DATA, 1 as _);
   ///
   /// let mut buffer: *mut c_void = core::ptr::null_mut();
   /// unsafe {
   ///   ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer));
   /// }
   /// ```
-  pub unsafe fn allocate_pool(&self, size: usize, buffer: *mut *mut c_void) -> r_efi::efi::Status {
+  pub unsafe fn allocate_pool(&self, size: usize, buffer: *mut *mut c_void) -> efi::Status {
     let mut allocation_info =
       AllocationInfo { signature: POOL_SIG, memory_type: self.memory_type, layout: Layout::new::<AllocationInfo>() };
     let offset: usize;
@@ -164,9 +161,9 @@ impl UefiAllocator {
           alloc_info_ptr.write(allocation_info);
           buffer.write((ptr.as_ptr() as *mut u8 as usize + offset) as *mut c_void);
         }
-        r_efi::efi::Status::SUCCESS
+        efi::Status::SUCCESS
       }
-      Err(_) => r_efi::efi::Status::OUT_OF_RESOURCES,
+      Err(_) => efi::Status::OUT_OF_RESOURCES,
     }
   }
 
@@ -180,9 +177,9 @@ impl UefiAllocator {
   /// ```
   /// # use core::alloc::Layout;
   /// # use core::ffi::c_void;
-  /// # use std::alloc::System;
-  /// # use std::alloc::GlobalAlloc;
-  /// # use r_pi::dxe_services::GcdMemoryType;
+  /// # use std::alloc::{GlobalAlloc, System};
+  /// # use r_efi::efi;
+  /// # use r_pi::dxe_services;
   ///
   /// use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
   /// use uefi_gcd_lib::gcd::SpinLockedGcd;
@@ -191,7 +188,7 @@ impl UefiAllocator {
   /// #   let base = unsafe { System.alloc(layout) as u64 };
   /// #   unsafe {
   /// #     gcd.add_memory_space(
-  /// #       GcdMemoryType::SystemMemory,
+  /// #       dxe_services::GcdMemoryType::SystemMemory,
   /// #       base as usize,
   /// #       size,
   /// #       0).unwrap();
@@ -205,7 +202,7 @@ impl UefiAllocator {
   /// //initialize the gcd for this example with some memory from the System allocator.
   /// let base = init_gcd(&GCD, 0x400000);
   ///
-  /// let ua = UefiAllocator::new(&GCD, r_efi::efi::BOOT_SERVICES_DATA, 1 as _);
+  /// let ua = UefiAllocator::new(&GCD, efi::BOOT_SERVICES_DATA, 1 as _);
   ///
   ///
   /// let mut buffer: *mut c_void = core::ptr::null_mut();
@@ -217,7 +214,7 @@ impl UefiAllocator {
   ///   ua.free_pool(buffer);
   /// }
   /// ```
-  pub unsafe fn free_pool(&self, buffer: *mut c_void) -> r_efi::efi::Status {
+  pub unsafe fn free_pool(&self, buffer: *mut c_void) -> efi::Status {
     let (_, offset) = Layout::new::<AllocationInfo>()
       .extend(
         Layout::from_size_align(0, UEFI_POOL_ALIGN).unwrap_or_else(|err| panic!("Allocation layout error: {:#?}", err)),
@@ -230,12 +227,12 @@ impl UefiAllocator {
     assert!((*allocation_info).signature == POOL_SIG);
     // check if allocation is from this pool.
     if (*allocation_info).memory_type != self.memory_type {
-      return r_efi::efi::Status::NOT_FOUND;
+      return efi::Status::NOT_FOUND;
     }
     //zero after check so it doesn't get reused.
     (*allocation_info).signature = 0;
     self.allocator.deallocate(NonNull::new(allocation_info as *mut u8).unwrap(), (*allocation_info).layout);
-    r_efi::efi::Status::SUCCESS
+    efi::Status::SUCCESS
   }
 
   pub fn allocate_at_address(
@@ -274,16 +271,16 @@ unsafe impl Allocator for UefiAllocator {
 }
 
 // returns a string for the given memory type.
-fn string_for_memory_type(memory_type: r_efi::system::MemoryType) -> &'static str {
+fn string_for_memory_type(memory_type: efi::MemoryType) -> &'static str {
   match memory_type {
-    r_efi::system::LOADER_CODE => "Loader Code",
-    r_efi::system::LOADER_DATA => "Loader Data",
-    r_efi::system::BOOT_SERVICES_CODE => "BootServices Code",
-    r_efi::system::BOOT_SERVICES_DATA => "BootServices Data",
-    r_efi::system::RUNTIME_SERVICES_CODE => "RuntimeServices Code",
-    r_efi::system::RUNTIME_SERVICES_DATA => "RuntimeServices Data",
-    r_efi::system::ACPI_RECLAIM_MEMORY => "ACPI Reclaim",
-    r_efi::system::ACPI_MEMORY_NVS => "ACPI NVS",
+    efi::LOADER_CODE => "Loader Code",
+    efi::LOADER_DATA => "Loader Data",
+    efi::BOOT_SERVICES_CODE => "BootServices Code",
+    efi::BOOT_SERVICES_DATA => "BootServices Data",
+    efi::RUNTIME_SERVICES_CODE => "RuntimeServices Code",
+    efi::RUNTIME_SERVICES_DATA => "RuntimeServices Data",
+    efi::ACPI_RECLAIM_MEMORY => "ACPI Reclaim",
+    efi::ACPI_MEMORY_NVS => "ACPI NVS",
     _ => "Unknown",
   }
 }
@@ -297,10 +294,9 @@ impl Display for UefiAllocator {
 #[cfg(test)]
 mod tests {
   extern crate std;
-  use core::alloc::GlobalAlloc;
-  use std::alloc::System;
+  use std::alloc::{GlobalAlloc, System};
 
-  use r_pi::dxe_services::GcdMemoryType;
+  use r_pi::dxe_services;
 
   use super::*;
 
@@ -308,7 +304,7 @@ mod tests {
     let layout = Layout::from_size_align(size, 0x1000).unwrap();
     let base = unsafe { System.alloc(layout) as u64 };
     unsafe {
-      gcd.add_memory_space(GcdMemoryType::SystemMemory, base as usize, size, 0).unwrap();
+      gcd.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, base as usize, size, 0).unwrap();
     }
     base
   }
@@ -317,8 +313,8 @@ mod tests {
   fn test_uefi_allocator_new() {
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
     GCD.init(48, 16);
-    let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA, 1 as _);
-    assert_eq!(ua.memory_type, r_efi::system::BOOT_SERVICES_DATA);
+    let ua = UefiAllocator::new(&GCD, efi::BOOT_SERVICES_DATA, 1 as _);
+    assert_eq!(ua.memory_type, efi::BOOT_SERVICES_DATA);
   }
 
   #[test]
@@ -328,10 +324,10 @@ mod tests {
 
     let base = init_gcd(&GCD, 0x400000);
 
-    let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA, 1 as _);
+    let ua = UefiAllocator::new(&GCD, efi::BOOT_SERVICES_DATA, 1 as _);
 
     let mut buffer: *mut c_void = core::ptr::null_mut();
-    assert_eq!(unsafe { ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) }, r_efi::efi::Status::SUCCESS);
+    assert_eq!(unsafe { ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) }, efi::Status::SUCCESS);
     assert!(buffer as u64 > base);
     assert!((buffer as u64) < base + 0x400000);
 
@@ -346,7 +342,7 @@ mod tests {
     unsafe {
       let allocation_info = &*allocation_info;
       assert_eq!(allocation_info.signature, POOL_SIG);
-      assert_eq!(allocation_info.memory_type, r_efi::system::BOOT_SERVICES_DATA);
+      assert_eq!(allocation_info.memory_type, efi::BOOT_SERVICES_DATA);
       assert_eq!(allocation_info.layout, layout)
     }
   }
@@ -358,12 +354,12 @@ mod tests {
 
     let base = init_gcd(&GCD, 0x400000);
 
-    let ua = UefiAllocator::new(&GCD, r_efi::system::BOOT_SERVICES_DATA, 1 as _);
+    let ua = UefiAllocator::new(&GCD, efi::BOOT_SERVICES_DATA, 1 as _);
 
     let mut buffer: *mut c_void = core::ptr::null_mut();
-    assert_eq!(unsafe { ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) }, r_efi::efi::Status::SUCCESS);
+    assert_eq!(unsafe { ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) }, efi::Status::SUCCESS);
 
-    assert!(unsafe { ua.free_pool(buffer) } == r_efi::efi::Status::SUCCESS);
+    assert!(unsafe { ua.free_pool(buffer) } == efi::Status::SUCCESS);
 
     let (_, offset) = Layout::new::<AllocationInfo>()
       .extend(
@@ -379,7 +375,7 @@ mod tests {
     }
 
     let prev_buffer = buffer;
-    assert_eq!(unsafe { ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) }, r_efi::efi::Status::SUCCESS);
+    assert_eq!(unsafe { ua.allocate_pool(0x1000, core::ptr::addr_of_mut!(buffer)) }, efi::Status::SUCCESS);
     assert!(buffer as u64 > base);
     assert!((buffer as u64) < base + 0x400000);
     assert_eq!(buffer, prev_buffer);
