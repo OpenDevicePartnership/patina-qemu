@@ -68,7 +68,7 @@ pub fn device_path_node_count(device_path: *const efi::protocols::device_path::P
   let mut current_node_ptr = device_path;
   loop {
     let current_node = unsafe { *current_node_ptr };
-    let current_length: usize = u16::from_le_bytes(current_node.length).try_into().unwrap();
+    let current_length: usize = u16::from_le_bytes(current_node.length).into();
     node_count += 1;
     dev_path_size += current_length;
 
@@ -219,8 +219,8 @@ pub fn remaining_device_path(
 
     node_count += 1;
 
-    let a_length: usize = u16::from_le_bytes(a_node.length).try_into().unwrap();
-    let b_length: usize = u16::from_le_bytes(b_node.length).try_into().unwrap();
+    let a_length: usize = u16::from_le_bytes(a_node.length).into();
+    let b_length: usize = u16::from_le_bytes(b_node.length).into();
     let a_slice = unsafe { slice_from_raw_parts(a_ptr as *const u8, a_length).as_ref() };
     let b_slice = unsafe { slice_from_raw_parts(b_ptr as *const u8, b_length).as_ref() };
 
