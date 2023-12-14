@@ -9,7 +9,7 @@ use core::{
 use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, string::String, vec, vec::Vec};
 use r_efi::efi;
 use r_pi::hob::{Hob, HobList};
-use uefi_device_path_lib::copy_device_path_to_boxed_slice;
+use uefi_device_path_lib::{copy_device_path_to_boxed_slice, device_path_node_count};
 use uefi_protocol_db_lib::DXE_CORE_HANDLE;
 use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 
@@ -464,6 +464,13 @@ pub fn core_load_image(
     if let Ok((_, handle)) = core_locate_device_path(efi::protocols::device_path::PROTOCOL_GUID, device_path) {
       image_info.device_handle = handle;
     }
+
+    // extract file path here and set in image_info
+    let (_, device_path_size) = device_path_node_count(device_path);
+    let file_path_size: usize =
+      device_path_size.saturating_sub(core::mem::size_of::<efi::protocols::device_path::Protocol>());
+    let file_path = unsafe { (device_path as *const u8).offset(file_path_size as isize) };
+    image_info.file_path = file_path as *mut efi::protocols::device_path::Protocol;
   }
 
   let mut private_info = core_load_pe_image(image_to_load.as_ref(), image_info)?;
