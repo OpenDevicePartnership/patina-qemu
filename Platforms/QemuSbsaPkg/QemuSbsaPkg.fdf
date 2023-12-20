@@ -409,6 +409,7 @@ READ_LOCK_STATUS   = TRUE
   INF  SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
   INF  MsCorePkg/HelloWorldRustDxe/HelloWorldRustDxe.inf
   INF  QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
+  INF  AdvLoggerPkg/Application/AdvancedLogDumper/AdvancedLogDumper.inf
 
   #
   # DFCI support
