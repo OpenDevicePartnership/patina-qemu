@@ -55,6 +55,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         ''' Runs QEMU '''
         VirtualDrive = env.GetValue("VIRTUAL_DRIVE_PATH")
         OutputPath_FV = os.path.join(env.GetValue("BUILD_OUTPUT_BASE"), "FV")
+        shutdown_after_run = (env.GetValue("SHUTDOWN_AFTER_RUN", "TRUE")=="TRUE")
         repo_version = env.GetValue("VERSION", "Unknown")
 
         # Use a provided QEMU path. Default to the system path if not provided.
@@ -219,15 +220,19 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         if monitor_port is not None:
             args += " -monitor tcp:127.0.0.1:" + monitor_port + ",server,nowait"
 
+        # If set, allows Qemu to listen for a debug command to shutdown, if set
+        if shutdown_after_run:
+            args += " -device isa-debug-exit,iobase=0xf4,iosize=0x04"
+
         # Run QEMU
-        #ret = QemuRunner.RunCmd(executable, args,  thread_target=QemuRunner.QemuCmdReader)
-        ret = utility_functions.RunCmd(executable, args)
-        if ret != 0 and os.name != 'nt':
-            # Linux version of QEMU will mess with the print if its run failed, this is to restore it
-            utility_functions.RunCmd ('stty', 'echo')
+        ret = QemuRunner.RunCmd(executable, args,  thread_target=QemuRunner.QemuCmdReader)
+        # Disable for now: "stty: 'standard input': Inappropriate ioctl for device"
+        # if ret != 0 and os.name != 'nt':
+        #     # Linux version of QEMU will mess with the print if its run failed, this is to restore it
+        #     utility_functions.RunCmd ('stty', 'echo')
 
         ## TODO: restore the customized RunCmd once unit tests with asserts are figured out
-        if ret == 0xc0000005:
+        if ret == 0xc0000005 or ret == 33:
             ret = 0
 
         ## TODO: remove this once we upgrade to newer QEMU

@@ -22,6 +22,10 @@ resources:
       ref: refs/tags/v9.1.1
 
 parameters:
+- name: build_file
+  displayName: The Build file
+  type: string
+  default: ".pytool/CISettings.py"
 - name: do_ci_build
   displayName: Perform Stuart CI Build
   type: boolean
@@ -82,6 +86,7 @@ parameters:
 jobs:
 - template: Jobs/PrGate.yml@mu_devops
   parameters:
+    build_file: ${{ parameters.build_file }}
     linux_container_image: ghcr.io/microsoft/mu_devops/ubuntu-22-build:1082f35
     ${{ if eq(parameters.rust_build, true) }}:
       linux_container_options: --security-opt seccomp=unconfined
@@ -118,4 +123,3 @@ jobs:
         container_build: true
 
 - ${{ parameters.extra_jobs }}
-

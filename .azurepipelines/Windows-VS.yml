@@ -17,6 +17,7 @@
 variables:
 - group: architectures-x86-64
 - group: tool-chain-windows-visual-studio-latest
+- group: 'UEFI Rust Tokens'
 
 extends:
   template: MuDevOpsWrapper.yml
@@ -29,6 +30,7 @@ extends:
     os_type: Windows_NT
     rust_build: true
     extra_cargo_steps:
+      - template: templates/git-config-auth.yml
       - script: pip install -r pip-requirements.txt --upgrade
         displayName: Install and Upgrade pip Modules
         condition: succeeded()
@@ -37,22 +39,49 @@ extends:
         inputs:
           script: stuart_setup -c .pytool/CISettings.py
         condition: succeeded()
+    extra_install_step:
+    - template: templates/git-config-auth.yml
+    - task: RustInstaller@1
+      inputs:
+        cratesIoFeedOverride: $(CratesIoFeedOverride)
+        rustVersion: ms-$(RustVersion)
+        toolchainFeed: $(RustToolChainFeed)
+      displayName: Install Microsoft Rust toolchain
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'specific'
+        project: 'MsUEFI'
+        definition: 101356 # The pipeline definition
+        targetPath: $(CARGO_HOME)\bin\
+        itemPattern: '**/cargo-make.exe'
+        artifactName: 'Binaries'
+      displayName: Download Cargo Make
+    - task: Bash@3
+      displayName: Exclude Cargo Tarpaulin on Windows
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "##vso[task.setvariable variable=RUST_ENV_CHECK_TOOL_EXCLUSIONS;]cargo tarpaulin"
+    - task: CmdLine@2
+      displayName: Install rust-src Component
+      inputs:
+        script: rustup component add rust-src
     build_matrix:
-      TARGET_QEMU:
-        Pkgs: 'QemuPkg'
-        Targets: 'DEBUG,RELEASE,NO-TARGET,NOOPT'
-        ArchList: IA32,X64,AARCH64
+#     TARGET_QEMU:
+#       Pkgs: 'QemuPkg'
+#       Targets: 'DEBUG,RELEASE,NO-TARGET,NOOPT'
+#       ArchList: IA32,X64,AARCH64
       TARGET_Q35:
         Pkgs: 'QemuQ35Pkg'
         Targets: 'NO-TARGET'
         ArchList: IA32,X64
-      TARGET_QEMU_ARM:
-        Pkgs: 'QemuPkg'
-        Targets: 'DEBUG,RELEASE,NO-TARGET,NOOPT'
-        ArchList: IA32,X64,AARCH64
-        SelfHostAgent: true
-      TARGET_Q35_ARM:
-        Pkgs: 'QemuQ35Pkg'
-        Targets: 'NO-TARGET'
-        ArchList: IA32,X64
-        SelfHostAgent: true
+#     TARGET_QEMU_ARM:
+#       Pkgs: 'QemuPkg'
+#       Targets: 'DEBUG,RELEASE,NO-TARGET,NOOPT'
+#       ArchList: IA32,X64,AARCH64
+#       SelfHostAgent: true
+#     TARGET_Q35_ARM:
+#       Pkgs: 'QemuQ35Pkg'
+#       Targets: 'NO-TARGET'
+#       ArchList: IA32,X64
+#       SelfHostAgent: true

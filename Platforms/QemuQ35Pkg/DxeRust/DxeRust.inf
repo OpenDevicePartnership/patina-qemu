@@ -1,0 +1,23 @@
+### @file
+# DXE Core Rust Implementation
+#
+# Provides an implementation of DXE Core that is NOT compliant with DXE CIS yet.
+#
+# Copyright (C) Microsoft Corporation. All rights reserved.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+###
+
+[Defines]
+  INF_VERSION               = 0x00010017
+  BASE_NAME                 = DxeRust
+  FILE_GUID                 = 23C9322F-2AF2-476A-BC4C-26BC88266C71
+  MODULE_TYPE               = DXE_CORE
+  RUST_MODULE               = TRUE
+
+[Sources]
+  Cargo.toml
+
+[Depex]
+  TRUE

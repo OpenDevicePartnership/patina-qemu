@@ -1,0 +1,14 @@
+[package]
+name = "RustDriverDxe"
+version = "0.1.0"
+authors = ["MS UEFI Rust Team"]
+edition = "2021"
+
+[[bin]]
+name = "RustDriverDxe"
+path = "src/main.rs"
+test = false
+
+[dependencies]
+r-efi = {workspace=true}
+SerialPrintDxe = {workspace = true}

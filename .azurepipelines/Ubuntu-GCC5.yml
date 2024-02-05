@@ -15,14 +15,15 @@
 ##
 
 variables:
-- group: architectures-arm-64-x86-64
+- group: architectures-x86-64
 - group: tool-chain-ubuntu-gcc
+- group: 'UEFI Rust Tokens'
 
 extends:
   template: MuDevOpsWrapper.yml
   parameters:
     do_ci_build: true
-    do_ci_setup: true
+    do_ci_setup: false
     do_non_ci_build: false
     do_non_ci_setup: true
     do_pr_eval: true
@@ -30,6 +31,7 @@ extends:
     os_type: Linux
     rust_build: true
     extra_cargo_steps:
+      - template: templates/git-config-auth.yml
       - script: pip install -r pip-requirements.txt --upgrade
         displayName: Install and Upgrade pip Modules
         condition: succeeded()
@@ -38,31 +40,49 @@ extends:
         inputs:
           script: stuart_setup -c .pytool/CISettings.py
         condition: succeeded()
+    extra_install_step:
+    - template: templates/git-config-auth.yml
+    # - script: sudo apt-get install libssl-dev
+    #  displayName: Install openssl
+    - task: RustInstaller@1
+      inputs:
+        cratesIoFeedOverride: $(CratesIoFeedOverride)
+        rustVersion: ms-$(RustVersion)
+        toolchainFeed: $(RustToolChainFeed)
+      displayName: Install Microsoft Rust toolchain
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        buildType: 'specific'
+        project: 'MsUEFI'
+        definition: 101356 # The pipeline definition
+        targetPath: '$(CARGO_HOME)\bin\'
+        itemPattern: '**/cargo-make'
+        artifactName: 'Binaries'
+      displayName: Download Cargo Make
+    - script: sudo chmod +x $(CARGO_HOME)/bin/cargo-make
     build_matrix:
-      TARGET_QEMU:
-        Pkgs: 'QemuPkg'
-        Targets: 'DEBUG,RELEASE,NO-TARGET,NOOPT'
-        ArchList: IA32,X64,AARCH64
+#     TARGET_QEMU:
+#       Pkgs: 'QemuPkg'
+#       Targets: 'DEBUG,RELEASE,NO-TARGET,NOOPT'
+#       ArchList: IA32,X64,AARCH64
       TARGET_Q35:
         Pkgs: 'QemuQ35Pkg'
         Targets: 'NO-TARGET'
         ArchList: IA32,X64
-      TARGET_SBSA:
-        Pkgs: 'QemuSbsaPkg'
-        Targets: 'NO-TARGET'
-        ArchList: AARCH64
-      TARGET_QEMU_ARM:
-        Pkgs: 'QemuPkg'
-        Targets: 'DEBUG,RELEASE,NO-TARGET,NOOPT'
-        ArchList: IA32,X64,AARCH64
-        SelfHostAgent: true
-      TARGET_Q35_ARM:
-        Pkgs: 'QemuQ35Pkg'
-        Targets: 'NO-TARGET'
-        ArchList: IA32,X64
-        SelfHostAgent: true
-      TARGET_SBSA_ARM:
-        Pkgs: 'QemuSbsaPkg'
-        Targets: 'NO-TARGET'
-        ArchList: AARCH64
-        SelfHostAgent: true
+#     TARGET_SBSA:
+#       Pkgs: 'QemuSbsaPkg'
+#       Targets: 'NO-TARGET'
+#       ArchList: AARCH64
+#     TARGET_QEMU_ARM:
+#       Pkgs: 'QemuPkg'
+#       Targets: 'DEBUG,RELEASE,NO-TARGET,NOOPT'
+#       ArchList: IA32,X64,AARCH64
+#       SelfHostAgent: true
+#     TARGET_Q35_ARM:
+#       Pkgs: 'QemuQ35Pkg'
+#       Targets: 'NO-TARGET'
+#       ArchList: IA32,X64
+#       SelfHostAgent: true
+#     TARGET_SBSA_ARM:
+#       Pkgs: 'QemuSbsaPkg'
+#       Targets: 'NO-TARGET'

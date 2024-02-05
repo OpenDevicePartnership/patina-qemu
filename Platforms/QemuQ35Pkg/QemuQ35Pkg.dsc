@@ -1011,11 +1011,25 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   MsGraphicsPkg/DisplayEngineDxe/DisplayEngineDxe.inf
 
 
-  MdeModulePkg/Core/Dxe/DxeMain.inf {
+  # MdeModulePkg/Core/Dxe/DxeMain.inf {
+  #   <LibraryClasses>
+  #     NULL|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
+  #     DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
+  # }
+
+  # We use Rust now
+  QemuQ35Pkg/DxeRust/DxeRust.inf
+
+  # Our first Rust driver to load
+  QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
+
+  # Simple C Test DXE driver used to test Rust DXE Core FFI interfaces.
+  QemuQ35Pkg/RustFfiTestDxe/RustFfiTestDxe.inf {
     <LibraryClasses>
-      NULL|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
       DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
   }
+
+  QemuQ35Pkg/RustFfiImageTestDxe/RustFfiImageTestDxe.inf
 
   MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
   MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf
@@ -1462,7 +1476,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
     <LibraryClasses>
       NULL|PrmPkg/Samples/PrmSampleAcpiParameterBufferModule/Library/DxeAcpiParameterBufferModuleConfigLib/DxeAcpiParameterBufferModuleConfigLib.inf
       NULL|PrmPkg/Samples/PrmSampleContextBufferModule/Library/DxeContextBufferModuleConfigLib/DxeContextBufferModuleConfigLib.inf
-      NULL|PrmPkg/Samples/PrmSampleHardwareAccessModule/Library/DxeHardwareAccessModuleConfigLib/DxeHardwareAccessModuleConfigLib.inf
+      # NULL|PrmPkg/Samples/PrmSampleHardwareAccessModule/Library/DxeHardwareAccessModuleConfigLib/DxeHardwareAccessModuleConfigLib.inf
   }
 
   #
@@ -1510,6 +1524,11 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   #
   MSFT:*_*_*_CC_FLAGS = /D DISABLE_NEW_DEPRECATED_INTERFACES
   GCC:*_*_*_CC_FLAGS = -D DISABLE_NEW_DEPRECATED_INTERFACES
+
+  #
+  # Disable stack cookies in this repo (not supported in Rust modules).
+  #
+  MSFT:*_*_*_CC_FLAGS = /GS-
 
 [BuildOptions.IA32]
   MSFT:*_*_*_DLINK_FLAGS = /ALIGN:64

@@ -1047,6 +1047,7 @@
   MsCorePkg/MuVarPolicyFoundationDxe/MuVarPolicyFoundationDxe.inf
   MsCorePkg/AcpiRGRT/AcpiRgrt.inf
   MsCorePkg/HelloWorldRustDxe/HelloWorldRustDxe.inf
+  QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
 
   MsGraphicsPkg/PrintScreenLogger/PrintScreenLogger.inf
   SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf

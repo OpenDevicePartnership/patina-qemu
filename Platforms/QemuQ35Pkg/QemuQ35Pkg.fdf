@@ -307,7 +307,17 @@ APRIORI DXE {
 #
 # DXE Phase modules
 #
-INF  MdeModulePkg/Core/Dxe/DxeMain.inf
+#INF  MdeModulePkg/Core/Dxe/DxeMain.inf
+
+# We use Rust now
+INF  QemuQ35Pkg/DxeRust/DxeRust.inf
+
+# Simple pure Rust DXE driver that is loaded by Rust DXE Core
+# INF  QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
+
+# Simple C Test DXE driver used to test Rust DXE Core FFI interfaces.
+# INF  QemuQ35Pkg/RustFfiTestDxe/RustFfiTestDxe.inf
+# INF  QemuQ35Pkg/RustFfiImageTestDxe/RustFfiImageTestDxe.inf
 
 INF  MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
 INF  MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf
@@ -521,7 +531,8 @@ INF  HidPkg/UefiHidDxe/UefiHidDxe.inf
 INF  DfciPkg/Application/DfciMenu/DfciMenu.inf
 INF  MsGraphicsPkg/PrintScreenLogger/PrintScreenLogger.inf
 INF  SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
-INF  MsCorePkg/HelloWorldRustDxe/HelloWorldRustDxe.inf
+# Remove for space and functionality considerations
+#INF  MsCorePkg/HelloWorldRustDxe/HelloWorldRustDxe.inf
 INF  MsCorePkg/AcpiRGRT/AcpiRgrt.inf
 
 !include CryptoPkg/Driver/Bin/CryptoDriver.DXE.inc.fdf
@@ -540,7 +551,7 @@ INF PrmPkg/PrmConfigDxe/PrmConfigDxe.inf
 
 # PRM Sample Modules
 INF PrmPkg/Samples/PrmSampleAcpiParameterBufferModule/PrmSampleAcpiParameterBufferModule.inf
-INF PrmPkg/Samples/PrmSampleHardwareAccessModule/PrmSampleHardwareAccessModule.inf
+#INF PrmPkg/Samples/PrmSampleHardwareAccessModule/PrmSampleHardwareAccessModule.inf
 INF PrmPkg/Samples/PrmSampleContextBufferModule/PrmSampleContextBufferModule.inf
 
 # PRM Module Loader Driver
@@ -745,9 +756,13 @@ FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
 
 [Rule.Common.UEFI_APPLICATION]
   FILE APPLICATION = $(NAMED_GUID) {
-    PE32     PE32                    $(INF_OUTPUT)/$(MODULE_NAME).efi
-    UI       STRING="$(MODULE_NAME)" Optional
-    VERSION  STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
+    COMPRESS PI_STD {
+      GUIDED {
+        PE32     PE32                    $(INF_OUTPUT)/$(MODULE_NAME).efi
+        UI       STRING="$(MODULE_NAME)" Optional
+        VERSION  STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
+      }
+    }
   }
 
 [Rule.Common.UEFI_APPLICATION.BINARY]

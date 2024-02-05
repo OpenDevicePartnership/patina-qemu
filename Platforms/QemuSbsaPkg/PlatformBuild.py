@@ -268,6 +268,22 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         return 0
 
     def PlatformPreBuild(self):
+        dxe_rust_dir = Path(self.GetWorkspaceRoot(), "Build", "QemuSbsaPkg",
+                                    f"{self.env.GetValue('TARGET')}_{self.env.GetValue('TOOL_CHAIN_TAG').upper()}",
+                                    "AARCH64", "QemuSbsaPkg", "DxeRust")
+
+        if dxe_rust_dir.exists():
+            logging.warning("Deleting DXE Rust build folder at\n %s", str(dxe_rust_dir))
+            shutil.rmtree(dxe_rust_dir)
+
+        shell_env = shell_environment.GetEnvironment()
+
+        # Unless explicitly set, default to RUSTC_BOOTSTRAP=1
+        if shell_env.get_shell_var("RUSTC_BOOTSTRAP") is None:
+            rustc_bootstrap = self.env.GetValue("RUSTC_BOOTSTRAP", "1")
+            shell_env.set_shell_var("RUSTC_BOOTSTRAP", rustc_bootstrap)
+            logging.info("Override: RUSTC_BOOTSTRAP={}".format(rustc_bootstrap))
+
         return 0
 
     #

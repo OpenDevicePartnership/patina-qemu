@@ -1,0 +1,46 @@
+## @file
+# Azure Pipeline build file for generic builds according to user-specified settings.
+#
+# This pipeline is specifically intended to be used for developer test builds.
+#
+# Copyright (c) Microsoft Corporation. All rights reserved.
+#
+##
+
+trigger: none
+
+pr: none
+
+parameters:
+- name: tool_chain_tag
+  displayName: Tool Chain Tag
+  type: string
+  default: VS2022
+  values:
+  - VS2022
+  - VS2019
+  - GCC5
+- name: vm_image
+  displayName: Virtual Machine Image
+  type: string
+  default: windows-2022
+  values:
+  - windows-2022
+  - windows-2019
+  - windows-latest
+  - ubuntu-latest
+
+variables:
+  - name: architectures
+    value: IA32,X64
+  - group: 'UEFI Rust Tokens'
+
+
+name: QemuQ35 UEFI Rust - ${{ parameters.tool_chain_tag }} - Build_$(Date:yyyyMMdd)$(Rev:.r)
+
+jobs:
+- template: templates/pr-gate-build-job.yml
+  parameters:
+    arch_list: ${{ variables.architectures }}
+    tool_chain_tag: ${{ parameters.tool_chain_tag }}
+    vm_image: ${{ parameters.vm_image }}

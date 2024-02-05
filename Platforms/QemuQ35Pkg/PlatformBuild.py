@@ -202,6 +202,10 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         parserObj.add_argument('-a', "--arch", dest="build_arch", type=str, default="IA32,X64",
             help="Optional - CSV of architecture to build.  IA32,X64 will use IA32 for PEI and "
             "X64 for DXE and is the only valid option for this platform.")
+        parserObj.add_argument('-p', '--package', dest='package', type=str, default="QemuQ35Pkg",
+                               help="Optional - Support common CI builds. Must be QemuQ35Pkg")
+        parserObj.add_argument('-t', '--target', dest='target', type=str, default = None,
+                               help="Optional - A second way to set the target, to support common CI builds.")
 
         CommonPlatform.add_common_command_line_options(parserObj)
 
@@ -209,6 +213,12 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         '''  Retrieve command line options from the argparser '''
         if args.build_arch.upper() != "IA32,X64":
             raise Exception("Invalid Arch Specified.  Please see comments in PlatformBuild.py::PlatformBuilder::AddCommandLineOptions")
+
+        if args.package.upper() != "QEMUQ35PKG":
+            raise Exception("Invalid Package specified. Must be QemuQ35Pkg")
+
+        if args.target is not None:
+            shell_environment.GetBuildVars().SetValue("TARGET", args.target, "Set via command line argument")
 
         self.codeql = CommonPlatform.is_codeql_enabled(args)
 
@@ -268,7 +278,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         self.env.SetValue("EMPTY_DRIVE", "FALSE", "Default to false")
         self.env.SetValue("RUN_TESTS", "FALSE", "Default to false")
         self.env.SetValue("QEMU_HEADLESS", "FALSE", "Default to false")
-        self.env.SetValue("SHUTDOWN_AFTER_RUN", "FALSE", "Default to false")
+        self.env.SetValue("SHUTDOWN_AFTER_RUN", "TRUE", "Default to true")
         # needed to make FV size build report happy
         self.env.SetValue("BLD_*_BUILDID_STRING", "Unknown", "Default")
         # Default turn on build reporting.
@@ -296,6 +306,9 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         # Enabled all of the SMM modules
         self.env.SetValue("BLD_*_SMM_ENABLED", "TRUE", "Default")
 
+        # Needed until Advanced Logger support is added to DxeRust
+        self.env.SetValue("BLD_*_DEBUG_ON_SERIAL_PORT", "TRUE", "Advanced Logger Workaround")
+
         if self.Helper.generate_secureboot_pcds(self) != 0:
             logging.error("Failed to generate include PCDs")
             return -1
@@ -312,6 +325,25 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         return 0
 
     def PlatformPreBuild(self):
+        import pathlib
+        import shutil
+
+        shell_env = shell_environment.GetEnvironment()
+
+        dxe_rust_dir = pathlib.Path(WORKSPACE_ROOT, "Build", "QemuQ35Pkg",
+                                    f"{self.env.GetValue('TARGET')}_{self.env.GetValue('TOOL_CHAIN_TAG').upper()}",
+                                    "X64", "QemuQ35Pkg", "DxeRust")
+
+        if dxe_rust_dir.exists():
+            logging.warning(f"Deleting DXE Rust build folder at\n  {str(dxe_rust_dir)}")
+            shutil.rmtree(dxe_rust_dir)
+
+        # Unless explicitly set, default to RUSTC_BOOTSTRAP=1
+        if shell_env.get_shell_var("RUSTC_BOOTSTRAP") is None:
+            rustc_bootstrap = self.env.GetValue("RUSTC_BOOTSTRAP", "1")
+            shell_env.set_shell_var("RUSTC_BOOTSTRAP", rustc_bootstrap)
+            logging.info("Override: RUSTC_BOOTSTRAP={}".format(rustc_bootstrap))
+
         # Here we build the secure policy blob for build system to use and add into the targeted FV
         policy_example_dir = self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("MmSupervisorPkg", "SupervisorPolicyTools", "MmIsolationPoliciesExample.xml")
         output_dir = os.path.join(self.env.GetValue("BUILD_OUTPUT_BASE"), "Policy")
