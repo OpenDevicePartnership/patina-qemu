@@ -401,6 +401,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         empty_drive = (self.env.GetValue("EMPTY_DRIVE", "FALSE").upper() == "TRUE")
         test_regex = self.env.GetValue("TEST_REGEX", "")
         drive_path = self.env.GetValue("VIRTUAL_DRIVE_PATH")
+        drive_size = int(self.env.GetValue("VIRTUAL_DRIVE_SIZE", 60))
         run_paging_audit = False
 
         # General debugging information for users
@@ -418,10 +419,10 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         # Helper located at QemuPkg/Plugins/VirtualDriveManager
         virtual_drive = self.Helper.get_virtual_drive(drive_path)
         if empty_drive:
-            virtual_drive.wipe()
+            virtual_drive.wipe(drive_size)
 
         if not virtual_drive.exists():
-            virtual_drive.make_drive()
+            virtual_drive.make_drive(drive_size)
 
         # Add tests if requested, auto run if requested
         # Creates a startup script with the requested tests
@@ -435,7 +436,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
 
             self.Helper.add_tests(virtual_drive, test_list, auto_run = run_tests, auto_shutdown = shutdown_after_run, paging_audit = run_paging_audit)
         # Otherwise add an empty startup script
-        else:
+        if shutdown_after_run:
             virtual_drive.add_startup_script([], auto_shutdown=shutdown_after_run)
 
         # Get the version number (repo release)

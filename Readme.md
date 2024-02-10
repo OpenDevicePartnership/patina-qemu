@@ -338,6 +338,12 @@ rust package as seen below:
 
 *Hint: You can determine your host's target system via the `rustc -vV` command.*
 
+## Self Certification Tests
+
+Please refer to the document located at docs/SelfCertificationTest.md for documentation on
+how to configure UefiRust to run [Self Certification Tests (SCTs)](https://github.com/tianocore/edk2-pytool-library/pull/505)
+and how to run them.
+
 ## Notes
 
 1. This project uses `RUSTC_BOOSTRAP=1` environment variable due to internal requirements
