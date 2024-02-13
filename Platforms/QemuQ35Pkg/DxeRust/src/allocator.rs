@@ -175,7 +175,7 @@ extern "efiapi" fn allocate_pages(
         efi::Status::INVALID_PARAMETER
       }
     }
-    _ => efi::Status::UNSUPPORTED,
+    _ => efi::Status::INVALID_PARAMETER,
   }
 }
 
