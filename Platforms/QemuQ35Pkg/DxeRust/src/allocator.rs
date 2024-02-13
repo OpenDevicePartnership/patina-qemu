@@ -237,7 +237,7 @@ extern "efiapi" fn get_memory_map(
   descriptor_size: *mut usize,
   descriptor_version: *mut u32,
 ) -> efi::Status {
-  if memory_map_size.is_null() {
+  if memory_map_size.is_null() || memory_map.is_null() {
     return efi::Status::INVALID_PARAMETER;
   }
 
