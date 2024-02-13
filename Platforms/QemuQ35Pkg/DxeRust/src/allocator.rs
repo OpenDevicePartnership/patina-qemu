@@ -199,6 +199,10 @@ extern "efiapi" fn free_pages(memory: efi::PhysicalAddress, pages: usize) -> efi
     None => return efi::Status::INVALID_PARAMETER,
   };
 
+  if address.as_ptr().align_offset(UEFI_PAGE_SIZE) != 0 {
+    return efi::Status::INVALID_PARAMETER;
+  }
+
   match ALL_ALLOCATORS.iter().find(|x| x.contains(address)) {
     Some(allocator) => {
       unsafe { allocator.deallocate(address, layout) };
