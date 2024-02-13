@@ -14,7 +14,6 @@ extern crate alloc;
 use core::{
   alloc::{AllocError, Allocator, GlobalAlloc, Layout},
   cmp::max,
-  ffi::c_void,
   fmt::{self, Display},
   mem::{align_of, size_of},
   ptr::{self, slice_from_raw_parts_mut, NonNull},
@@ -46,6 +45,7 @@ fn list_index(layout: &Layout) -> Option<usize> {
   BLOCK_SIZES.iter().position(|&s| s >= required_block_size)
 }
 
+#[derive(Debug)]
 struct BlockListNode {
   next: Option<&'static mut BlockListNode>,
 }
@@ -53,6 +53,7 @@ struct BlockListNode {
 struct AllocatorListNode {
   next: Option<*mut AllocatorListNode>,
   allocator: linked_list_allocator::Heap,
+  gcd_direct: bool,
 }
 struct AllocatorIterator {
   current: Option<*mut AllocatorListNode>,
@@ -119,6 +120,7 @@ impl Iterator for AllocatorIterator {
 /// assert_ne!(allocation, core::ptr::null_mut());
 /// ```
 ///
+#[derive(Debug)]
 pub struct FixedSizeBlockAllocator {
   gcd: &'static SpinLockedGcd,
   handle: r_efi::efi::Handle,
@@ -136,9 +138,9 @@ impl FixedSizeBlockAllocator {
 
   // Expand the memory available to this allocator by requesting a new contiguous region of memory from the gcd setting
   // up a new allocator node to manage this range
-  fn expand(&mut self, layout: Layout) -> Result<(), FixedSizeBlockAllocatorError> {
+  fn expand(&mut self, layout: Layout, expansion_size: Option<usize>) -> Result<(), FixedSizeBlockAllocatorError> {
     let size = layout.pad_to_align().size() + Layout::new::<AllocatorListNode>().pad_to_align().size();
-    let size = max(size, MIN_EXPANSION);
+    let size = max(size, expansion_size.unwrap_or(MIN_EXPANSION));
     //ensure size is a multiple of alignment to avoid fragmentation.
     let size = align_up_size(size, ALIGNMENT);
     //Allocate memory from the gcd.
@@ -162,7 +164,11 @@ impl FixedSizeBlockAllocator {
     let heap_size = size - (heap_bottom - start_address);
 
     let alloc_node_ptr = start_address as *mut AllocatorListNode;
-    let node = AllocatorListNode { next: None, allocator: linked_list_allocator::Heap::empty() };
+    let node = AllocatorListNode {
+      next: None,
+      allocator: linked_list_allocator::Heap::empty(),
+      gcd_direct: expansion_size.is_some(),
+    };
 
     //write the allocator node structure into the start of the range, initialize its heap with the remainder of
     //the range, and add the new allocator to the front of the allocator list.
@@ -188,7 +194,7 @@ impl FixedSizeBlockAllocator {
     }
     //if we get here, then allocation failed in all current allocation ranges.
     //attempt to expand and then allocate again
-    if self.expand(layout).is_err() {
+    if self.expand(layout, None).is_err() {
       return ptr::null_mut();
     }
     self.fallback_alloc(layout)
@@ -377,20 +383,45 @@ impl FixedSizeBlockAllocator {
   /// }
   /// ```
   pub unsafe fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
+    // first, try to find an allocation made directly in the gcd
+    let ptr = NonNull::new(ptr).unwrap();
+
+    let mut prev_node: Option<*mut AllocatorListNode> = None;
+    for node in AllocatorIterator::new(self.allocators) {
+      let allocator = unsafe { &mut (*node).allocator };
+      if (*node).gcd_direct && (allocator.bottom() <= ptr.as_ptr()) && (ptr.as_ptr() < allocator.top()) {
+        let size = layout.pad_to_align().size() + Layout::new::<AllocatorListNode>().pad_to_align().size();
+        let size = align_up_size(size, ALIGNMENT);
+
+        if allocator.size() == size - Layout::new::<AllocatorListNode>().pad_to_align().size() {
+          let bottom = align_down_size(allocator.bottom() as usize, ALIGNMENT);
+
+          if let Some(p_node) = prev_node {
+            (*p_node).next = (*node).next;
+          } else {
+            self.allocators = (*node).next;
+          }
+          self.gcd.free_memory_space(bottom, size).unwrap();
+          return;
+        }
+      }
+      prev_node = Some(node);
+    }
+
     match list_index(&layout) {
       Some(index) => {
         let new_node = BlockListNode { next: self.list_heads[index].take() };
         // verify that block has size and alignment required for storing node
         assert!(size_of::<BlockListNode>() <= BLOCK_SIZES[index]);
         assert!(align_of::<BlockListNode>() <= BLOCK_SIZES[index]);
-        let new_node_ptr = ptr as *mut BlockListNode;
+        let new_node_ptr = ptr.as_ptr() as *mut BlockListNode;
         unsafe {
           new_node_ptr.write(new_node);
           self.list_heads[index] = Some(&mut *new_node_ptr);
         }
       }
       None => {
-        self.fallback_dealloc(ptr, layout);
+        self.fallback_dealloc(ptr.as_ptr(), layout);
       }
     }
   }
@@ -504,6 +535,23 @@ impl FixedSizeBlockAllocator {
     })
   }
 
+  /// Attempts to allocate at any addresss.
+  /// Note: `layout.align()` must be 0x1000
+  pub fn alloc_any_address(&mut self, layout: Layout) -> Result<core::ptr::NonNull<[u8]>, core::alloc::AllocError> {
+    if layout.align() != ALIGNMENT {
+      return Err(core::alloc::AllocError);
+    }
+
+    self.expand(layout, Some(layout.size())).map_err(|_| AllocError)?;
+
+    //Now - the first allocation from this range should produce the requested address (since it is the first page
+    //boundary above the allocation node at the start of the range). Just return that allocation.
+    let allocation = self.fallback_alloc(layout);
+    let allocation = slice_from_raw_parts_mut(allocation, layout.size());
+    let allocation = NonNull::new(allocation).ok_or(AllocError)?;
+    Ok(allocation)
+  }
+
   /// Attempts to allocate at the specified address.
   /// Note: `address` must be aligned to 0x1000, and `layout.align()` must also be 0x1000
   pub fn alloc_at_address(
@@ -538,7 +586,7 @@ impl FixedSizeBlockAllocator {
         GcdMemoryType::SystemMemory,
         ALIGNMENT_BITS,
         size,
-        1 as *mut c_void, //todo: figure out where to get this from.
+        self.handle,
         None,
       )
       .map_err(|_| core::alloc::AllocError)?;
@@ -550,7 +598,7 @@ impl FixedSizeBlockAllocator {
     let heap_size = size - (heap_bottom - start_address);
 
     let alloc_node_ptr = start_address as *mut AllocatorListNode;
-    let node = AllocatorListNode { next: None, allocator: linked_list_allocator::Heap::empty() };
+    let node = AllocatorListNode { next: None, allocator: linked_list_allocator::Heap::empty(), gcd_direct: true };
 
     //write the allocator node structure into the start of the range, initialize its heap with the remainder of
     //the range, and add the new allocator to the front of the allocator list.
@@ -601,7 +649,7 @@ impl FixedSizeBlockAllocator {
         GcdMemoryType::SystemMemory,
         ALIGNMENT_BITS,
         size,
-        1 as *mut c_void, //todo: figure out where to get this from.
+        self.handle,
         None,
       )
       .map_err(|_| core::alloc::AllocError)?;
@@ -611,7 +659,7 @@ impl FixedSizeBlockAllocator {
     let heap_size = size - (heap_bottom - start_address);
 
     let alloc_node_ptr = start_address as *mut AllocatorListNode;
-    let node = AllocatorListNode { next: None, allocator: linked_list_allocator::Heap::empty() };
+    let node = AllocatorListNode { next: None, allocator: linked_list_allocator::Heap::empty(), gcd_direct: true };
 
     //write the allocator node structure into the start of the range, initialize its heap with the remainder of
     //the range, and add the new allocator to the front of the allocator list.
@@ -775,6 +823,12 @@ impl SpinLockedFixedSizeBlockAllocator {
     self.lock().contains(ptr.as_ptr())
   }
 
+  /// Attempts to allocate at any address.
+  /// Note: `layout.align()` must be 0x1000
+  pub fn alloc_any_address(&self, layout: Layout) -> Result<core::ptr::NonNull<[u8]>, core::alloc::AllocError> {
+    self.lock().alloc_any_address(layout)
+  }
+
   /// Attempts to allocate at the specified address.
   /// Note: `address` must be aligned to 0x1000, and `layout.align()` must also be 0x1000
   pub fn alloc_at_address(
@@ -886,7 +940,7 @@ mod tests {
 
     //expand by a page. This will round up to MIN_EXPANSION.
     let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
-    fsb.expand(layout).unwrap();
+    fsb.expand(layout, None).unwrap();
     assert!(fsb.allocators.is_some());
     unsafe {
       assert!((*fsb.allocators.unwrap()).next.is_none());
@@ -895,7 +949,7 @@ mod tests {
     }
     //expand by larger than MIN_EXPANSION.
     let layout = Layout::from_size_align(MIN_EXPANSION + 0x1000, 0x10).unwrap();
-    fsb.expand(layout).unwrap();
+    fsb.expand(layout, None).unwrap();
     assert!(fsb.allocators.is_some());
     unsafe {
       assert!((*fsb.allocators.unwrap()).next.is_some());
@@ -920,11 +974,11 @@ mod tests {
 
     let mut fsb = FixedSizeBlockAllocator::new(&GCD, 1 as _);
     let layout = Layout::from_size_align(0x1000, 0x10).unwrap();
-    fsb.expand(layout).unwrap();
-    fsb.expand(layout).unwrap();
-    fsb.expand(layout).unwrap();
-    fsb.expand(layout).unwrap();
-    fsb.expand(layout).unwrap();
+    fsb.expand(layout, None).unwrap();
+    fsb.expand(layout, None).unwrap();
+    fsb.expand(layout, None).unwrap();
+    fsb.expand(layout, None).unwrap();
+    fsb.expand(layout, None).unwrap();
 
     assert_eq!(5, AllocatorIterator::new(fsb.allocators).count());
     assert!(AllocatorIterator::new(fsb.allocators)
@@ -1099,6 +1153,65 @@ mod tests {
     assert_eq!(allocation.as_ptr() as u64, target_address);
 
     unsafe { fsb.deallocate(allocation, layout) };
+  }
+
+  #[test]
+  fn test_allocate_free_allocate_at_address() {
+    const UEFI_PAGE_SIZE: usize = 0x1000; // Per UEFI spec.
+
+    // Create a static GCD.
+    // Allocate some space on the heap with the global allocator (std) to be used by expand().
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48, 16);
+    init_gcd(&GCD, 0x400000);
+
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
+    assert!(fsb.lock().allocators.is_none());
+
+    // Test an allocation within a fixed size block that is not aligned as expected.
+    // The GCD tracking should still be freed via the alloc_any_address() API.
+    let allocation_size = BLOCK_SIZES[0];
+    let layout = Layout::from_size_align(allocation_size, allocation_size).unwrap();
+    fsb.alloc_any_address(layout).expect_err("alignment check should have failed");
+
+    let layout = Layout::from_size_align(allocation_size, UEFI_PAGE_SIZE).unwrap();
+    let allocation = fsb.alloc_any_address(layout).unwrap().as_non_null_ptr();
+    assert!(fsb.lock().allocators.is_some());
+
+    let allocation_ptr_first = allocation.as_ptr() as *mut u8;
+    let allocation_addr_first = allocation_ptr_first as u64;
+
+    unsafe { fsb.deallocate(allocation, layout) };
+    assert!(fsb.lock().allocators.is_none());
+
+    // Test an allocation outside the size of a fixed block.
+    let allocation_size = UEFI_PAGE_SIZE * 2;
+    let layout = Layout::from_size_align(allocation_size, UEFI_PAGE_SIZE).unwrap();
+    let allocation = fsb.alloc_any_address(layout).unwrap().as_non_null_ptr();
+    assert!(fsb.lock().allocators.is_some());
+
+    let allocation_ptr = allocation.as_ptr() as *mut u8;
+    let allocation_addr = allocation_ptr as u64;
+    assert_eq!(allocation_addr_first, allocation_addr);
+
+    // Allocating at that address should fail while the current allocation is active.
+    GCD
+      .allocate_memory_space(
+        uefi_gcd_lib::gcd::AllocateType::Address(allocation_addr as usize),
+        GcdMemoryType::SystemMemory,
+        ALIGNMENT_BITS,
+        allocation_size,
+        1 as _,
+        None,
+      )
+      .expect_err("an allocated address should be allocated in the GCD.");
+
+    unsafe { fsb.deallocate(allocation, layout) };
+
+    // An address outside a fixed block should now be available in the GCD
+    let allocation = fsb.alloc_at_address(layout, allocation_addr).unwrap().as_non_null_ptr();
+    assert!(fsb.contains(allocation));
+    assert_eq!(allocation.as_ptr() as u64, allocation_addr);
   }
 
   #[test]
