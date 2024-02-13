@@ -235,13 +235,6 @@ impl UefiAllocator {
     efi::Status::SUCCESS
   }
 
-  pub fn allocate_any_address(
-    &self,
-    layout: core::alloc::Layout,
-  ) -> Result<core::ptr::NonNull<[u8]>, core::alloc::AllocError> {
-    self.allocator.alloc_any_address(layout)
-  }
-
   pub fn allocate_at_address(
     &self,
     layout: core::alloc::Layout,

@@ -142,7 +142,7 @@ extern "efiapi" fn allocate_pages(
   };
 
   match allocation_type {
-    efi::ALLOCATE_ANY_PAGES => match allocator.allocate_any_address(layout) {
+    efi::ALLOCATE_ANY_PAGES => match allocator.allocate(layout) {
       Ok(ptr) => {
         unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
         efi::Status::SUCCESS
