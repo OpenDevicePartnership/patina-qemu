@@ -216,7 +216,7 @@ extern "efiapi" fn get_memory_map(
   descriptor_size: *mut usize,
   descriptor_version: *mut u32,
 ) -> efi::Status {
-  if memory_map_size.is_null() || memory_map.is_null() {
+  if memory_map_size.is_null() {
     return efi::Status::INVALID_PARAMETER;
   }
 
@@ -280,6 +280,10 @@ extern "efiapi" fn get_memory_map(
 
   if map_size < required_map_size {
     return efi::Status::BUFFER_TOO_SMALL;
+  }
+
+  if memory_map.is_null() {
+    return efi::Status::INVALID_PARAMETER;
   }
 
   let mut hash = Hasher::new();
