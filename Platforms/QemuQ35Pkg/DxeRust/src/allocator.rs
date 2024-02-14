@@ -1,8 +1,6 @@
 use core::{
-  alloc::{Allocator, Layout},
   ffi::c_void,
   mem,
-  ptr::NonNull,
   slice::{self, from_raw_parts, from_raw_parts_mut},
 };
 
@@ -13,7 +11,7 @@ use crate::GCD;
 use r_efi::efi;
 use r_pi::dxe_services::{GcdMemoryType, MemorySpaceDescriptor};
 use uefi_protocol_db_lib;
-use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
+use uefi_rust_allocator_lib::{uefi_allocator::UefiAllocator, AllocationStrategy};
 
 //EfiReservedMemoryType
 pub static EFI_RESERVED_MEMORY_ALLOCATOR: UefiAllocator =
@@ -113,7 +111,7 @@ extern "efiapi" fn free_pool(buffer: *mut c_void) -> efi::Status {
     return efi::Status::INVALID_PARAMETER;
   }
   unsafe {
-    if ALL_ALLOCATORS.iter().any(|allocator| allocator.free_pool(buffer) != efi::Status::NOT_FOUND) {
+    if ALL_ALLOCATORS.iter().any(|allocator| allocator.free_pool(buffer) == efi::Status::SUCCESS) {
       efi::Status::SUCCESS
     } else {
       efi::Status::INVALID_PARAMETER
@@ -136,27 +134,22 @@ extern "efiapi" fn allocate_pages(
     None => return efi::Status::INVALID_PARAMETER,
   };
 
-  let layout = match Layout::from_size_align(pages * UEFI_PAGE_SIZE, UEFI_PAGE_SIZE) {
-    Ok(layout) => layout,
-    Err(_) => return efi::Status::INVALID_PARAMETER,
-  };
-
   match allocation_type {
-    efi::ALLOCATE_ANY_PAGES => match allocator.allocate(layout) {
+    efi::ALLOCATE_ANY_PAGES => match allocator.allocate_pages(AllocationStrategy::BottomUp(None), pages) {
       Ok(ptr) => {
         unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
         efi::Status::SUCCESS
       }
-      Err(_) => efi::Status::OUT_OF_RESOURCES,
+      Err(err) => err,
     },
     efi::ALLOCATE_MAX_ADDRESS => {
       if let Some(address) = unsafe { memory.as_ref() } {
-        match allocator.allocate_below_address(layout, *address) {
+        match allocator.allocate_pages(AllocationStrategy::BottomUp(Some(*address as usize)), pages) {
           Ok(ptr) => {
             unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
             efi::Status::SUCCESS
           }
-          Err(_) => efi::Status::OUT_OF_RESOURCES,
+          Err(err) => err,
         }
       } else {
         efi::Status::INVALID_PARAMETER
@@ -164,12 +157,12 @@ extern "efiapi" fn allocate_pages(
     }
     efi::ALLOCATE_ADDRESS => {
       if let Some(address) = unsafe { memory.as_ref() } {
-        match allocator.allocate_at_address(layout, *address) {
+        match allocator.allocate_pages(AllocationStrategy::Address(*address as usize), pages) {
           Ok(ptr) => {
             unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
             efi::Status::SUCCESS
           }
-          Err(_) => efi::Status::OUT_OF_RESOURCES,
+          Err(err) => err,
         }
       } else {
         efi::Status::INVALID_PARAMETER
@@ -189,26 +182,12 @@ extern "efiapi" fn free_pages(memory: efi::PhysicalAddress, pages: usize) -> efi
     return efi::Status::INVALID_PARAMETER;
   }
 
-  let layout = match Layout::from_size_align(size, UEFI_PAGE_SIZE) {
-    Ok(layout) => layout,
-    Err(_) => return efi::Status::INVALID_PARAMETER,
-  };
-
-  let address = match NonNull::new(memory as usize as *mut u8) {
-    Some(address) => address,
-    None => return efi::Status::INVALID_PARAMETER,
-  };
-
-  if address.as_ptr().align_offset(UEFI_PAGE_SIZE) != 0 {
-    return efi::Status::INVALID_PARAMETER;
-  }
-
-  match ALL_ALLOCATORS.iter().find(|x| x.contains(address)) {
-    Some(allocator) => {
-      unsafe { allocator.deallocate(address, layout) };
+  unsafe {
+    if ALL_ALLOCATORS.iter().any(|allocator| allocator.free_pages(memory as usize, pages).is_ok()) {
       efi::Status::SUCCESS
+    } else {
+      efi::Status::NOT_FOUND
     }
-    None => efi::Status::NOT_FOUND,
   }
 }
 
