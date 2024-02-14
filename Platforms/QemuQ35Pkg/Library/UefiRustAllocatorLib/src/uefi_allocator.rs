@@ -260,22 +260,6 @@ impl UefiAllocator {
   pub unsafe fn free_pages(&self, address: usize, pages: usize) -> Result<(), efi::Status> {
     self.allocator.free_pages(address, pages)
   }
-
-  pub fn allocate_at_address(
-    &self,
-    layout: core::alloc::Layout,
-    address: u64,
-  ) -> Result<core::ptr::NonNull<[u8]>, core::alloc::AllocError> {
-    self.allocator.alloc_at_address(layout, address)
-  }
-
-  pub fn allocate_below_address(
-    &self,
-    layout: core::alloc::Layout,
-    address: u64,
-  ) -> Result<core::ptr::NonNull<[u8]>, core::alloc::AllocError> {
-    self.allocator.alloc_below_address(layout, address)
-  }
 }
 
 unsafe impl GlobalAlloc for UefiAllocator {
