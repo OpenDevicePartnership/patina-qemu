@@ -309,7 +309,7 @@ impl GCD {
         self.allocate_top_down(memory_type, alignment, len, image_handle, device_handle, min_address.unwrap_or(0))
       }
       AllocateType::Address(address) => {
-        ensure!(address + len <= self.maximum_address, Error::Unsupported);
+        ensure!(address + len <= self.maximum_address, Error::NotFound);
         self.allocate_address(memory_type, alignment, len, image_handle, device_handle, address)
       }
     }
@@ -356,7 +356,11 @@ impl GCD {
         Err(e) => panic!("{e:?}"),
       }
     }
-    Err(Error::NotFound)
+    if max_address == usize::MAX {
+      Err(Error::OutOfResources)
+    } else {
+      Err(Error::NotFound)
+    }
   }
 
   fn allocate_top_down(
@@ -401,7 +405,11 @@ impl GCD {
         Err(e) => panic!("{e:?}"),
       }
     }
-    Err(Error::NotFound)
+    if min_address == 0 {
+      Err(Error::OutOfResources)
+    } else {
+      Err(Error::NotFound)
+    }
   }
 
   fn allocate_address(
@@ -1618,7 +1626,7 @@ mod tests {
     let snapshot = copy_memory_block(&gcd);
 
     assert_eq!(
-      Err(Error::Unsupported),
+      Err(Error::NotFound),
       gcd.allocate_memory_space(
         AllocateType::Address(gcd.maximum_address - 100),
         dxe_services::GcdMemoryType::Reserved,
@@ -1629,7 +1637,7 @@ mod tests {
       ),
     );
     assert_eq!(
-      Err(Error::Unsupported),
+      Err(Error::NotFound),
       gcd.allocate_memory_space(
         AllocateType::Address(gcd.maximum_address + 100),
         dxe_services::GcdMemoryType::Reserved,
@@ -1717,13 +1725,17 @@ mod tests {
     let memory_blocks_snapshot = copy_memory_block(&gcd);
 
     // Try to allocate chunk bigger than 100.
-    for allocate_type in [
-      AllocateType::BottomUp(None),
-      AllocateType::BottomUp(Some(10_000)),
-      AllocateType::TopDown(None),
-      AllocateType::TopDown(Some(10_000)),
-      AllocateType::Address(10_000),
-    ] {
+    for allocate_type in [AllocateType::BottomUp(None), AllocateType::TopDown(None)] {
+      assert_eq!(
+        Err(Error::OutOfResources),
+        gcd.allocate_memory_space(allocate_type, dxe_services::GcdMemoryType::SystemMemory, 0, 1000, 1 as _, None),
+        "Assert fail with allocate type: {allocate_type:?}"
+      );
+    }
+
+    for allocate_type in
+      [AllocateType::BottomUp(Some(10_000)), AllocateType::TopDown(Some(10_000)), AllocateType::Address(10_000)]
+    {
       assert_eq!(
         Err(Error::NotFound),
         gcd.allocate_memory_space(allocate_type, dxe_services::GcdMemoryType::SystemMemory, 0, 1000, 1 as _, None),
