@@ -11,7 +11,7 @@
 use r_efi::efi;
 use uefi_gcd_lib::gcd::SpinLockedGcd;
 
-use crate::fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator;
+use crate::{fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator, AllocationStrategy};
 use core::{
   alloc::{Allocator, GlobalAlloc, Layout},
   ffi::c_void,
@@ -235,6 +235,32 @@ impl UefiAllocator {
     efi::Status::SUCCESS
   }
 
+  /// Attempts to allocate the given number of pages according to the given allocation strategy.
+  /// Valid allocation strategies are:
+  /// - BottomUp(None): Allocate the block of pages from the lowest available free memory.
+  /// - BottomUp(Some(address)): Allocate the block of pages from the lowest available free memory. Fail if memory
+  ///     cannot be found below `address`.
+  /// - TopDown(None): Allocate the block of pages from the highest available free memory.
+  /// - TopDown(Some(address)): Allocate the block of pages from the highest available free memory. Fail if memory
+  ///      cannot be found above `address`.
+  /// - Address(address): Allocate the block of pages at exactly the given address (or fail).
+  /// If an address is specified as part of a strategy, it must be page-aligned.
+  pub fn allocate_pages(
+    &self,
+    allocation_strategy: AllocationStrategy,
+    pages: usize,
+  ) -> Result<core::ptr::NonNull<[u8]>, efi::Status> {
+    self.allocator.allocate_pages(allocation_strategy, pages)
+  }
+
+  /// Frees the block of pages at the given address of the given size.
+  /// ## Safety
+  /// Caller must ensure that the given address corresponds to a valid block of pages that was allocated with
+  /// [Self::allocate_pages]
+  pub unsafe fn free_pages(&self, address: usize, pages: usize) -> Result<(), efi::Status> {
+    self.allocator.free_pages(address, pages)
+  }
+
   pub fn allocate_at_address(
     &self,
     layout: core::alloc::Layout,
@@ -299,6 +325,7 @@ mod tests {
   use r_pi::dxe_services;
 
   use super::*;
+  use crate::AllocationStrategy;
 
   fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
     let layout = Layout::from_size_align(size, 0x1000).unwrap();
@@ -379,5 +406,35 @@ mod tests {
     assert!(buffer as u64 > base);
     assert!((buffer as u64) < base + 0x400000);
     assert_eq!(buffer, prev_buffer);
+  }
+
+  #[test]
+  fn test_allocate_and_free_pages() {
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48, 16);
+
+    let base = init_gcd(&GCD, 0x400000);
+
+    let ua = UefiAllocator::new(&GCD, efi::BOOT_SERVICES_DATA, 1 as _);
+
+    let buffer = ua.allocate_pages(AllocationStrategy::BottomUp(None), 4).unwrap();
+    let buffer_address = buffer.as_ptr() as *mut u8 as u64;
+    assert_eq!(buffer_address & 0xFFF, 0); // must be page aligned.
+    assert_eq!(buffer.len(), 0x1000 * 4); //should be 4 pages in size.
+    assert!(buffer_address >= base);
+    assert!(buffer_address < base + 0x400000);
+
+    unsafe {
+      ua.free_pages(buffer_address as usize, 4).unwrap();
+    }
+
+    let buffer = ua.allocate_pages(AllocationStrategy::Address(buffer_address as usize), 4).unwrap();
+    let buffer_address2 = buffer.as_ptr() as *mut u8 as u64;
+    assert_eq!(buffer_address, buffer_address2);
+    assert_eq!(buffer.len(), 0x1000 * 4); //should be 4 pages in size.
+
+    unsafe {
+      ua.free_pages(buffer_address2 as usize, 4).unwrap();
+    }
   }
 }

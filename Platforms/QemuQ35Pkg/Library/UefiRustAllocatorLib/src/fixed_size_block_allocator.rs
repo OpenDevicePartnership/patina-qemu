@@ -11,6 +11,7 @@
 //!
 
 extern crate alloc;
+use crate::AllocationStrategy;
 use core::{
   alloc::{AllocError, Allocator, GlobalAlloc, Layout},
   cmp::max,
@@ -504,6 +505,70 @@ impl FixedSizeBlockAllocator {
     })
   }
 
+  /// Attempts to allocate the given number of pages according to the given allocation strategy.
+  /// Valid allocation strategies are:
+  /// - BottomUp(None): Allocate the block of pages from the lowest available free memory.
+  /// - BottomUp(Some(address)): Allocate the block of pages from the lowest available free memory. Fail if memory
+  ///     cannot be found below `address`.
+  /// - TopDown(None): Allocate the block of pages from the highest available free memory.
+  /// - TopDown(Some(address)): Allocate the block of pages from the highest available free memory. Fail if memory
+  ///      cannot be found above `address`.
+  /// - Address(address): Allocate the block of pages at exactly the given address (or fail).
+  /// If an address is specified as part of a strategy, it must be page-aligned.
+  pub fn allocate_pages(
+    &mut self,
+    allocation_strategy: AllocationStrategy,
+    pages: usize,
+  ) -> Result<core::ptr::NonNull<[u8]>, efi::Status> {
+    // validate allocation strategy addresses for direct address allocation is properly aligned.
+    // for BottomUp and TopDown strategies, the address parameter doesn't have to be page-aligned, but
+    // the resulting allocation will be page-aligned.
+    if let AllocationStrategy::Address(address) = allocation_strategy {
+      if address % ALIGNMENT != 0 {
+        return Err(efi::Status::INVALID_PARAMETER);
+      }
+    }
+
+    // Page allocations and pool allocations are disjoint; page allocations are allocated directly from the GCD and are
+    // freed straight back to GCD. As such, a tracking allocator structure is not required.
+    let start_address = self
+      .gcd
+      .allocate_memory_space(
+        allocation_strategy,
+        GcdMemoryType::SystemMemory,
+        ALIGNMENT_BITS,
+        pages * ALIGNMENT,
+        self.handle,
+        None,
+      )
+      .map_err(|err| match err {
+        uefi_gcd_lib::gcd::Error::InvalidParameter => efi::Status::INVALID_PARAMETER,
+        uefi_gcd_lib::gcd::Error::NotFound => efi::Status::NOT_FOUND,
+        _ => efi::Status::OUT_OF_RESOURCES,
+      })?;
+
+    let allocation = slice_from_raw_parts_mut(start_address as *mut u8, pages * ALIGNMENT);
+    let allocation = NonNull::new(allocation).ok_or(efi::Status::OUT_OF_RESOURCES)?;
+    Ok(allocation)
+  }
+
+  /// Frees the block of pages at the given address of the given size.
+  /// ## Safety
+  /// Caller must ensure that the given address corresponds to a valid block of pages that was allocated with
+  /// [Self::allocate_pages]
+  pub unsafe fn free_pages(&mut self, address: usize, pages: usize) -> Result<(), efi::Status> {
+    if address % ALIGNMENT != 0 {
+      return Err(efi::Status::INVALID_PARAMETER);
+    }
+
+    self.gcd.free_memory_space(address, pages * ALIGNMENT).map_err(|err| match err {
+      uefi_gcd_lib::gcd::Error::NotFound => efi::Status::NOT_FOUND,
+      _ => efi::Status::INVALID_PARAMETER,
+    })?;
+
+    Ok(())
+  }
+
   /// Attempts to allocate at the specified address.
   /// Note: `address` must be aligned to 0x1000, and `layout.align()` must also be 0x1000
   pub fn alloc_at_address(
@@ -794,6 +859,32 @@ impl SpinLockedFixedSizeBlockAllocator {
   ) -> Result<core::ptr::NonNull<[u8]>, core::alloc::AllocError> {
     self.lock().alloc_below_address(layout, address)
   }
+
+  /// Attempts to allocate the given number of pages according to the given allocation strategy.
+  /// Valid allocation strategies are:
+  /// - BottomUp(None): Allocate the block of pages from the lowest available free memory.
+  /// - BottomUp(Some(address)): Allocate the block of pages from the lowest available free memory. Fail if memory
+  ///     cannot be found below `address`.
+  /// - TopDown(None): Allocate the block of pages from the highest available free memory.
+  /// - TopDown(Some(address)): Allocate the block of pages from the highest available free memory. Fail if memory
+  ///      cannot be found above `address`.
+  /// - Address(address): Allocate the block of pages at exactly the given address (or fail).
+  /// If an address is specified as part of a strategy, it must be page-aligned.
+  pub fn allocate_pages(
+    &self,
+    allocation_strategy: AllocationStrategy,
+    pages: usize,
+  ) -> Result<core::ptr::NonNull<[u8]>, efi::Status> {
+    self.lock().allocate_pages(allocation_strategy, pages)
+  }
+
+  /// Frees the block of pages at the given address of the given size.
+  /// ## Safety
+  /// Caller must ensure that the given address corresponds to a valid block of pages that was allocated with
+  /// [Self::allocate_pages]
+  pub unsafe fn free_pages(&self, address: usize, pages: usize) -> Result<(), efi::Status> {
+    self.lock().free_pages(address, pages)
+  }
 }
 
 unsafe impl GlobalAlloc for SpinLockedFixedSizeBlockAllocator {
@@ -1080,25 +1171,53 @@ mod tests {
   }
 
   #[test]
+  fn test_allocate_pages() {
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48, 16);
+
+    // Allocate some space on the heap with the global allocator (std) to back the test GCD.
+    let address = init_gcd(&GCD, 0x1000000);
+
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
+
+    let pages = 4;
+
+    let allocation =
+      fsb.allocate_pages(uefi_gcd_lib::gcd::AllocateType::BottomUp(None), pages).unwrap().as_non_null_ptr();
+
+    assert!(allocation.as_ptr() as u64 >= address);
+    assert!((allocation.as_ptr() as u64) < address + 0x1000000);
+
+    unsafe {
+      fsb.free_pages(allocation.as_ptr() as usize, pages).unwrap();
+    };
+  }
+
+  #[test]
   fn test_allocate_at_address() {
     // Create a static GCD
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
     GCD.init(48, 16);
 
-    // Allocate some space on the heap with the global allocator (std) to be used by expand().
+    // Allocate some space on the heap with the global allocator (std) to back the test GCD.
     let address = init_gcd(&GCD, 0x1000000);
 
     let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
 
     let target_address = address + 0x400000 - 8 * (ALIGNMENT as u64);
-    let size = 4 * ALIGNMENT;
+    let pages = 4;
 
-    let layout = Layout::from_size_align(size, ALIGNMENT).unwrap();
-    let allocation = fsb.alloc_at_address(layout, target_address).unwrap().as_non_null_ptr();
-    assert!(fsb.contains(allocation));
+    let allocation = fsb
+      .allocate_pages(uefi_gcd_lib::gcd::AllocateType::Address(target_address as usize), pages)
+      .unwrap()
+      .as_non_null_ptr();
+
     assert_eq!(allocation.as_ptr() as u64, target_address);
 
-    unsafe { fsb.deallocate(allocation, layout) };
+    unsafe {
+      fsb.free_pages(allocation.as_ptr() as usize, pages).unwrap();
+    };
   }
 
   #[test]
@@ -1107,19 +1226,47 @@ mod tests {
     static GCD: SpinLockedGcd = SpinLockedGcd::new();
     GCD.init(48, 16);
 
-    // Allocate some space on the heap with the global allocator (std) to be used by expand().
+    // Allocate some space on the heap with the global allocator (std) to be back the test GCD.
     let address = init_gcd(&GCD, 0x1000000);
 
     let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
 
     let target_address = address + 0x400000 - 8 * (ALIGNMENT as u64);
-    let size = 4 * ALIGNMENT;
+    let pages = 4;
 
-    let layout = Layout::from_size_align(size, ALIGNMENT).unwrap();
-    let allocation = fsb.alloc_below_address(layout, target_address).unwrap().as_non_null_ptr();
-    assert!(fsb.contains(allocation));
+    let allocation = fsb
+      .allocate_pages(uefi_gcd_lib::gcd::AllocateType::BottomUp(Some(target_address as usize)), pages)
+      .unwrap()
+      .as_non_null_ptr();
     assert!((allocation.as_ptr() as u64) < target_address);
 
-    unsafe { fsb.deallocate(allocation, layout) };
+    unsafe {
+      fsb.free_pages(allocation.as_ptr() as usize, pages).unwrap();
+    };
+  }
+
+  #[test]
+  fn test_allocate_above_address() {
+    // Create a static GCD
+    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    GCD.init(48, 16);
+
+    // Allocate some space on the heap with the global allocator (std) to back the test GCD.
+    let address = init_gcd(&GCD, 0x1000000);
+
+    let fsb = SpinLockedFixedSizeBlockAllocator::new(&GCD, 1 as _);
+
+    let target_address = address + 0x400000 - 8 * (ALIGNMENT as u64);
+    let pages = 4;
+
+    let allocation = fsb
+      .allocate_pages(uefi_gcd_lib::gcd::AllocateType::TopDown(Some(target_address as usize)), pages)
+      .unwrap()
+      .as_non_null_ptr();
+    assert!((allocation.as_ptr() as u64) > target_address);
+
+    unsafe {
+      fsb.free_pages(allocation.as_ptr() as usize, pages).unwrap();
+    };
   }
 }

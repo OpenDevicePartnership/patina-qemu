@@ -122,3 +122,5 @@
 
 pub mod fixed_size_block_allocator;
 pub mod uefi_allocator;
+
+pub use uefi_gcd_lib::gcd::AllocateType as AllocationStrategy;
