@@ -270,7 +270,7 @@ impl Event {
       //     efi::TPL_APPLICATION | efi::TPL_CALLBACK | efi::TPL_NOTIFY | efi::TPL_HIGH_LEVEL => (),
       //     _ => return Err(efi::Status::INVALID_PARAMETER),
       // }
-      if !(efi::TPL_APPLICATION..=efi::TPL_HIGH_LEVEL).contains(&notify_tpl) {
+      if !((efi::TPL_APPLICATION + 1)..=efi::TPL_HIGH_LEVEL).contains(&notify_tpl) {
         return Err(efi::Status::INVALID_PARAMETER);
       }
     }
