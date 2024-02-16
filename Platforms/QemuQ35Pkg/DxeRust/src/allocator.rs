@@ -4,70 +4,130 @@ use core::{
   slice::{self, from_raw_parts, from_raw_parts_mut},
 };
 
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use crc32fast::Hasher;
 
-use crate::GCD;
-use r_efi::efi;
+use crate::{protocols::PROTOCOL_DB, GCD};
+use r_efi::{efi, system::TPL_HIGH_LEVEL};
 use r_pi::dxe_services::{GcdMemoryType, MemorySpaceDescriptor};
 use uefi_protocol_db_lib;
 use uefi_rust_allocator_lib::{uefi_allocator::UefiAllocator, AllocationStrategy};
 
-//EfiReservedMemoryType
-pub static EFI_RESERVED_MEMORY_ALLOCATOR: UefiAllocator =
-  UefiAllocator::new(&GCD, efi::RESERVED_MEMORY_TYPE, uefi_protocol_db_lib::RESERVED_MEMORY_ALLOCATOR_HANDLE);
-//EfiLoaderCode
+const UEFI_PAGE_SIZE: usize = 0x1000; //per UEFI spec.
+
+// Private tracking guid used to generate new handles for allocator tracking
+// {9D1FA6E9-0C86-4F7F-A99B-DD229C9B3893}
+const PRIVATE_ALLOCATOR_TRACKING_GUID: efi::Guid =
+  efi::Guid::from_fields(0x9d1fa6e9, 0x0c86, 0x4f7f, 0xa9, 0x9b, &[0xdd, 0x22, 0x9c, 0x9b, 0x38, 0x93]);
+
+// The boot services data allocator is special as it is used as the GlobalAllocator instance for the DxeRust core.
+// This means that any rust heap allocations (e.g. Box::new()) will come from this allocator unless explicitly directed
+// to a different allocator. This allocator does not need to be public since all dynamic allocations will implicitly
+// allocate from it.
+#[cfg_attr(not(test), global_allocator)]
+static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator =
+  UefiAllocator::new(&GCD, efi::BOOT_SERVICES_DATA, uefi_protocol_db_lib::EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE);
+
+// The following allocators are directly used by the core. These allocators are declared static so that they can easily
+// be used in the core without e.g. the overhead of acquiring a lock to retrieve them from the allocator map that all
+// the other allocators use.
 pub static EFI_LOADER_CODE_ALLOCATOR: UefiAllocator =
   UefiAllocator::new(&GCD, efi::LOADER_CODE, uefi_protocol_db_lib::EFI_LOADER_CODE_ALLOCATOR_HANDLE);
-//EfiLoaderData
-pub static EFI_LOADER_DATA_ALLOCATOR: UefiAllocator =
-  UefiAllocator::new(&GCD, efi::LOADER_DATA, uefi_protocol_db_lib::EFI_LOADER_DATA_ALLOCATOR_HANDLE);
-//EfiBootServicesCode
+
 pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: UefiAllocator =
   UefiAllocator::new(&GCD, efi::BOOT_SERVICES_CODE, uefi_protocol_db_lib::EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE);
-//EfiBootServicesData - (default allocator for DxeRust)
-#[cfg_attr(not(test), global_allocator)]
-pub static EFI_BOOT_SERVICES_DATA_ALLOCATOR: UefiAllocator =
-  UefiAllocator::new(&GCD, efi::BOOT_SERVICES_DATA, uefi_protocol_db_lib::EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE);
-//EfiRuntimeServicesCode
+
 pub static EFI_RUNTIME_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(
   &GCD,
   efi::RUNTIME_SERVICES_CODE,
   uefi_protocol_db_lib::EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE,
 );
-//EfiRuntimeServicesData
+
 pub static EFI_RUNTIME_SERVICES_DATA_ALLOCATOR: UefiAllocator = UefiAllocator::new(
   &GCD,
   efi::RUNTIME_SERVICES_DATA,
   uefi_protocol_db_lib::EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE,
 );
-//EfiConventionalMemory - no allocator (free memory)
-//EfiUnusableMemory - no allocator (unusable)
-//EfiACPIReclaimMemory
-pub static EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR: UefiAllocator =
-  UefiAllocator::new(&GCD, efi::ACPI_RECLAIM_MEMORY, uefi_protocol_db_lib::EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE);
-//EfiACPIMemoryNVS
-pub static EFI_ACPI_MEMORY_NVS_ALLOCATOR: UefiAllocator =
-  UefiAllocator::new(&GCD, efi::ACPI_MEMORY_NVS, uefi_protocol_db_lib::EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE);
-//EFiMemoryMappedIo - no allocator (MMIO)
-//EFiMemoryMappedIOPortSpace - no allocator (MMIO)
-//EfiPalCode - no allocator (no Itanium support)
-//EfiPersistentMemory - no allocator (free memory)
 
-pub static ALL_ALLOCATORS: &[&UefiAllocator] = &[
-  &EFI_RESERVED_MEMORY_ALLOCATOR,
+static STATIC_ALLOCATORS: &[&UefiAllocator] = &[
   &EFI_LOADER_CODE_ALLOCATOR,
-  &EFI_LOADER_DATA_ALLOCATOR,
   &EFI_BOOT_SERVICES_CODE_ALLOCATOR,
   &EFI_BOOT_SERVICES_DATA_ALLOCATOR,
   &EFI_RUNTIME_SERVICES_CODE_ALLOCATOR,
   &EFI_RUNTIME_SERVICES_DATA_ALLOCATOR,
-  &EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR,
-  &EFI_ACPI_MEMORY_NVS_ALLOCATOR,
 ];
 
-pub fn get_allocator_for_type(memory_type: efi::MemoryType) -> Option<&'static &'static UefiAllocator> {
-  ALL_ALLOCATORS.iter().find(|&&x| x.memory_type() == memory_type)
+// The following structure is used to track additional allocators that are created in response to allocation requests
+// that are not satisfied by the static allocators.
+static ALLOCATORS: tpl_lock::TplMutex<AllocatorMap> = AllocatorMap::new();
+struct AllocatorMap {
+  map: BTreeMap<efi::MemoryType, UefiAllocator>,
+}
+
+impl AllocatorMap {
+  const fn new() -> tpl_lock::TplMutex<Self> {
+    tpl_lock::TplMutex::new(TPL_HIGH_LEVEL, AllocatorMap { map: BTreeMap::new() }, "AllocatorMapLock")
+  }
+}
+
+impl<'a> AllocatorMap {
+  // Returns an iterator that returns references to the static allocators followed by the custom allocators.
+  fn iter(&'a self) -> impl Iterator<Item = &UefiAllocator> {
+    STATIC_ALLOCATORS.iter().map(|&x| x).chain(self.map.values().map(|x| x))
+  }
+
+  fn get_allocator(&'a mut self, memory_type: efi::MemoryType) -> Option<&'a UefiAllocator> {
+    //return the static allocator if any
+    self.iter().find(|x| x.memory_type() == memory_type)
+  }
+
+  fn initialize_allocator(&'a mut self, memory_type: efi::MemoryType, handle: efi::Handle) -> Result<(), efi::Status> {
+    // the lock ensures exclusive access to the map, but an allocator may have been created already; so only create
+    // the allocator if it doesn't yet exist for this memory type.
+    if !self.map.contains_key(&memory_type) {
+      self.map.insert(memory_type, UefiAllocator::new(&GCD, memory_type, handle));
+    }
+    Ok(())
+  }
+
+  //Returns a handle for the given memory type.
+  // Handles are sourced from several places (in order).
+  // 1. Well-known handles.
+  // 2. The handle of an active allocator without a well-known handle that matches the memory type.
+  // 3. A freshly created handle.
+  //
+  // Note: this routine is used to generate new handles for the creation of allocators as needed; this means that an
+  // Ok() result from this routine doesn't necessarily guarantee that an allocator associated with this handle exists or
+  // memory type exists.
+  fn handle_for_memory_type(memory_type: efi::MemoryType) -> Result<efi::Handle, efi::Status> {
+    match memory_type {
+      efi::RESERVED_MEMORY_TYPE => Ok(uefi_protocol_db_lib::RESERVED_MEMORY_ALLOCATOR_HANDLE),
+      efi::LOADER_CODE => Ok(uefi_protocol_db_lib::EFI_LOADER_CODE_ALLOCATOR_HANDLE),
+      efi::LOADER_DATA => Ok(uefi_protocol_db_lib::EFI_LOADER_DATA_ALLOCATOR_HANDLE),
+      efi::BOOT_SERVICES_CODE => Ok(uefi_protocol_db_lib::EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE),
+      efi::BOOT_SERVICES_DATA => Ok(uefi_protocol_db_lib::EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE),
+      efi::ACPI_RECLAIM_MEMORY => Ok(uefi_protocol_db_lib::EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE),
+      efi::ACPI_MEMORY_NVS => Ok(uefi_protocol_db_lib::EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE),
+      // Check to see if it is an invalid type. Memory types efi::PERSISTENT_MEMORY and above to 0x6FFFFFFF are illegal.
+      efi::PERSISTENT_MEMORY..=0x6FFFFFFF => Err(efi::Status::INVALID_PARAMETER)?,
+      // not a well known handle or illegal memory type - check the active allocators and create a handle if it doesn't
+      // already exist.
+      _ => {
+        if let Some(handle) =
+          ALLOCATORS.lock().iter().find_map(|x| if x.memory_type() == memory_type { Some(x.handle()) } else { None })
+        {
+          return Ok(handle);
+        }
+        let (handle, _) =
+          PROTOCOL_DB.install_protocol_interface(None, PRIVATE_ALLOCATOR_TRACKING_GUID, core::ptr::null_mut())?;
+        Ok(handle)
+      }
+    }
+  }
+
+  fn memory_type_for_handle(&self, handle: efi::Handle) -> Option<efi::MemoryType> {
+    self.iter().find_map(|x| if x.handle() == handle { Some(x.memory_type()) } else { None })
+  }
 }
 
 #[cfg(not(test))]
@@ -75,8 +135,6 @@ pub fn get_allocator_for_type(memory_type: efi::MemoryType) -> Option<&'static &
 fn alloc_error_handler(layout: alloc::alloc::Layout) -> ! {
   panic!("allocation error: {:?}", layout)
 }
-
-const UEFI_PAGE_SIZE: usize = 0x1000; //per UEFI spec.
 
 extern "efiapi" fn allocate_pool(pool_type: efi::MemoryType, size: usize, buffer: *mut *mut c_void) -> efi::Status {
   if buffer.is_null() {
@@ -93,25 +151,37 @@ extern "efiapi" fn allocate_pool(pool_type: efi::MemoryType, size: usize, buffer
 }
 
 pub fn core_allocate_pool(pool_type: efi::MemoryType, size: usize) -> Result<*mut c_void, efi::Status> {
-  if let Some(allocator) = get_allocator_for_type(pool_type) {
+  if let Some(allocator) = ALLOCATORS.lock().get_allocator(pool_type) {
     let mut buffer: *mut c_void = core::ptr::null_mut();
     let status = unsafe { allocator.allocate_pool(size, core::ptr::addr_of_mut!(buffer)) };
     if status == efi::Status::SUCCESS {
-      Ok(buffer)
+      return Ok(buffer);
     } else {
-      Err(status)
+      return Err(status);
     }
-  } else {
-    Err(efi::Status::INVALID_PARAMETER)
   }
+
+  //if we get here, The requested memory type does not yet have an allocator associated with it.
+  //A new handle cannot be created if we are holding the allocator lock, so the handle creation needs to be done outside
+  //the lock context.
+  let handle = AllocatorMap::handle_for_memory_type(pool_type)?;
+
+  //Attempt to create a new allocator with this handle. Note: there are race conditions where more than one handle
+  //could be created; but only one new allocator will be created. Do not assume that the handle created here will be
+  //the final handle for the allocator.
+  ALLOCATORS.lock().initialize_allocator(pool_type, handle)?;
+
+  //recursively call this function to allocate the memory - the allocator will exist on the next call.
+  core_allocate_pool(pool_type, size)
 }
 
 extern "efiapi" fn free_pool(buffer: *mut c_void) -> efi::Status {
   if buffer.is_null() {
     return efi::Status::INVALID_PARAMETER;
   }
+  let allocators = ALLOCATORS.lock();
   unsafe {
-    if ALL_ALLOCATORS.iter().any(|allocator| allocator.free_pool(buffer) == efi::Status::SUCCESS) {
+    if allocators.iter().any(|allocator| allocator.free_pool(buffer) == efi::Status::SUCCESS) {
       efi::Status::SUCCESS
     } else {
       efi::Status::INVALID_PARAMETER
@@ -129,47 +199,52 @@ extern "efiapi" fn allocate_pages(
     return efi::Status::INVALID_PARAMETER;
   }
 
-  let allocator = match get_allocator_for_type(memory_type) {
-    Some(allocator) => allocator,
-    None => return efi::Status::INVALID_PARAMETER,
+  if let Some(allocator) = ALLOCATORS.lock().get_allocator(memory_type) {
+    let result = match allocation_type {
+      efi::ALLOCATE_ANY_PAGES => allocator.allocate_pages(AllocationStrategy::BottomUp(None), pages),
+      efi::ALLOCATE_MAX_ADDRESS => {
+        if let Some(address) = unsafe { memory.as_ref() } {
+          allocator.allocate_pages(AllocationStrategy::BottomUp(Some(*address as usize)), pages)
+        } else {
+          Err(efi::Status::INVALID_PARAMETER)
+        }
+      }
+      efi::ALLOCATE_ADDRESS => {
+        if let Some(address) = unsafe { memory.as_ref() } {
+          allocator.allocate_pages(AllocationStrategy::Address(*address as usize), pages)
+        } else {
+          Err(efi::Status::INVALID_PARAMETER)
+        }
+      }
+      _ => Err(efi::Status::INVALID_PARAMETER),
+    };
+
+    if let Ok(ptr) = result {
+      unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
+      return efi::Status::SUCCESS;
+    } else {
+      return result.unwrap_err();
+    }
+  }
+
+  //if we get here, The requested memory type does not yet have an allocator associated with it.
+  //A new handle cannot be created if we are holding the allocator lock, so the handle creation needs to be done outside
+  //the lock context.
+  let handle = match AllocatorMap::handle_for_memory_type(memory_type) {
+    Ok(handle) => handle,
+    Err(err) => return err,
   };
 
-  match allocation_type {
-    efi::ALLOCATE_ANY_PAGES => match allocator.allocate_pages(AllocationStrategy::BottomUp(None), pages) {
-      Ok(ptr) => {
-        unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
-        efi::Status::SUCCESS
-      }
-      Err(err) => err,
-    },
-    efi::ALLOCATE_MAX_ADDRESS => {
-      if let Some(address) = unsafe { memory.as_ref() } {
-        match allocator.allocate_pages(AllocationStrategy::BottomUp(Some(*address as usize)), pages) {
-          Ok(ptr) => {
-            unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
-            efi::Status::SUCCESS
-          }
-          Err(err) => err,
-        }
-      } else {
-        efi::Status::INVALID_PARAMETER
-      }
-    }
-    efi::ALLOCATE_ADDRESS => {
-      if let Some(address) = unsafe { memory.as_ref() } {
-        match allocator.allocate_pages(AllocationStrategy::Address(*address as usize), pages) {
-          Ok(ptr) => {
-            unsafe { memory.write(ptr.as_ptr() as *mut u8 as u64) }
-            efi::Status::SUCCESS
-          }
-          Err(err) => err,
-        }
-      } else {
-        efi::Status::INVALID_PARAMETER
-      }
-    }
-    _ => efi::Status::INVALID_PARAMETER,
+  //Attempt to create a new allocator with this handle. Note: there are race conditions where more than one handle
+  //could be created; but only one new allocator will be created. Do not assume that the handle created here will be
+  //the final handle for the allocator.
+  match ALLOCATORS.lock().initialize_allocator(memory_type, handle) {
+    Ok(_) => (),
+    Err(err) => return err,
   }
+
+  //recursively call this function to allocate the memory - the allocator will exist on the next call.
+  allocate_pages(allocation_type, memory_type, pages, memory)
 }
 
 extern "efiapi" fn free_pages(memory: efi::PhysicalAddress, pages: usize) -> efi::Status {
@@ -182,8 +257,14 @@ extern "efiapi" fn free_pages(memory: efi::PhysicalAddress, pages: usize) -> efi
     return efi::Status::INVALID_PARAMETER;
   }
 
+  if memory.checked_rem(UEFI_PAGE_SIZE as efi::PhysicalAddress) != Some(0) {
+    return efi::Status::INVALID_PARAMETER;
+  }
+
+  let allocators = ALLOCATORS.lock();
+
   unsafe {
-    if ALL_ALLOCATORS.iter().any(|allocator| allocator.free_pages(memory as usize, pages).is_ok()) {
+    if allocators.iter().any(|allocator| allocator.free_pages(memory as usize, pages).is_ok()) {
       efi::Status::SUCCESS
     } else {
       efi::Status::NOT_FOUND
@@ -238,30 +319,39 @@ extern "efiapi" fn get_memory_map(
   let efi_descriptors: Vec<efi::MemoryDescriptor> = descriptors
     .iter()
     .filter_map(|descriptor| {
-      let memory_type = match descriptor.image_handle {
-        uefi_protocol_db_lib::RESERVED_MEMORY_ALLOCATOR_HANDLE => efi::RESERVED_MEMORY_TYPE,
-        uefi_protocol_db_lib::EFI_LOADER_CODE_ALLOCATOR_HANDLE => efi::LOADER_CODE,
-        uefi_protocol_db_lib::EFI_LOADER_DATA_ALLOCATOR_HANDLE => efi::LOADER_DATA,
-        uefi_protocol_db_lib::EFI_BOOT_SERVICES_CODE_ALLOCATOR_HANDLE => efi::BOOT_SERVICES_CODE,
-        uefi_protocol_db_lib::EFI_BOOT_SERVICES_DATA_ALLOCATOR_HANDLE => efi::BOOT_SERVICES_DATA,
-        uefi_protocol_db_lib::EFI_RUNTIME_SERVICES_CODE_ALLOCATOR_HANDLE => efi::RUNTIME_SERVICES_CODE,
-        uefi_protocol_db_lib::EFI_RUNTIME_SERVICES_DATA_ALLOCATOR_HANDLE => efi::RUNTIME_SERVICES_DATA,
-        uefi_protocol_db_lib::EFI_ACPI_RECLAIM_MEMORY_ALLOCATOR_HANDLE => efi::ACPI_RECLAIM_MEMORY,
-        uefi_protocol_db_lib::EFI_ACPI_MEMORY_NVS_ALLOCATOR_HANDLE => efi::ACPI_MEMORY_NVS,
-        uefi_protocol_db_lib::INVALID_HANDLE if descriptor.memory_type == GcdMemoryType::SystemMemory => {
-          efi::CONVENTIONAL_MEMORY
+      let memory_type = ALLOCATORS.lock().memory_type_for_handle(descriptor.image_handle).or_else(|| {
+        //descriptor doesn't correspond to allocated memory, so determine if it should be part of the map.
+        match descriptor.image_handle {
+          // free memory not tracked by any allocator.
+          uefi_protocol_db_lib::INVALID_HANDLE if descriptor.memory_type == GcdMemoryType::SystemMemory => {
+            Some(efi::CONVENTIONAL_MEMORY)
+          }
+          // MMIO. Note: there could also be MMIO tracked by the allocators which would not hit this case.
+          _ if descriptor.memory_type == GcdMemoryType::MemoryMappedIo => Some(efi::MEMORY_MAPPED_IO),
+
+          // Persistent. Note: this type is not allocatable, but might be created by agents other than the core directly
+          // in the GCD.
+          _ if descriptor.memory_type == GcdMemoryType::Persistent => Some(efi::PERSISTENT_MEMORY),
+
+          // Unaccepted. Note: this type is not allocatable, but might be created by agents other than the core directly
+          // in the GCD.
+          // TODO: r_efi does not define efi::UNACCEPTED_MEMORY yet; so this is a temporary workaround
+          _ if descriptor.memory_type == GcdMemoryType::Unaccepted => Some(efi::PERSISTENT_MEMORY + 1),
+          // Other memory types are ignored for purposes of the memory map
+          _ => None,
         }
-        _ if descriptor.memory_type == GcdMemoryType::MemoryMappedIo => efi::MEMORY_MAPPED_IO,
-        _ => return None, //Not a type of memory to go in the EFI system map.
-      };
+      })?;
 
       let number_of_pages = descriptor.length >> 12;
       if number_of_pages == 0 {
-        return None; //skip entries for things smaller than a page.
+        return None; //skip entries for things smaller than a page
       }
       if (descriptor.base_address % 0x1000) != 0 {
         return None; //skip entries not page aligned.
       }
+
+      //TODO: update/mask attributes.
+
       Some(efi::MemoryDescriptor {
         r#type: memory_type,
         physical_start: descriptor.base_address,

@@ -260,6 +260,11 @@ impl UefiAllocator {
   pub unsafe fn free_pages(&self, address: usize, pages: usize) -> Result<(), efi::Status> {
     self.allocator.free_pages(address, pages)
   }
+
+  /// Returns the allocator handle associated with this allocator.
+  pub fn handle(&self) -> efi::Handle {
+    self.allocator.handle()
+  }
 }
 
 unsafe impl GlobalAlloc for UefiAllocator {

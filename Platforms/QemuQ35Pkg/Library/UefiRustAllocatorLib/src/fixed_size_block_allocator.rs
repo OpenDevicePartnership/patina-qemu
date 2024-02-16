@@ -737,6 +737,11 @@ impl SpinLockedFixedSizeBlockAllocator {
   pub unsafe fn free_pages(&self, address: usize, pages: usize) -> Result<(), efi::Status> {
     self.lock().free_pages(address, pages)
   }
+
+  /// Returns the allocator handle associated with this allocator.
+  pub fn handle(&self) -> efi::Handle {
+    self.inner.lock().handle
+  }
 }
 
 unsafe impl GlobalAlloc for SpinLockedFixedSizeBlockAllocator {
