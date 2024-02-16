@@ -9,9 +9,11 @@ name = "uefi_protocol_db_lib"
 path = "src/lib.rs"
 
 [dependencies]
+ahash = {workspace=true}
 r-efi = {workspace=true}
 spin = {workspace=true}
 TplLock = {workspace=true}
+
 
 [dependencies.uuid]
 default-features = false

@@ -32,12 +32,13 @@
 
 extern crate alloc;
 
+use ahash::AHasher;
 use alloc::{
   collections::{BTreeMap, BTreeSet},
   vec,
   vec::Vec,
 };
-use core::{cmp::Ordering, ffi::c_void};
+use core::{cmp::Ordering, ffi::c_void, hash::Hasher};
 use r_efi::efi;
 
 //private UUID used to create the "well-known handles"
@@ -163,13 +164,24 @@ pub struct ProtocolNotify {
 struct ProtocolDb {
   handles: BTreeMap<usize, BTreeMap<OrdGuid, ProtocolInstance>>,
   notifications: BTreeMap<OrdGuid, Vec<ProtocolNotify>>,
+  hash_new_handles: bool,
   next_handle: usize,
   next_registration: usize,
 }
 
 impl ProtocolDb {
   const fn new() -> Self {
-    ProtocolDb { handles: BTreeMap::new(), notifications: BTreeMap::new(), next_handle: 1, next_registration: 1 }
+    ProtocolDb {
+      handles: BTreeMap::new(),
+      notifications: BTreeMap::new(),
+      hash_new_handles: false,
+      next_handle: 1,
+      next_registration: 1,
+    }
+  }
+
+  fn enable_handle_hashing(&mut self) {
+    self.hash_new_handles = true;
   }
 
   fn install_protocol_interface(
@@ -188,8 +200,23 @@ impl ProtocolDb {
       }
       None => {
         //installing on a new handle. Add a BTreeMap to track protocol instances on the new handle.
-        let key = self.next_handle;
-        self.next_handle += 1;
+        let mut key;
+        if self.hash_new_handles {
+          let mut hasher = AHasher::default();
+          hasher.write_usize(self.next_handle);
+          key = hasher.finish() as usize;
+          self.next_handle += 1;
+          //make sure we don't collide with an existing key.
+          while self.handles.contains_key(&key) {
+            hasher.write_usize(self.next_handle);
+            key = hasher.finish() as usize;
+            self.next_handle += 1;
+          }
+        } else {
+          key = self.next_handle;
+          self.next_handle += 1;
+        }
+
         self.handles.insert(key, BTreeMap::new());
         let handle = key as efi::Handle;
         (handle, key)
@@ -365,11 +392,7 @@ impl ProtocolDb {
 
   fn validate_handle(&self, handle: efi::Handle) -> Result<(), efi::Status> {
     let handle = handle as usize;
-    //to be valid, handle must be in the range of handles created,
-    if !(handle > 0 && handle <= self.next_handle) {
-      return Err(efi::Status::INVALID_PARAMETER);
-    }
-    //and exist in the handle database (i.e. not have been deleted).
+    //to be valid the handle must exist in the handle database (i.e. not have been deleted).
     if !self.handles.contains_key(&handle) {
       return Err(efi::Status::INVALID_PARAMETER);
     }
@@ -617,7 +640,9 @@ impl SpinLockedProtocolDb {
     self.inner.lock()
   }
 
-  pub fn initialize_well_known_handles(&self) {
+  /// Initialize the protocol database. Installs well-known handles, and then enables hashing to ensure handles are
+  /// opaque.
+  pub fn init_protocol_db(&self) {
     let well_known_handle_guid: efi::Guid =
       unsafe { core::mem::transmute(*WELL_KNOWN_HANDLE_PROTOCOL_GUID.as_bytes()) };
 
@@ -640,6 +665,7 @@ impl SpinLockedProtocolDb {
         .expect("failed to install well-known handle");
       assert_eq!(handle, *target_handle);
     }
+    self.lock().enable_handle_hashing();
   }
 
   /// Installs a protocol interface on the given handle.

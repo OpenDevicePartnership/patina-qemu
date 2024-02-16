@@ -30,6 +30,7 @@ UefiProtocolDbLib = {path = "Platforms/QemuQ35Pkg/Library/UefiProtocolDbLib"}
 UefiRustAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/UefiRustAllocatorLib"}
 UefiGcdLib = {path = "Platforms/QemuQ35Pkg/Library/UefiGcdLib"}
 
+ahash = {version = "0.8.8", default-features = false, features = ["compile-time-rng"]}
 corosensei = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/corosensei_fork", rev = "b18e710605894b547da505c43d20feae52685ab3", default-features = false }
 crc32fast = { version = "1.3.2", default-features = false }
 goblin = { git="https://github.com/m4b/goblin.git", rev = "6d664c07abe492e2e56790eac260c567b9807994", default-features = false, features = ["pe32", "pe64"] }
