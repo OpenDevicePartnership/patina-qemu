@@ -24,7 +24,7 @@ pub mod physical_memory;
 pub mod protocols;
 pub mod systemtables;
 
-pub static GCD: SpinLockedGcd = SpinLockedGcd::new();
+pub static GCD: SpinLockedGcd = SpinLockedGcd::new(Some(events::gcd_map_change));
 
 #[cfg(target_os = "uefi")]
 pub fn init() {

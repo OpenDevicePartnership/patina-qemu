@@ -10,6 +10,7 @@ use r_efi::efi;
 
 use r_pi::{cpu_arch, timer};
 use uefi_event_lib::{SpinLockedEventDb, TimerDelay};
+use uefi_gcd_lib::gcd;
 
 use crate::protocols::PROTOCOL_DB;
 
@@ -306,6 +307,22 @@ extern "efiapi" fn cpu_arch_available(event: efi::Event, _context: *mut c_void) 
   }
 }
 
+// indicates that eventing subsystem is fully initialized.
+static EVENT_DB_INITIALIZED: AtomicBool = AtomicBool::new(false);
+
+/// This callback is invoked whenever the GCD changes, and will signal the required UEFI event group.
+pub fn gcd_map_change(map_change_type: gcd::MapChangeType) {
+  if EVENT_DB_INITIALIZED.load(Ordering::SeqCst) {
+    match map_change_type {
+      gcd::MapChangeType::AddMemorySpace
+      | gcd::MapChangeType::AllocateMemorySpace
+      | gcd::MapChangeType::FreeMemorySpace
+      | gcd::MapChangeType::RemoveMemorySpace => EVENT_DB.signal_group(efi::EVENT_GROUP_MEMORY_MAP_CHANGE),
+      gcd::MapChangeType::SetMemoryAttributes | gcd::MapChangeType::SetMemoryCapabilities => (),
+    }
+  }
+}
+
 pub fn init_events_support(bs: &mut efi::BootServices) {
   bs.create_event = create_event;
   bs.create_event_ex = create_event_ex;
@@ -334,4 +351,7 @@ pub fn init_events_support(bs: &mut efi::BootServices) {
   PROTOCOL_DB
     .register_protocol_notify(timer::TIMER_ARCH_PROTOCOL_GUID, event)
     .expect("Failed to register protocol notify on timer arch callback.");
+
+  //Indicate eventing is initialized
+  EVENT_DB_INITIALIZED.store(true, Ordering::SeqCst);
 }
