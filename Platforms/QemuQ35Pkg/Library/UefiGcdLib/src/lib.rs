@@ -21,7 +21,7 @@
 //! #   core::slice::from_raw_parts_mut(addr, size)
 //! # }
 //!
-//! static GCD: SpinLockedGcd = SpinLockedGcd::new();
+//! static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
 //!
 //! GCD.init(48, 16);
 //!

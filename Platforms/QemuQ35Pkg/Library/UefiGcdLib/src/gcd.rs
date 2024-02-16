@@ -149,8 +149,8 @@ pub fn get_capabilities(gcd_mem_type: dxe_services::GcdMemoryType, attributes: u
 }
 
 #[derive(Debug)]
-///The Global Coherency Domain (GCD) Services are used to manage the memory resources visible to the boot processor.
-pub struct GCD {
+//The Global Coherency Domain (GCD) Services are used to manage the memory resources visible to the boot processor.
+struct GCD {
   maximum_address: usize,
   memory_blocks: Option<SortedSlice<'static, MemoryBlock>>,
 }
@@ -1033,17 +1033,33 @@ impl From<io_block::Error> for InternalError {
   }
 }
 
+/// Describes the kind of GCD map change that triggered the callback.
+#[derive(Debug, PartialEq, Eq)]
+pub enum MapChangeType {
+  AddMemorySpace,
+  RemoveMemorySpace,
+  AllocateMemorySpace,
+  FreeMemorySpace,
+  SetMemoryAttributes,
+  SetMemoryCapabilities,
+}
+
+/// GCD map change callback function type.
+pub type MapChangeCallback = fn(MapChangeType);
+
 /// Implements a spin locked GCD  suitable for use as a static global.
 #[derive(Debug)]
 pub struct SpinLockedGcd {
   memory: tpl_lock::TplMutex<GCD>,
   io: tpl_lock::TplMutex<IoGCD>,
+  memory_change_callback: Option<MapChangeCallback>,
 }
 
 impl SpinLockedGcd {
   /// Creates a new uninitialized GCD. [`Self::init`] must be invoked before any other functions or they will return
-  /// [`Error::NotInitialized`]
-  pub const fn new() -> Self {
+  /// [`Error::NotInitialized`]. An optional callback can be provided which will be invoked whenever an operation
+  /// changes the GCD map.
+  pub const fn new(memory_change_callback: Option<MapChangeCallback>) -> Self {
     Self {
       memory: tpl_lock::TplMutex::new(
         efi::TPL_HIGH_LEVEL,
@@ -1051,6 +1067,7 @@ impl SpinLockedGcd {
         "GcdMemLock",
       ),
       io: tpl_lock::TplMutex::new(efi::TPL_HIGH_LEVEL, IoGCD { maximum_address: 0, io_blocks: None }, "GcdIoLock"),
+      memory_change_callback,
     }
   }
 
@@ -1070,12 +1087,24 @@ impl SpinLockedGcd {
     len: usize,
     capabilities: u64,
   ) -> Result<usize, Error> {
-    self.memory.lock().add_memory_space(memory_type, base_address, len, capabilities)
+    let result = self.memory.lock().add_memory_space(memory_type, base_address, len, capabilities);
+    if result.is_ok() {
+      if let Some(callback) = self.memory_change_callback {
+        callback(MapChangeType::AddMemorySpace)
+      }
+    }
+    result
   }
 
   /// Acquires lock and delegates to [`GCD::remove_memory_space`]
   pub fn remove_memory_space(&self, base_address: usize, len: usize) -> Result<(), Error> {
-    self.memory.lock().remove_memory_space(base_address, len)
+    let result = self.memory.lock().remove_memory_space(base_address, len);
+    if result.is_ok() {
+      if let Some(callback) = self.memory_change_callback {
+        callback(MapChangeType::RemoveMemorySpace)
+      }
+    }
+    result
   }
 
   /// Acquires lock and delegates to [`GCD::allocate_memory_space`]
@@ -1088,22 +1117,47 @@ impl SpinLockedGcd {
     image_handle: efi::Handle,
     device_handle: Option<efi::Handle>,
   ) -> Result<usize, Error> {
-    self.memory.lock().allocate_memory_space(allocate_type, memory_type, alignment, len, image_handle, device_handle)
+    let result =
+      self.memory.lock().allocate_memory_space(allocate_type, memory_type, alignment, len, image_handle, device_handle);
+    if result.is_ok() {
+      if let Some(callback) = self.memory_change_callback {
+        callback(MapChangeType::AllocateMemorySpace)
+      }
+    }
+    result
   }
 
   /// Acquires lock and delegates to [`GCD::free_memory_space`]
   pub fn free_memory_space(&self, base_address: usize, len: usize) -> Result<(), Error> {
-    self.memory.lock().free_memory_space(base_address, len)
+    let result = self.memory.lock().free_memory_space(base_address, len);
+    if result.is_ok() {
+      if let Some(callback) = self.memory_change_callback {
+        callback(MapChangeType::FreeMemorySpace)
+      }
+    }
+    result
   }
 
   /// Acquires lock and delegates to [`GCD::set_memory_space_attributes`]
   pub fn set_memory_space_attributes(&self, base_address: usize, len: usize, attributes: u64) -> Result<(), Error> {
-    self.memory.lock().set_memory_space_attributes(base_address, len, attributes)
+    let result = self.memory.lock().set_memory_space_attributes(base_address, len, attributes);
+    if result.is_ok() {
+      if let Some(callback) = self.memory_change_callback {
+        callback(MapChangeType::SetMemoryAttributes)
+      }
+    }
+    result
   }
 
   /// Acquires lock and delegates to [`GCD::set_memory_space_capabilities`]
   pub fn set_memory_space_capabilities(&self, base_address: usize, len: usize, capabilities: u64) -> Result<(), Error> {
-    self.memory.lock().set_memory_space_capabilities(base_address, len, capabilities)
+    let result = self.memory.lock().set_memory_space_capabilities(base_address, len, capabilities);
+    if result.is_ok() {
+      if let Some(callback) = self.memory_change_callback {
+        callback(MapChangeType::SetMemoryCapabilities)
+      }
+    }
+    result
   }
 
   /// Acquires lock and delegates to [`GCD::get_memory_descriptors`]
@@ -1166,6 +1220,8 @@ unsafe impl Send for SpinLockedGcd {}
 #[cfg(test)]
 mod tests {
   extern crate std;
+  use core::sync::atomic::AtomicBool;
+
   use super::*;
   use alloc::{vec, vec::Vec};
 
@@ -2143,7 +2199,7 @@ mod tests {
 
   #[test]
   fn spin_locked_allocator_should_error_if_not_initialized() {
-    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
 
     assert_eq!(GCD.memory.lock().maximum_address, 0);
 
@@ -2169,7 +2225,7 @@ mod tests {
 
   #[test]
   fn spin_locked_allocator_init_should_initialize() {
-    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
 
     assert_eq!(GCD.memory.lock().maximum_address, 0);
 
@@ -2179,5 +2235,26 @@ mod tests {
     unsafe {
       GCD.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, address, MEMORY_BLOCK_SLICE_SIZE, 0).unwrap();
     }
+  }
+
+  #[test]
+  fn callback_should_fire_when_map_changes() {
+    static CALLBACK_INVOKED: AtomicBool = AtomicBool::new(false);
+    fn map_callback(map_change_type: MapChangeType) {
+      CALLBACK_INVOKED.store(true, core::sync::atomic::Ordering::SeqCst);
+      assert_eq!(map_change_type, MapChangeType::AddMemorySpace);
+    }
+    static GCD: SpinLockedGcd = SpinLockedGcd::new(Some(map_callback));
+
+    assert_eq!(GCD.memory.lock().maximum_address, 0);
+
+    let mem = unsafe { get_memory(MEMORY_BLOCK_SLICE_SIZE) };
+    let address = mem.as_ptr() as usize;
+    GCD.init(48, 16);
+    unsafe {
+      GCD.add_memory_space(dxe_services::GcdMemoryType::SystemMemory, address, MEMORY_BLOCK_SLICE_SIZE, 0).unwrap();
+    }
+
+    assert!(CALLBACK_INVOKED.load(core::sync::atomic::Ordering::SeqCst));
   }
 }
