@@ -18,7 +18,7 @@ fn init_gcd(gcd: &SpinLockedGcd, size: usize) -> u64 {
 #[test]
 fn allocate_deallocate_test() {
   // Create a static GCD for test.
-  static GCD: SpinLockedGcd = SpinLockedGcd::new();
+  static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
   GCD.init(48, 16);
 
   // Allocate some space on the heap with the global allocator (std) to be used by expand().

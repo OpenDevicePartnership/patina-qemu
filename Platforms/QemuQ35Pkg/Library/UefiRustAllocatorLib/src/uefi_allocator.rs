@@ -57,7 +57,7 @@ struct AllocationInfo {
 /// #   base
 /// # }
 ///
-/// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+/// static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
 /// GCD.init(48,16); //hard-coded processor address size.
 ///
 /// //initialize the gcd for this example with some memory from the System allocator.
@@ -129,7 +129,7 @@ impl UefiAllocator {
   /// #   base
   /// # }
   ///
-  /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+  /// static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
   /// GCD.init(48,16); //hard-coded processor address size.
   ///
   /// //initialize the gcd for this example with some memory from the System allocator.
@@ -196,7 +196,7 @@ impl UefiAllocator {
   /// #   base
   /// # }
   ///
-  /// static GCD: SpinLockedGcd = SpinLockedGcd::new();
+  /// static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
   /// GCD.init(48,16); //hard-coded processor address size.
   ///
   /// //initialize the gcd for this example with some memory from the System allocator.
@@ -327,7 +327,7 @@ mod tests {
 
   #[test]
   fn test_uefi_allocator_new() {
-    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
     GCD.init(48, 16);
     let ua = UefiAllocator::new(&GCD, efi::BOOT_SERVICES_DATA, 1 as _);
     assert_eq!(ua.memory_type, efi::BOOT_SERVICES_DATA);
@@ -335,7 +335,7 @@ mod tests {
 
   #[test]
   fn test_allocate_pool() {
-    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
     GCD.init(48, 16);
 
     let base = init_gcd(&GCD, 0x400000);
@@ -365,7 +365,7 @@ mod tests {
 
   #[test]
   fn test_free_pool() {
-    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
     GCD.init(48, 16);
 
     let base = init_gcd(&GCD, 0x400000);
@@ -399,7 +399,7 @@ mod tests {
 
   #[test]
   fn test_allocate_and_free_pages() {
-    static GCD: SpinLockedGcd = SpinLockedGcd::new();
+    static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
     GCD.init(48, 16);
 
     let base = init_gcd(&GCD, 0x400000);

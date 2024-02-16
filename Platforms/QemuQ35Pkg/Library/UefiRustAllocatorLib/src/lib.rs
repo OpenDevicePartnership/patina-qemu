@@ -23,7 +23,7 @@
 //! # use r_efi::efi;
 //! use uefi_gcd_lib::gcd::SpinLockedGcd;
 //! use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
-//! static GCD: SpinLockedGcd = SpinLockedGcd::new();
+//! static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
 //! /* Initialize GCD */
 //! //EfiBootServicesCode
 //! pub static EFI_BOOT_SERVICES_CODE_ALLOCATOR: UefiAllocator = UefiAllocator::new(&GCD, efi::BOOT_SERVICES_CODE, 1 as _);
@@ -56,7 +56,7 @@
 //! #   base
 //! # }
 //!
-//! static GCD: SpinLockedGcd = SpinLockedGcd::new();
+//! static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
 //! GCD.init(48,16); //hard-coded processor address size.
 //! let base = init_gcd(&GCD, 0x400000);
 //!
@@ -93,7 +93,7 @@
 //! #   base
 //! # }
 //!
-//! static GCD: SpinLockedGcd = SpinLockedGcd::new();
+//! static GCD: SpinLockedGcd = SpinLockedGcd::new(None);
 //! GCD.init(48,16); //hard-coded processor address size.
 //! let base = init_gcd(&GCD, 0x400000);
 //!
