@@ -273,12 +273,21 @@ extern "efiapi" fn close_protocol(
     return efi::Status::INVALID_PARAMETER;
   }
 
-  let agent_handle = PROTOCOL_DB.validate_handle(agent_handle).map_or_else(|_err| None, |_ok| Some(agent_handle));
+  if PROTOCOL_DB.validate_handle(agent_handle).is_err() {
+    return efi::Status::INVALID_PARAMETER;
+  }
 
-  let controller_handle =
-    PROTOCOL_DB.validate_handle(controller_handle).map_or_else(|_err| None, |_ok| Some(controller_handle));
+  let controller_handle = match controller_handle {
+    _ if controller_handle.is_null() => None,
+    _ => {
+      if PROTOCOL_DB.validate_handle(controller_handle).is_err() {
+        return efi::Status::INVALID_PARAMETER;
+      }
+      Some(controller_handle)
+    }
+  };
 
-  match PROTOCOL_DB.remove_protocol_usage(handle, unsafe { *protocol }, agent_handle, controller_handle) {
+  match PROTOCOL_DB.remove_protocol_usage(handle, unsafe { *protocol }, Some(agent_handle), controller_handle) {
     Err(err) => err,
     Ok(_) => efi::Status::SUCCESS,
   }

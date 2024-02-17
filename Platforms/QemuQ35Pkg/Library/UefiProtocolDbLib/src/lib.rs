@@ -487,8 +487,8 @@ impl ProtocolDb {
     }
 
     let key = handle as usize;
-    let handle_instance = self.handles.get_mut(&key).ok_or(efi::Status::UNSUPPORTED)?;
-    let instance = handle_instance.get_mut(&OrdGuid(protocol)).ok_or(efi::Status::UNSUPPORTED)?;
+    let handle_instance = self.handles.get_mut(&key).expect("valid handle, but no entry in self.handles");
+    let instance = handle_instance.get_mut(&OrdGuid(protocol)).ok_or(efi::Status::NOT_FOUND)?;
     let mut removed = false;
     instance.usage.retain(|x| {
       if (x.agent_handle == agent_handle) && (x.controller_handle == controller_handle) {
