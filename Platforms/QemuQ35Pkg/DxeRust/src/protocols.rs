@@ -224,33 +224,33 @@ extern "efiapi" fn open_protocol(
   let controller_handle =
     PROTOCOL_DB.validate_handle(controller_handle).map_or_else(|_err| None, |_ok| Some(controller_handle));
 
-  if (attributes != efi::OPEN_PROTOCOL_TEST_PROTOCOL)
-    && (attributes != efi::OPEN_PROTOCOL_GET_PROTOCOL)
-    && (attributes != efi::OPEN_PROTOCOL_BY_HANDLE_PROTOCOL)
-  {
-    match PROTOCOL_DB.add_protocol_usage(handle, unsafe { *protocol }, agent_handle, controller_handle, attributes) {
-      Err(efi::Status::UNSUPPORTED) => {
+  match PROTOCOL_DB.add_protocol_usage(handle, unsafe { *protocol }, agent_handle, controller_handle, attributes) {
+    Err(efi::Status::UNSUPPORTED) => {
+      if !interface.is_null() {
         unsafe { interface.write(core::ptr::null_mut()) };
-        return efi::Status::UNSUPPORTED;
       }
-      Err(efi::Status::ACCESS_DENIED) => {
-        //TODO: need to implement support for DisconnectController() requirement from
-        //spec - either here, or prior to the attempt. For now, just return the status.
-        //todo!()
-        return efi::Status::ACCESS_DENIED;
-      }
-      Err(efi::Status::ALREADY_STARTED) => {
-        //For already started interface is still returned.
-        let desired_interface = PROTOCOL_DB
-          .get_interface_for_handle(handle, unsafe { *protocol })
-          .expect("Already Started can't happen if protocol doesn't exist.");
+      return efi::Status::UNSUPPORTED;
+    }
+    Err(efi::Status::ACCESS_DENIED) => {
+      //TODO: need to implement support for DisconnectController() requirement from
+      //spec - either here, or prior to the attempt. For now, just return the status.
+      //todo!()
+      return efi::Status::ACCESS_DENIED;
+    }
+    Err(efi::Status::ALREADY_STARTED) if (attributes & efi::OPEN_PROTOCOL_BY_DRIVER) != 0 => {
+      //For already started interface is still returned.
+      let desired_interface = PROTOCOL_DB
+        .get_interface_for_handle(handle, unsafe { *protocol })
+        .expect("Already Started can't happen if protocol doesn't exist.");
+      if !interface.is_null() {
         unsafe { interface.write(desired_interface) };
-        return efi::Status::ALREADY_STARTED;
       }
-      Err(err) => return err,
-      Ok(_) => (),
-    };
-  }
+      return efi::Status::ALREADY_STARTED;
+    }
+    Err(efi::Status::ALREADY_STARTED) => (),
+    Err(err) => return err,
+    Ok(_) => (),
+  };
 
   let desired_interface = match PROTOCOL_DB.get_interface_for_handle(handle, unsafe { *protocol }) {
     Err(err) => return err,
