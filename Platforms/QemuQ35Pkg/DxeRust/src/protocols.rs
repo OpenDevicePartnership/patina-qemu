@@ -66,7 +66,7 @@ extern "efiapi" fn uninstall_protocol_interface(
   protocol: *mut efi::Guid,
   interface: *mut c_void,
 ) -> efi::Status {
-  if protocol.is_null() || interface.is_null() {
+  if protocol.is_null() {
     return efi::Status::INVALID_PARAMETER;
   }
 
