@@ -7,6 +7,7 @@ use uefi_protocol_db_lib::{SpinLockedProtocolDb, DXE_CORE_HANDLE};
 
 use crate::{
   allocator::core_allocate_pool,
+  driver_services::core_disconnect_controller,
   events::{signal_event, EVENT_DB},
 };
 
@@ -72,9 +73,33 @@ extern "efiapi" fn uninstall_protocol_interface(
 
   let caller_protocol = unsafe { *protocol };
 
+  // Check if the handle/protocol/interface triple is legitimate
+  match PROTOCOL_DB.get_interface_for_handle(handle, caller_protocol) {
+    Err(err) => return err,
+    Ok(found_interface) => {
+      if found_interface != interface {
+        return efi::Status::NOT_FOUND;
+      }
+    }
+  }
+
+  // Retrieve currently open protocol information, this is used to allow closure of open handles.
+  let protocol_usages = match PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, caller_protocol) {
+    Ok(protocol_usages) => protocol_usages,
+    Err(err) => return err,
+  };
+
+  // Invoke disconnect_controller on for each agent handle that is using this protocol on this handle.
+  for usage in protocol_usages {
+    if let Some(agent_handle) = usage.agent_handle {
+      unsafe {
+        // best-effort, errors are ignored.
+        let _ = core_disconnect_controller(handle, Some(agent_handle), None);
+      }
+    }
+  }
+
   match PROTOCOL_DB.uninstall_protocol_interface(handle, caller_protocol, interface) {
-    //TODO: need to handle driver disconnect on access denied.
-    Err(efi::Status::ACCESS_DENIED) => todo!(),
     Err(err) => err,
     Ok(()) => efi::Status::SUCCESS,
   }
