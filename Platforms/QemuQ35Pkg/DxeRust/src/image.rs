@@ -663,16 +663,19 @@ pub fn core_start_image(image_handle: efi::Handle) -> efi::Status {
 }
 
 pub fn core_unload_image(image_handle: efi::Handle, force_unload: bool) -> efi::Status {
-  let mut private_data = PRIVATE_IMAGE_DATA.lock();
+  let private_data = PRIVATE_IMAGE_DATA.lock();
   let private_image_data = match private_data.private_image_data.get(&image_handle) {
     Some(data) => data,
     None => return efi::Status::INVALID_PARAMETER,
   };
+  let unload_function = Option::from(private_image_data.image_info.unload);
+  let started = private_image_data.started;
+  drop(private_data); // release the image lock while unload logic executes as this function may be re-entrant.
 
   // if the image has been started, request that it unload, and don't unload it if
   // the unload function doesn't exist or returns an error.
-  if private_image_data.started {
-    if Option::from(private_image_data.image_info.unload).is_some() {
+  if started {
+    if let Some(function) = unload_function {
       //Safety: this is unsafe (even though rust doesn't think so) because we are calling
       //into the "unload" function pointer that the image itself set. r_efi doesn't mark
       //the unload function type as unsafe - so rust reports an "unused_unsafe" since it
@@ -680,7 +683,7 @@ pub fn core_unload_image(image_handle: efi::Handle, force_unload: bool) -> efi::
       //warning to the future.
       #[allow(unused_unsafe)]
       unsafe {
-        let status = (private_image_data.image_info.unload)(image_handle);
+        let status = (function)(image_handle);
         if status != efi::Status::SUCCESS {
           return status;
         }
@@ -718,7 +721,7 @@ pub fn core_unload_image(image_handle: efi::Handle, force_unload: bool) -> efi::
   // remove the private data for this image from the private_image_data map.
   // it will get dropped when it goes out of scope at the end of the function,
   // and the image and image_info boxes along with it.
-  let private_image_data = private_data.private_image_data.remove(&image_handle).unwrap();
+  let private_image_data = PRIVATE_IMAGE_DATA.lock().private_image_data.remove(&image_handle).unwrap();
   // remove the image and device path protocols from the image handle.
   if let Err(err) = PROTOCOL_DB.uninstall_protocol_interface(
     image_handle,
