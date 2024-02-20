@@ -1,9 +1,46 @@
-use alloc::{vec, vec::Vec};
-use core::{ptr::NonNull, slice::from_raw_parts_mut};
+use alloc::{collections::BTreeMap, vec, vec::Vec};
+use core::{ffi::c_void, ptr::NonNull, slice::from_raw_parts_mut};
 
 use r_efi::efi;
 
 use crate::protocols::PROTOCOL_DB;
+
+//TODO: these definitions are missing from r_efi and need to be pushed there.
+const PLATFORM_DRIVER_OVERRIDE_PROTOCOL_GUID: efi::Guid =
+  efi::Guid::from_fields(0x6b30c738, 0xa391, 0x11d4, 0x9a, 0x3b, &[0x00, 0x90, 0x27, 0x3f, 0xc1, 0x4d]);
+
+type PlatformDriverOverrideGetDriver = extern "efiapi" fn(
+  this: *mut PlatformDriverOverrideProtocol,
+  controller_handle: efi::Handle,
+  driver_image_handle: *mut efi::Handle,
+) -> efi::Status;
+
+struct PlatformDriverOverrideProtocol {
+  get_driver: PlatformDriverOverrideGetDriver,
+  _get_driver_path: *mut c_void, //Unused in this module, so not defined
+  _driver_loaded: *mut c_void,   //Unused in this module, so not defined
+}
+
+const DRIVER_FAMILY_OVERRIDE_PROTOCOL_GUID: efi::Guid =
+  efi::Guid::from_fields(0xb1ee129e, 0xda36, 0x4181, 0x91, 0xf8, &[0x04, 0xa4, 0x92, 0x37, 0x66, 0xa7]);
+
+type GetVersion = extern "efiapi" fn(this: *mut DriverFamilyOverrideProtocol) -> u32;
+
+struct DriverFamilyOverrideProtocol {
+  get_version: GetVersion,
+}
+
+const BUS_SPECIFIC_DRIVER_OVERRIDE_PROTOCOL_GUID: efi::Guid =
+  efi::Guid::from_fields(0x3bc1b285, 0x8a15, 0x4a82, 0xaa, 0xbf, &[0x4d, 0x7d, 0x13, 0xfb, 0x32, 0x65]);
+
+type BusSpecificDriverOverrideGetDriver = extern "efiapi" fn(
+  this: *mut BusSpecificDriverOverrideProtocol,
+  driver_image_handle: *mut efi::Handle,
+) -> efi::Status;
+
+struct BusSpecificDriverOverrideProtocol {
+  get_driver: BusSpecificDriverOverrideGetDriver,
+}
 
 fn get_bindings_for_handles(handles: Vec<efi::Handle>) -> Vec<*mut efi::protocols::driver_binding::Protocol> {
   handles
@@ -18,22 +55,79 @@ fn get_bindings_for_handles(handles: Vec<efi::Handle>) -> Vec<*mut efi::protocol
 }
 
 fn get_platform_driver_override_bindings(
-  _controller_handle: efi::Handle,
+  controller_handle: efi::Handle,
 ) -> Vec<*mut efi::protocols::driver_binding::Protocol> {
-  //TODO: implementing this requires adding definition for the Platform Driver Override protocol to r_efi.
-  Vec::new()
+  let driver_override_protocol = match PROTOCOL_DB.locate_protocol(PLATFORM_DRIVER_OVERRIDE_PROTOCOL_GUID) {
+    Err(_) => return Vec::new(),
+    Ok(protocol) => unsafe { (protocol as *mut PlatformDriverOverrideProtocol).as_mut().expect("bad protocol ptr") },
+  };
+
+  let mut driver_overrides = Vec::new();
+  let mut driver_image_handle: efi::Handle = core::ptr::null_mut();
+  loop {
+    let status = (driver_override_protocol.get_driver)(
+      driver_override_protocol,
+      controller_handle,
+      core::ptr::addr_of_mut!(driver_image_handle),
+    );
+    if status != efi::Status::SUCCESS {
+      break;
+    }
+    driver_overrides.push(driver_image_handle.clone());
+  }
+
+  get_bindings_for_handles(driver_overrides)
 }
 
 fn get_family_override_bindings() -> Vec<*mut efi::protocols::driver_binding::Protocol> {
-  //TODO: implementing this requires adding definition for the Driver Family Override protocol to r_efi.
-  Vec::new()
+  let driver_binding_handles = match PROTOCOL_DB.locate_handles(Some(efi::protocols::driver_binding::PROTOCOL_GUID)) {
+    Err(_) => return Vec::new(),
+    Ok(handles) => handles,
+  };
+
+  let mut driver_override_map: BTreeMap<u32, efi::Handle> = BTreeMap::new();
+
+  // insert all the handles that have DRIVER_FAMILY_OVERRIDE_PROTOCOL on them into a sorted map
+  for handle in driver_binding_handles {
+    match PROTOCOL_DB.get_interface_for_handle(handle, DRIVER_FAMILY_OVERRIDE_PROTOCOL_GUID) {
+      Ok(protocol) => {
+        let driver_override_protocol =
+          unsafe { (protocol as *mut DriverFamilyOverrideProtocol).as_mut().expect("bad protocol ptr") };
+        let version = (driver_override_protocol.get_version)(driver_override_protocol);
+        driver_override_map.insert(version, handle);
+      }
+      Err(_) => continue,
+    }
+  }
+
+  //return the driver bindings for the values from the map in reverse order (highest versions first)
+  get_bindings_for_handles(driver_override_map.into_values().rev().collect())
 }
 
 fn get_bus_specific_override_bindings(
-  _controller_handle: efi::Handle,
+  controller_handle: efi::Handle,
 ) -> Vec<*mut efi::protocols::driver_binding::Protocol> {
-  //TODO: implementing this requires adding definition for the Bus Specific Driver Override protocol to r_efi.
-  Vec::new()
+  let bus_specific_override_protocol = match PROTOCOL_DB
+    .get_interface_for_handle(controller_handle, BUS_SPECIFIC_DRIVER_OVERRIDE_PROTOCOL_GUID)
+  {
+    Err(_) => return Vec::new(),
+    Ok(protocol) => unsafe { (protocol as *mut BusSpecificDriverOverrideProtocol).as_mut().expect("bad protocol ptr") },
+  };
+
+  let mut bus_overrides = Vec::new();
+  let mut driver_image_handle: efi::Handle = core::ptr::null_mut();
+  loop {
+    let status = (bus_specific_override_protocol.get_driver)(
+      bus_specific_override_protocol,
+      core::ptr::addr_of_mut!(driver_image_handle),
+    );
+    if status != efi::Status::SUCCESS {
+      break;
+    }
+    bus_overrides.push(driver_image_handle.clone());
+  }
+
+  get_bindings_for_handles(bus_overrides)
 }
 
 fn get_all_driver_bindings() -> Vec<*mut efi::protocols::driver_binding::Protocol> {
