@@ -1,4 +1,4 @@
-use alloc::{collections::BTreeMap, vec, vec::Vec};
+use alloc::{collections::BTreeMap, vec::Vec};
 use core::{ffi::c_void, ptr::NonNull, slice::from_raw_parts_mut};
 
 use r_efi::efi;
@@ -312,17 +312,18 @@ pub unsafe fn core_disconnect_controller(
 ) -> Result<(), efi::Status> {
   PROTOCOL_DB.validate_handle(controller_handle)?;
 
+  if let Some(handle) = driver_image_handle {
+    PROTOCOL_DB.validate_handle(handle)?;
+  }
+
   if let Some(handle) = child_handle {
     PROTOCOL_DB.validate_handle(handle)?;
   }
 
   // determine which driver_handles should be stopped.
-  let mut drivers_managing_controller = match driver_image_handle {
-    Some(handle) => vec![handle], //use the specified driver_image_handle.
-    None => {
-      //driver image handle not specified, attempt to stop all drivers managing controller_handle.
-      PROTOCOL_DB
-        .get_open_protocol_information(controller_handle)?
+  let mut drivers_managing_controller = {
+    match PROTOCOL_DB.get_open_protocol_information(controller_handle) {
+      Ok(info) => info
         .iter()
         .flat_map(|(_guid, open_info)| {
           open_info.iter().filter_map(|x| {
@@ -333,46 +334,69 @@ pub unsafe fn core_disconnect_controller(
             }
           })
         })
-        .collect()
+        .collect(),
+      Err(_) => Vec::new(),
     }
   };
+
   drivers_managing_controller.sort_unstable();
   drivers_managing_controller.dedup();
 
-  let mut stop_count = 0;
+  // if the driver image was specified, only disconnect that one (if it is actually managing it)
+  if let Some(driver) = driver_image_handle {
+    drivers_managing_controller.retain(|x| *x == driver);
+  }
+
+  let mut one_or_more_drivers_disconnected = false;
+  let no_drivers = drivers_managing_controller.is_empty();
   for driver_handle in drivers_managing_controller {
     //determine which child handles should be stopped.
-    let mut child_handles: Vec<_> = PROTOCOL_DB
-      .get_open_protocol_information(controller_handle)?
-      .iter()
-      .flat_map(|(_guid, open_info)| {
-        open_info.iter().filter_map(|x| {
-          if (x.agent_handle == Some(driver_handle)) && ((x.attributes & efi::OPEN_PROTOCOL_BY_CHILD_CONTROLLER) != 0) {
-            Some(x.controller_handle.expect("controller handle required when open by child controller"))
-          } else {
-            None
-          }
+    let mut child_handles: Vec<_> = match PROTOCOL_DB.get_open_protocol_information(controller_handle) {
+      Ok(info) => info
+        .iter()
+        .flat_map(|(_guid, open_info)| {
+          open_info.iter().filter_map(|x| {
+            if (x.agent_handle == Some(driver_handle)) && ((x.attributes & efi::OPEN_PROTOCOL_BY_CHILD_CONTROLLER) != 0)
+            {
+              Some(x.controller_handle.expect("controller handle required when open by child controller"))
+            } else {
+              None
+            }
+          })
         })
-      })
-      .collect();
+        .collect(),
+      Err(_) => Vec::new(),
+    };
     child_handles.sort_unstable();
     child_handles.dedup();
 
     let total_children = child_handles.len();
+    let mut is_only_child = false;
     if let Some(handle) = child_handle {
-      //if the child handle has been specified, only try and close that. This also checks that the specified child handle is legit.
+      //if the child was specified, but was the only child, then the driver should be disconnected.
+      //if the child was specified, but other children were present, then the driver should not be disconnected.
       child_handles.retain(|x| x == &handle);
+      is_only_child = total_children == child_handles.len();
     }
 
     //resolve the handle to the driver_binding.
-    let driver_binding_interface =
-      PROTOCOL_DB.get_interface_for_handle(driver_handle, efi::protocols::driver_binding::PROTOCOL_GUID)?;
+    //N.B. Corner case: a driver could install a driver-binding instance; then be asked to manage a controller (and
+    //thus, become an agent_handle in the open protocol information), and then something uninstalls the driver binding
+    //from the agent_handle. This would mean that the agent_handle now no longer supports the driver binding but is
+    //marked in the protocol database as managing the controller. This code just returns INVALID_PARAMETER in this case
+    //(which effectively makes the controller "un-disconnect-able" since all subsequent disconnects will also fail for
+    //the same reason). This matches the reference C implementation. As an enhancement, the core could track driver
+    //bindings that are actively managing controllers and return an ACCESS_DENIED status if something attempts to
+    //uninstall a binding that is in use.
+    let driver_binding_interface = PROTOCOL_DB
+      .get_interface_for_handle(driver_handle, efi::protocols::driver_binding::PROTOCOL_GUID)
+      .or(Err(efi::Status::INVALID_PARAMETER))?;
     let driver_binding_interface = driver_binding_interface as *mut efi::protocols::driver_binding::Protocol;
     let driver_binding = unsafe { &mut *(driver_binding_interface) };
 
     let mut status = efi::Status::SUCCESS;
     if !child_handles.is_empty() {
-      //disconnect the child controllers.
+      //disconnect the child controller(s).
       status = (driver_binding.stop)(
         driver_binding_interface,
         controller_handle,
@@ -380,17 +404,15 @@ pub unsafe fn core_disconnect_controller(
         child_handles.as_mut_ptr(),
       );
     }
-
-    if (status == efi::Status::SUCCESS) && (child_handles.len() == total_children) {
+    if status == efi::Status::SUCCESS && (child_handle.is_none() || is_only_child) {
       status = (driver_binding.stop)(driver_binding_interface, controller_handle, 0, core::ptr::null_mut());
     }
-
     if status == efi::Status::SUCCESS {
-      stop_count += 1;
+      one_or_more_drivers_disconnected = true;
     }
   }
 
-  if stop_count > 0 {
+  if one_or_more_drivers_disconnected || no_drivers {
     Ok(())
   } else {
     Err(efi::Status::NOT_FOUND)
