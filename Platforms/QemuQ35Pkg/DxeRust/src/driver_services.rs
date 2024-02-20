@@ -312,6 +312,10 @@ pub unsafe fn core_disconnect_controller(
 ) -> Result<(), efi::Status> {
   PROTOCOL_DB.validate_handle(controller_handle)?;
 
+  if let Some(handle) = child_handle {
+    PROTOCOL_DB.validate_handle(handle)?;
+  }
+
   // determine which driver_handles should be stopped.
   let mut drivers_managing_controller = match driver_image_handle {
     Some(handle) => vec![handle], //use the specified driver_image_handle.
