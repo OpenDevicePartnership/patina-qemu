@@ -586,7 +586,7 @@ extern "efiapi" fn locate_device_path(
   device_path: *mut *mut r_efi::protocols::device_path::Protocol,
   device: *mut efi::Handle,
 ) -> efi::Status {
-  if protocol.is_null() || device_path.is_null() || unsafe { *device_path }.is_null() || device.is_null() {
+  if protocol.is_null() || device_path.is_null() || unsafe { *device_path }.is_null() {
     return efi::Status::INVALID_PARAMETER;
   }
 
@@ -595,7 +595,9 @@ extern "efiapi" fn locate_device_path(
     Err(err) => return err,
     Ok((path, device)) => (path, device),
   };
-
+  if device.is_null() {
+    return efi::Status::INVALID_PARAMETER;
+  }
   unsafe {
     device.write(best_device);
     device_path.write(best_remaining_path);
