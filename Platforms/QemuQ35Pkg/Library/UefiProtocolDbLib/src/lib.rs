@@ -145,9 +145,8 @@ impl Ord for OrdGuid {
 }
 /// This structure is used to track notification events for protocol notifies.
 ///
-/// It is returned from [`install_protocol_interface`](SpinLockedProtocolDb::install_protocol_interface)] and
-/// [`reinstall_protocol_interface`](SpinLockedProtocolDb::install_protocol_interface) and used internally to track
-/// protocol notification registrations.
+/// It is returned from [`install_protocol_interface`](SpinLockedProtocolDb::install_protocol_interface) and used
+/// internally to track protocol notification registrations.
 ///
 /// The only public member of this structure is `event`, which is an event that the caller can signal to indicate the
 /// installation of new protocols.
@@ -289,69 +288,6 @@ impl ProtocolDb {
     }
 
     Ok(())
-  }
-
-  //Note: reinstall gets its own routine (instead of having caller call uninstall/install) to handle the corner case
-  //where the only protocol interface on a handle is being reinstalled; this means that the handle is technically
-  //empty (i.e. invalid) between the uninstall/install, and so install would fail in this case due to invalid handle.
-  //The logic of reinstall is otherwise equivalent to uninstall followed by reinstall.
-  fn reinstall_protocol_interface(
-    &mut self,
-    handle: efi::Handle,
-    protocol: efi::Guid,
-    old_interface: *mut c_void,
-    new_interface: *mut c_void,
-  ) -> Result<Vec<ProtocolNotify>, efi::Status> {
-    self.validate_handle(handle)?;
-
-    let key = handle as usize;
-
-    let handle_instance = self.handles.get_mut(&key).ok_or(efi::Status::NOT_FOUND)?;
-
-    let instance = handle_instance.get(&OrdGuid(protocol)).ok_or(efi::Status::NOT_FOUND)?;
-
-    if instance.interface != old_interface {
-      return Err(efi::Status::NOT_FOUND);
-    }
-
-    //Spec requires that an attempt to uninstall an installed protocol interface that is open with an attribute of
-    //efi::OPEN_PROTOCOL_BY_DRIVER should force a call to "Disconnect Controller" to attempt to release the interface
-    //before uninstalling. This logic requires interaction with gBS->DisconnectController, which could in turn have
-    //issues with deadlock since this routine is executing under a lock from SimpleLockedProtocolDb. As such, this
-    //routine simply returns ACCESS_DENIED if any agents are found active on the protocol instance, and leaves the
-    //disconnect logic to the caller (outside this library), which is free to DisconnectController() before
-    //attempting this call.
-    for agent in &instance.usage {
-      if (agent.attributes & efi::OPEN_PROTOCOL_BY_DRIVER) != 0 {
-        return Err(efi::Status::ACCESS_DENIED);
-      }
-    }
-    handle_instance.remove(&OrdGuid(protocol));
-
-    //create a new protocol instance to match the input.
-    let protocol_instance = ProtocolInstance {
-      interface: new_interface,
-      opened_by_driver: false,
-      opened_by_exclusive: false,
-      usage: Vec::new(),
-    };
-
-    //attempt to add the protocol to the set of protocols on this handle.
-    let exists = handle_instance.insert(OrdGuid(protocol), protocol_instance);
-    assert!(exists.is_none(), "protocol has been removed, so it should not already exist here");
-
-    //determine if there are any events to be notified.
-    if let Some(events) = self.notifications.get_mut(&OrdGuid(protocol)) {
-      for event in events {
-        event.fresh_handles.insert(handle);
-      }
-    }
-    let events = match self.notifications.get(&OrdGuid(protocol)) {
-      Some(events) => events.clone(),
-      None => vec![],
-    };
-
-    Ok(events)
   }
 
   fn locate_handles(&mut self, protocol: Option<efi::Guid>) -> Result<Vec<efi::Handle>, efi::Status> {
@@ -743,47 +679,6 @@ impl SpinLockedProtocolDb {
     self.lock().uninstall_protocol_interface(handle, guid, interface)
   }
 
-  /// Replaces an interface on the given handle with a new one.
-  ///
-  /// This function closely matches the semantics of the EFI_BOOT_SERVICES.ReinstallProtocolInterface() API in
-  /// UEFI spec 2.10 section 7.3.4. Please refer to the spec for details on the input parameters.
-  ///
-  /// On success, this function returns a vector of [`ProtocolNotify`] structures that the caller can use to
-  /// signal events for any registered notifies on this protocol installation.
-  ///
-  /// ## Errors
-  ///
-  /// Returns r_efi:efi::Status::INVALID_PARAMETER if incorrect parameters are given.
-  ///
-  /// ## Examples
-  ///
-  /// ```
-  /// # use core::ffi::c_void;
-  /// # use r_efi::efi;
-  /// # use std::str::FromStr;
-  /// # use uuid::Uuid;
-  /// use uefi_protocol_db_lib::SpinLockedProtocolDb;
-  ///
-  /// static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
-  /// let uuid1 = Uuid::from_str("0e896c7a-57dc-4987-bc22-abc3a8263210").unwrap();
-  /// let guid1: efi::Guid = unsafe { core::mem::transmute(*uuid1.as_bytes()) };
-  /// let interface1: *mut c_void = 0x1234 as *mut c_void;
-  /// let interface2: *mut c_void = 0x1234 as *mut c_void;
-  /// let (handle, notifies) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
-  ///
-  /// let new_notifies = SPIN_LOCKED_PROTOCOL_DB.reinstall_protocol_interface(handle, guid1, interface1, interface2).unwrap();
-  /// ```
-  ///
-  pub fn reinstall_protocol_interface(
-    &self,
-    handle: efi::Handle,
-    protocol: efi::Guid,
-    old_interface: *mut c_void,
-    new_interface: *mut c_void,
-  ) -> Result<Vec<ProtocolNotify>, efi::Status> {
-    self.lock().reinstall_protocol_interface(handle, protocol, old_interface, new_interface)
-  }
-
   /// Returns a vector of handles that have the specified protocol installed on them.
   ///
   /// On success, this function returns a vector of [`efi::Handle`] that have this protocol installed on them.
@@ -1138,8 +1033,8 @@ impl SpinLockedProtocolDb {
   ///
   /// This function generally matches the behavior of EFI_BOOT_SERVICES.RegisterProtocolNotify() API in the UEFI spec
   /// 2.10 section 7.3.5. Refer to the UEFI spec description for details on input parameters. This implementation does
-  /// not actually fire the event; instead, a list notifications are returned by [`install_protocol_interface`] and
-  /// [`reinstall_protocol_interface`] so that the caller can fire the events.
+  /// not actually fire the event; instead, a list notifications is returned by [`install_protocol_interface`] so that
+  /// the caller can fire the events.
   ///
   /// Returns a registration token that can be used with [`next_handle_for_registration`] to iterate over handles
   /// that have fresh installations of the specified protocol.
@@ -1395,24 +1290,6 @@ mod tests {
 
     let err = SPIN_LOCKED_PROTOCOL_DB.uninstall_protocol_interface(handle, guid1, interface2);
     assert_eq!(err, Err(efi::Status::NOT_FOUND));
-  }
-
-  #[test]
-  fn reinstall_protocol_interface_should_replace_the_interface() {
-    static SPIN_LOCKED_PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
-
-    let uuid1 = Uuid::from_str("0e896c7a-57dc-4987-bc22-abc3a8263210").unwrap();
-    let guid1: efi::Guid = unsafe { core::mem::transmute(*uuid1.as_bytes()) };
-    let interface1: *mut c_void = 0x1234 as *mut c_void;
-    let interface2: *mut c_void = 0x4321 as *mut c_void;
-
-    let (handle, _) = SPIN_LOCKED_PROTOCOL_DB.install_protocol_interface(None, guid1, interface1).unwrap();
-    let key = handle as usize;
-
-    SPIN_LOCKED_PROTOCOL_DB.reinstall_protocol_interface(handle, guid1, interface1, interface2).unwrap();
-    let mut db = SPIN_LOCKED_PROTOCOL_DB.lock();
-    let protocol_instance = db.handles.get_mut(&key).unwrap();
-    assert_eq!(protocol_instance.get(&OrdGuid(guid1)).unwrap().interface, interface2);
   }
 
   #[test]
@@ -2136,21 +2013,6 @@ mod tests {
     assert_eq!(notify_list[1].event, event2);
     assert_eq!(notify_list[1].fresh_handles.len(), 1);
     assert!(notify_list[1].fresh_handles.get(&result.0).is_some());
-    assert_eq!(notify_list[1].registration, reg2);
-
-    let handle = result.0;
-    let result = SPIN_LOCKED_PROTOCOL_DB.reinstall_protocol_interface(handle, guid1, interface1, interface2);
-    assert!(result.is_ok());
-    let notify_list = result.unwrap();
-    assert_eq!(notify_list.len(), 2);
-    assert_eq!(notify_list[0].event, event);
-    assert_eq!(notify_list[0].fresh_handles.len(), 1);
-    assert!(notify_list[0].fresh_handles.get(&handle).is_some());
-    assert_eq!(notify_list[0].registration, reg1);
-
-    assert_eq!(notify_list[1].event, event2);
-    assert_eq!(notify_list[1].fresh_handles.len(), 1);
-    assert!(notify_list[1].fresh_handles.get(&handle).is_some());
     assert_eq!(notify_list[1].registration, reg2);
   }
 
