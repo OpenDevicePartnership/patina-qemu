@@ -211,9 +211,7 @@ pub fn remaining_device_path(
     let a_node = unsafe { *a_ptr };
     let b_node = unsafe { *b_ptr };
 
-    if a_node.r#type == efi::protocols::device_path::TYPE_END
-      && a_node.sub_type == efi::protocols::device_path::End::SUBTYPE_ENTIRE
-    {
+    if is_device_path_end(&a_node) {
       return Some((b_ptr, node_count));
     }
 
@@ -231,6 +229,14 @@ pub fn remaining_device_path(
     a_ptr = unsafe { a_ptr.byte_offset(a_length.try_into().unwrap()) };
     b_ptr = unsafe { b_ptr.byte_offset(b_length.try_into().unwrap()) };
   }
+}
+
+/// Determines whether the given device path points to an end-of-device-path node.
+pub fn is_device_path_end(device_path: *const efi::protocols::device_path::Protocol) -> bool {
+  let device_path_node = unsafe { *device_path };
+
+  device_path_node.r#type == efi::protocols::device_path::TYPE_END
+    && device_path_node.sub_type == efi::protocols::device_path::End::SUBTYPE_ENTIRE
 }
 
 #[cfg(test)]
