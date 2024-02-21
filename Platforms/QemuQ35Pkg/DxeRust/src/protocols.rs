@@ -439,6 +439,13 @@ extern "efiapi" fn protocols_per_handle(
   protocol_buffer: *mut *mut *mut efi::Guid,
   protocol_buffer_count: *mut usize,
 ) -> efi::Status {
+  if protocol_buffer.is_null() || protocol_buffer_count.is_null() {
+    return efi::Status::INVALID_PARAMETER;
+  }
+  if PROTOCOL_DB.validate_handle(handle).is_err() {
+    return efi::Status::INVALID_PARAMETER;
+  }
+
   let mut protocol_list = match PROTOCOL_DB.get_protocols_on_handle(handle) {
     Ok(list) => list,
     Err(err) => return err,
