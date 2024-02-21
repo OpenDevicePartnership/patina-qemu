@@ -1,7 +1,7 @@
 use core::{ffi::c_void, mem::size_of};
 
 use alloc::{slice, vec, vec::Vec};
-use r_efi::efi;
+use r_efi::efi::{self, OPEN_PROTOCOL_BY_DRIVER, OPEN_PROTOCOL_EXCLUSIVE};
 use uefi_device_path_lib::{is_device_path_end, remaining_device_path};
 use uefi_protocol_db_lib::{SpinLockedProtocolDb, DXE_CORE_HANDLE};
 
@@ -240,6 +240,8 @@ extern "efiapi" fn open_protocol(
     return efi::Status::INVALID_PARAMETER;
   }
 
+  let protocol = *(unsafe { protocol.as_ref().unwrap() });
+
   if interface.is_null() && attributes != efi::OPEN_PROTOCOL_TEST_PROTOCOL {
     return efi::Status::INVALID_PARAMETER;
   }
@@ -249,7 +251,28 @@ extern "efiapi" fn open_protocol(
   let controller_handle =
     PROTOCOL_DB.validate_handle(controller_handle).map_or_else(|_err| None, |_ok| Some(controller_handle));
 
-  match PROTOCOL_DB.add_protocol_usage(handle, unsafe { *protocol }, agent_handle, controller_handle, attributes) {
+  // if attributes has exclusive flag set, then attempt to disconnect any other drivers that have the requested protocol
+  // open on this handle BY_DRIVER.
+  if (attributes & OPEN_PROTOCOL_EXCLUSIVE) != 0 {
+    let usages = match PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, protocol) {
+      Err(efi::Status::NOT_FOUND) => Vec::new(),
+      Err(err) => return err,
+      Ok(usages) => usages,
+    };
+    if let Some(usage) = usages.iter().find(|x| {
+      (x.attributes & OPEN_PROTOCOL_BY_DRIVER) != 0
+        && (x.attributes & OPEN_PROTOCOL_EXCLUSIVE) == 0
+        && x.agent_handle != agent_handle
+    }) {
+      unsafe {
+        if core_disconnect_controller(handle, usage.agent_handle, None).is_err() {
+          return efi::Status::ACCESS_DENIED;
+        }
+      }
+    }
+  }
+
+  match PROTOCOL_DB.add_protocol_usage(handle, protocol, agent_handle, controller_handle, attributes) {
     Err(efi::Status::UNSUPPORTED) => {
       if !interface.is_null() {
         unsafe { interface.write(core::ptr::null_mut()) };
@@ -257,15 +280,12 @@ extern "efiapi" fn open_protocol(
       return efi::Status::UNSUPPORTED;
     }
     Err(efi::Status::ACCESS_DENIED) => {
-      //TODO: need to implement support for DisconnectController() requirement from
-      //spec - either here, or prior to the attempt. For now, just return the status.
-      //todo!()
       return efi::Status::ACCESS_DENIED;
     }
     Err(efi::Status::ALREADY_STARTED) if (attributes & efi::OPEN_PROTOCOL_BY_DRIVER) != 0 => {
       //For already started interface is still returned.
       let desired_interface = PROTOCOL_DB
-        .get_interface_for_handle(handle, unsafe { *protocol })
+        .get_interface_for_handle(handle, protocol)
         .expect("Already Started can't happen if protocol doesn't exist.");
       if !interface.is_null() {
         unsafe { interface.write(desired_interface) };
@@ -277,7 +297,7 @@ extern "efiapi" fn open_protocol(
     Ok(_) => (),
   };
 
-  let desired_interface = match PROTOCOL_DB.get_interface_for_handle(handle, unsafe { *protocol }) {
+  let desired_interface = match PROTOCOL_DB.get_interface_for_handle(handle, protocol) {
     Err(err) => return err,
     Ok(found) => found,
   };
