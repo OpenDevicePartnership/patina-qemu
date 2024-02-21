@@ -526,6 +526,8 @@ extern "efiapi" fn locate_protocol(
         .get_interface_for_handle(handle, unsafe { *protocol })
         .expect("Protocol should exist on handle if it is returned for registration key.");
       unsafe { interface.write(iface) };
+    } else {
+      return efi::Status::NOT_FOUND;
     }
   } else {
     match PROTOCOL_DB.locate_protocol(unsafe { *protocol }) {
