@@ -2,7 +2,7 @@ use core::{ffi::c_void, mem::size_of};
 
 use alloc::{slice, vec, vec::Vec};
 use r_efi::efi;
-use uefi_device_path_lib::remaining_device_path;
+use uefi_device_path_lib::{is_device_path_end, remaining_device_path};
 use uefi_protocol_db_lib::{SpinLockedProtocolDb, DXE_CORE_HANDLE};
 
 use crate::{
@@ -354,6 +354,7 @@ unsafe extern "C" fn install_multiple_protocol_interfaces(handle: *mut efi::Hand
     return efi::Status::INVALID_PARAMETER;
   }
 
+  let mut interfaces_to_install = Vec::new();
   loop {
     //consume the protocol, break the loop if it is null.
     let protocol: *mut efi::Guid = args.arg();
@@ -361,9 +362,31 @@ unsafe extern "C" fn install_multiple_protocol_interfaces(handle: *mut efi::Hand
       break;
     }
     let interface: *mut c_void = args.arg();
+    if *protocol == efi::protocols::device_path::PROTOCOL_GUID {
+      if let Ok((remaining_path, handle)) = core_locate_device_path(
+        efi::protocols::device_path::PROTOCOL_GUID,
+        interface as *const efi::protocols::device_path::Protocol,
+      ) {
+        if PROTOCOL_DB.validate_handle(handle).is_ok() && is_device_path_end(remaining_path) {
+          return efi::Status::ALREADY_STARTED;
+        }
+      }
+    }
+
+    interfaces_to_install.push((protocol, interface));
+  }
+
+  let mut interfaces_to_uninstall_on_error = Vec::new();
+  for (protocol, interface) in interfaces_to_install {
     match install_protocol_interface(handle, protocol, efi::NATIVE_INTERFACE, interface) {
-      efi::Status::SUCCESS => continue,
-      err => return err,
+      efi::Status::SUCCESS => interfaces_to_uninstall_on_error.push((protocol, interface)),
+      err => {
+        //on error, attempt to uninstall all the previously installed interfaces. best-effort, errors are ignored.
+        for (protocol, interface) in interfaces_to_uninstall_on_error {
+          let _ = uninstall_protocol_interface(*handle, protocol, interface);
+        }
+        return err;
+      }
     }
   }
 
