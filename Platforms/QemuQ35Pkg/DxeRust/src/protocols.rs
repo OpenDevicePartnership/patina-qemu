@@ -71,7 +71,7 @@ extern "efiapi" fn uninstall_protocol_interface(
     return efi::Status::INVALID_PARAMETER;
   }
 
-  let caller_protocol = unsafe { *protocol };
+  let caller_protocol = *(unsafe { protocol.as_mut().expect("previously null-checked pointer is null") });
 
   // Check if the handle/protocol/interface triple is legitimate
   match PROTOCOL_DB.get_interface_for_handle(handle, caller_protocol) {
@@ -83,20 +83,64 @@ extern "efiapi" fn uninstall_protocol_interface(
     }
   }
 
-  // Retrieve currently open protocol information, this is used to allow closure of open handles.
-  let protocol_usages = match PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, caller_protocol) {
-    Ok(protocol_usages) => protocol_usages,
-    Err(err) => return err,
-  };
+  //attempt to close all OPEN_BY_DRIVER usages.
+  let mut usage_close_status = Ok(());
+  loop {
+    let mut item_found = false;
+    let usages = match PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, caller_protocol) {
+      Ok(usages) => usages,
+      Err(efi::Status::NOT_FOUND) => Vec::new(),
+      Err(err) => return err,
+    };
 
-  // Invoke disconnect_controller on for each agent handle that is using this protocol on this handle.
-  for usage in protocol_usages {
-    if let Some(agent_handle) = usage.agent_handle {
-      unsafe {
-        // best-effort, errors are ignored.
-        let _ = core_disconnect_controller(handle, Some(agent_handle), None);
+    for usage in usages {
+      if (usage.attributes & efi::OPEN_PROTOCOL_BY_DRIVER) != 0 {
+        debug_assert!(usage.agent_handle.is_some());
+        unsafe {
+          usage_close_status = core_disconnect_controller(handle, usage.agent_handle, None);
+          if usage_close_status.is_ok() {
+            item_found = true;
+          }
+        }
+        break;
       }
     }
+
+    if !item_found {
+      break;
+    }
+  }
+
+  //Attempt to remove BY_HANDLE_PROTOCOL, GET_PROTOCOL, and TEST_PROTOCOL usages.
+  let mut unclosed_usages = false;
+  if usage_close_status.is_ok() {
+    let usages = match PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, caller_protocol) {
+      Ok(usages) => usages,
+      Err(efi::Status::NOT_FOUND) => Vec::new(),
+      Err(err) => return err,
+    };
+
+    for usage in usages {
+      if usage.attributes
+        & (efi::OPEN_PROTOCOL_BY_HANDLE_PROTOCOL | efi::OPEN_PROTOCOL_GET_PROTOCOL | efi::OPEN_PROTOCOL_TEST_PROTOCOL)
+        != 0
+      {
+        let result =
+          PROTOCOL_DB.remove_protocol_usage(handle, caller_protocol, usage.agent_handle, usage.controller_handle);
+        if result.is_err() {
+          unclosed_usages = true;
+        }
+      } else {
+        unclosed_usages = true;
+      }
+    }
+  }
+
+  if usage_close_status.is_err() || unclosed_usages {
+    unsafe {
+      let _result = core_connect_controller(handle, Vec::new(), None, true);
+    }
+    return efi::Status::ACCESS_DENIED;
   }
 
   match PROTOCOL_DB.uninstall_protocol_interface(handle, caller_protocol, interface) {
