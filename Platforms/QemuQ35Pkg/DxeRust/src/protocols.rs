@@ -1,13 +1,13 @@
 use core::{ffi::c_void, mem::size_of};
 
 use alloc::{slice, vec, vec::Vec};
-use r_efi::efi::{self, OPEN_PROTOCOL_BY_DRIVER, OPEN_PROTOCOL_EXCLUSIVE};
+use r_efi::efi;
 use uefi_device_path_lib::{is_device_path_end, remaining_device_path};
 use uefi_protocol_db_lib::{SpinLockedProtocolDb, DXE_CORE_HANDLE};
 
 use crate::{
   allocator::core_allocate_pool,
-  driver_services::core_disconnect_controller,
+  driver_services::{core_connect_controller, core_disconnect_controller},
   events::{signal_event, EVENT_DB},
 };
 
@@ -105,35 +105,70 @@ extern "efiapi" fn uninstall_protocol_interface(
   }
 }
 
+// {2ED6CB57-3A78-4C39-9A2A-CA037841D286}
+const PRIVATE_DUMMY_INTERFACE_GUID: efi::Guid =
+  efi::Guid::from_fields(0x2ed6cb57, 0x3a78, 0x4c39, 0x9a, 0x2a, &[0xca, 0x03, 0x78, 0x41, 0xd2, 0x86]);
+
+fn install_dummy_interface(handle: efi::Handle) -> Result<(), efi::Status> {
+  PROTOCOL_DB.install_protocol_interface(Some(handle), PRIVATE_DUMMY_INTERFACE_GUID, core::ptr::null_mut()).map(|_| ())
+}
+
+fn uninstall_dummy_interface(handle: efi::Handle) -> Result<(), efi::Status> {
+  PROTOCOL_DB.uninstall_protocol_interface(handle, PRIVATE_DUMMY_INTERFACE_GUID, core::ptr::null_mut())
+}
+
 extern "efiapi" fn reinstall_protocol_interface(
   handle: efi::Handle,
   protocol: *mut efi::Guid,
   old_interface: *mut c_void,
   new_interface: *mut c_void,
 ) -> efi::Status {
-  if protocol.is_null() || old_interface.is_null() || new_interface.is_null() {
+  if protocol.is_null() {
     return efi::Status::INVALID_PARAMETER;
   }
 
-  let caller_protocol = unsafe { *protocol };
-
-  let notifies = match PROTOCOL_DB.reinstall_protocol_interface(handle, caller_protocol, old_interface, new_interface) {
+  // A corner case can occur where the uninstall_protocol_interface below could uninstall the last interface on a handle
+  // thus causing the handle to be deleted. The handle would then be invalid, and the following install would fail. To
+  // deal with this, first install a dummy interface before attempting the uninstall. This dummy interface will prevent
+  // the handle from becoming empty and invalidated. Failure here means that the reinstall has failed (e.g. due to
+  // invalid handle).
+  match install_dummy_interface(handle) {
     Err(err) => return err,
-    Ok(notifies) => notifies,
-  };
+    Ok(()) => (),
+  }
 
-  let mut closed_events = Vec::new();
-
-  for notify in notifies {
-    if signal_event(notify.event) == efi::Status::INVALID_PARAMETER {
-      //means event doesn't exist (probably closed).
-      closed_events.push(notify.event); // Other error cases not actionable.
+  // Call uninstall to close all agents that are currently consuming old_interface.
+  match uninstall_protocol_interface(handle, protocol, old_interface) {
+    efi::Status::SUCCESS => (),
+    err => {
+      let result = uninstall_dummy_interface(handle);
+      debug_assert!(result.is_ok());
+      return err;
     }
   }
 
-  PROTOCOL_DB.unregister_protocol_notify_events(closed_events);
+  let protocol = *(unsafe { protocol.as_mut().expect("previously null-checked pointer is null") });
 
-  //TODO: spec requires a call to ConnectController after the new interface is installed.
+  // Call install to install the new interface and trigger any notifies
+  match core_install_protocol_interface(Some(handle), protocol, new_interface) {
+    Err(err) => {
+      let result = uninstall_dummy_interface(handle);
+      debug_assert!(result.is_ok());
+      return err;
+    }
+    Ok(_) => (),
+  }
+
+  // Dummy interface is no longer required. Proceed if uninstall fails, but assert for debug.
+  let result = uninstall_dummy_interface(handle);
+  debug_assert!(result.is_ok());
+
+  // Connect controller so agents that were forced to release old_interface can now consume new_interface. Error
+  // status is ignored.
+  unsafe {
+    let _ = core_connect_controller(handle, Vec::new(), None, true);
+  }
+
   efi::Status::SUCCESS
 }
 
@@ -253,15 +288,15 @@ extern "efiapi" fn open_protocol(
 
   // if attributes has exclusive flag set, then attempt to disconnect any other drivers that have the requested protocol
   // open on this handle BY_DRIVER.
-  if (attributes & OPEN_PROTOCOL_EXCLUSIVE) != 0 {
+  if (attributes & efi::OPEN_PROTOCOL_EXCLUSIVE) != 0 {
     let usages = match PROTOCOL_DB.get_open_protocol_information_by_protocol(handle, protocol) {
       Err(efi::Status::NOT_FOUND) => Vec::new(),
       Err(err) => return err,
       Ok(usages) => usages,
     };
     if let Some(usage) = usages.iter().find(|x| {
-      (x.attributes & OPEN_PROTOCOL_BY_DRIVER) != 0
-        && (x.attributes & OPEN_PROTOCOL_EXCLUSIVE) == 0
+      (x.attributes & efi::OPEN_PROTOCOL_BY_DRIVER) != 0
+        && (x.attributes & efi::OPEN_PROTOCOL_EXCLUSIVE) == 0
         && x.agent_handle != agent_handle
     }) {
       unsafe {
