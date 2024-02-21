@@ -206,8 +206,8 @@ impl ProtocolDb {
           hasher.write_usize(self.next_handle);
           key = hasher.finish() as usize;
           self.next_handle += 1;
-          //make sure we don't collide with an existing key.
-          while self.handles.contains_key(&key) {
+          //make sure we don't collide with an existing key. 0 is reserved for "invalid handle".
+          while key == 0 || self.handles.contains_key(&key) {
             hasher.write_usize(self.next_handle);
             key = hasher.finish() as usize;
             self.next_handle += 1;
