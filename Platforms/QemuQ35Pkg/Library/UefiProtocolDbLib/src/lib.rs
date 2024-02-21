@@ -386,7 +386,7 @@ impl ProtocolDb {
 
     let key = handle as usize;
     let handle_instance = self.handles.get_mut(&key).ok_or(efi::Status::NOT_FOUND)?;
-    let instance = handle_instance.get_mut(&OrdGuid(protocol)).ok_or(efi::Status::UNSUPPORTED)?;
+    let instance = handle_instance.get_mut(&OrdGuid(protocol)).ok_or(efi::Status::NOT_FOUND)?;
     Ok(instance.interface)
   }
 
