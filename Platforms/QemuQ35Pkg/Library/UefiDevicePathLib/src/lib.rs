@@ -13,8 +13,8 @@
 
 extern crate alloc;
 
-use alloc::{boxed::Box, vec};
-use core::{ptr::slice_from_raw_parts, slice::from_raw_parts};
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::{mem::size_of_val, ptr::slice_from_raw_parts, slice::from_raw_parts};
 
 use r_efi::efi;
 
@@ -233,10 +233,83 @@ pub fn remaining_device_path(
 
 /// Determines whether the given device path points to an end-of-device-path node.
 pub fn is_device_path_end(device_path: *const efi::protocols::device_path::Protocol) -> bool {
-  let device_path_node = unsafe { *device_path };
+  let node_ptr = device_path;
+  let device_path_node = *(unsafe { node_ptr.as_ref().unwrap() });
 
   device_path_node.r#type == efi::protocols::device_path::TYPE_END
     && device_path_node.sub_type == efi::protocols::device_path::End::SUBTYPE_ENTIRE
+}
+
+/// Device Path Node
+#[derive(Debug)]
+pub struct DevicePathNode {
+  pub header: efi::protocols::device_path::Protocol,
+  pub data: Vec<u8>,
+}
+
+impl PartialEq for DevicePathNode {
+  fn eq(&self, other: &Self) -> bool {
+    self.header.r#type == other.header.r#type
+      && self.header.sub_type == other.header.sub_type
+      && self.data == other.data
+  }
+}
+impl Eq for DevicePathNode {}
+
+impl DevicePathNode {
+  /// Create a DevicePathNode from raw pointer.
+  /// ## Safety
+  /// Caller must ensure that the raw pointer points to a valid device path node structure.
+  pub unsafe fn new(node: *const efi::protocols::device_path::Protocol) -> Self {
+    let header = core::ptr::read_unaligned(node);
+    let node_len = u16::from_le_bytes(header.length);
+    let data_len = node_len.checked_sub(size_of_val(&header).try_into().unwrap()).unwrap();
+    let data_ptr = node.byte_offset(size_of_val(&header).try_into().unwrap()) as *const u8;
+    let data = from_raw_parts(data_ptr, data_len.into()).to_vec();
+    Self { header, data }
+  }
+
+  fn len(&self) -> u16 {
+    u16::from_le_bytes(self.header.length)
+  }
+}
+
+/// Iterator that returns DevicePathNodes for a given raw device path pointer.
+///
+/// This iterator copies the device path data into DevicePathNode structs to abstract
+/// the unsafe raw pointer operations necessary for direct interaction with a device path.
+///
+pub struct DevicePathWalker {
+  next_node: Option<*const efi::protocols::device_path::Protocol>,
+}
+
+impl DevicePathWalker {
+  /// Creates a DevicePathWalker iterator for the given raw device path pointer.
+  ///
+  /// ## Safety
+  /// Caller must ensure that the raw pointer points to a valid device path structure,
+  /// including a proper device path end node.
+  pub unsafe fn new(device_path: *const efi::protocols::device_path::Protocol) -> Self {
+    Self { next_node: Some(device_path) }
+  }
+}
+
+impl Iterator for DevicePathWalker {
+  type Item = DevicePathNode;
+  fn next(&mut self) -> Option<Self::Item> {
+    match self.next_node {
+      Some(node) => {
+        let current = unsafe { DevicePathNode::new(node) };
+        if is_device_path_end(node) {
+          self.next_node = None;
+        } else {
+          self.next_node = Some(unsafe { node.byte_offset(current.len().try_into().unwrap()) });
+        }
+        Some(current)
+      }
+      None => None,
+    }
+  }
 }
 
 #[cfg(test)]
@@ -371,5 +444,59 @@ mod tests {
     //b is not a prefix of a.
     let result = remaining_device_path(device_path_b, device_path_a);
     assert!(result.is_none());
+  }
+
+  #[test]
+  fn device_path_walker_should_return_correct_device_path_nodes() {
+    //build a device path as a byte array for the test.
+    let device_path_bytes = [
+      TYPE_HARDWARE,
+      Hardware::SUBTYPE_PCI,
+      0x6,  //length[0]
+      0x0,  //length[1]
+      0x0,  //func
+      0x1C, //device
+      TYPE_HARDWARE,
+      Hardware::SUBTYPE_PCI,
+      0x6, //length[0]
+      0x0, //length[1]
+      0x0, //func
+      0x0, //device
+      TYPE_HARDWARE,
+      Hardware::SUBTYPE_PCI,
+      0x6, //length[0]
+      0x0, //length[1]
+      0x2, //func
+      0x0, //device
+      TYPE_END,
+      End::SUBTYPE_ENTIRE,
+      0x4,  //length[0]
+      0x00, //length[1]
+    ];
+    let device_path_ptr = device_path_bytes.as_ptr() as *const efi::protocols::device_path::Protocol;
+
+    let mut device_path_walker = unsafe { DevicePathWalker::new(device_path_ptr) };
+
+    let node = device_path_walker.next().unwrap();
+    assert_eq!(node.header.r#type, TYPE_HARDWARE);
+    assert_eq!(node.header.sub_type, Hardware::SUBTYPE_PCI);
+    assert_eq!(node.data, vec![0x0u8, 0x1C]);
+
+    let node = device_path_walker.next().unwrap();
+    assert_eq!(node.header.r#type, TYPE_HARDWARE);
+    assert_eq!(node.header.sub_type, Hardware::SUBTYPE_PCI);
+    assert_eq!(node.data, vec![0x0u8, 0x0]);
+
+    let node = device_path_walker.next().unwrap();
+    assert_eq!(node.header.r#type, TYPE_HARDWARE);
+    assert_eq!(node.header.sub_type, Hardware::SUBTYPE_PCI);
+    assert_eq!(node.data, vec![0x02u8, 0x0]);
+
+    let node = device_path_walker.next().unwrap();
+    assert_eq!(node.header.r#type, TYPE_END);
+    assert_eq!(node.header.sub_type, End::SUBTYPE_ENTIRE);
+    assert_eq!(node.data, vec![]);
+
+    assert_eq!(device_path_walker.next(), None);
   }
 }
