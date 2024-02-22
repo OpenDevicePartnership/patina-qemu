@@ -497,16 +497,28 @@ unsafe extern "C" fn uninstall_multiple_protocol_interfaces(handle: efi::Handle,
     return efi::Status::INVALID_PARAMETER;
   }
 
+  let mut interfaces_to_uninstall = Vec::new();
   loop {
-    //consume the protocol, break the loop if it is null.
     let protocol: *mut efi::Guid = args.arg();
     if protocol.is_null() {
       break;
     }
     let interface: *mut c_void = args.arg();
+    interfaces_to_uninstall.push((protocol, interface));
+  }
+
+  let mut interfaces_to_reinstall_on_error = Vec::new();
+  for (protocol, interface) in interfaces_to_uninstall {
     match uninstall_protocol_interface(handle, protocol, interface) {
-      efi::Status::SUCCESS => continue,
-      err => return err,
+      efi::Status::SUCCESS => interfaces_to_reinstall_on_error.push((protocol, interface)),
+      _err => {
+        //on error, attempt to re-install all the previously uninstall interfaces. best-effort, errors are ignored.
+        for (protocol, interface) in interfaces_to_reinstall_on_error {
+          let protocol = *(unsafe { protocol.as_mut().expect("previously null-checked pointer is null.") });
+          let _ = core_install_protocol_interface(Some(handle), protocol, interface);
+        }
+        return efi::Status::INVALID_PARAMETER;
+      }
     }
   }
 
