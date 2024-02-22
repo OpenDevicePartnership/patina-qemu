@@ -270,15 +270,10 @@ impl ProtocolDb {
 
     //Spec requires that an attempt to uninstall an installed protocol interface that is open with an attribute of
     //efi::OPEN_PROTOCOL_BY_DRIVER should force a call to "Disconnect Controller" to attempt to release the interface
-    //before uninstalling. This logic requires interaction with gBS->DisconnectController, which could in turn have
-    //issues with deadlock since this routine is executing under a lock from SimpleLockedProtocolDb. As such, this
-    //routine simply returns ACCESS_DENIED if any agents are found active on the protocol instance, and leaves the
-    //disconnect logic to the caller (outside this library), which is free to DisconnectController() before
-    //attempting this call.
-    for agent in &instance.usage {
-      if (agent.attributes & efi::OPEN_PROTOCOL_BY_DRIVER) != 0 {
-        return Err(efi::Status::ACCESS_DENIED);
-      }
+    //before uninstalling. As such, this routine simply returns ACCESS_DENIED if any agents are found active on the
+    //protocol instance.
+    if instance.usage.len() > 0 {
+      return Err(efi::Status::ACCESS_DENIED);
     }
     handle_instance.remove(&OrdGuid(protocol));
 
@@ -1993,7 +1988,6 @@ mod tests {
     let uuid1 = Uuid::from_str("0e896c7a-57dc-4987-bc22-abc3a8263210").unwrap();
     let guid1: efi::Guid = unsafe { core::mem::transmute(*uuid1.as_bytes()) };
     let interface1: *mut c_void = 0x1234 as *mut c_void;
-    let interface2: *mut c_void = 0x5678 as *mut c_void;
 
     let event = 0x8765 as *mut c_void;
     let reg1 = SPIN_LOCKED_PROTOCOL_DB.register_protocol_notify(guid1, event).unwrap();
