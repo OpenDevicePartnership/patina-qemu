@@ -442,11 +442,14 @@ pub fn core_load_image(
   device_path: *mut efi::protocols::device_path::Protocol,
   image: Option<&[u8]>,
 ) -> Result<efi::Handle, efi::Status> {
-  PROTOCOL_DB.validate_handle(parent_image_handle)?;
-
   if image.is_none() && device_path.is_null() {
     return Err(efi::Status::INVALID_PARAMETER);
   }
+
+  PROTOCOL_DB.validate_handle(parent_image_handle)?;
+  PROTOCOL_DB
+    .get_interface_for_handle(parent_image_handle, efi::protocols::loaded_image::PROTOCOL_GUID)
+    .map_err(|_| efi::Status::INVALID_PARAMETER)?;
 
   let image_to_load = match image {
     Some(image) => image.to_vec(),
@@ -552,6 +555,9 @@ extern "efiapi" fn load_image(
   let image = if source_buffer.is_null() {
     None
   } else {
+    if source_size == 0 {
+      return efi::Status::LOAD_ERROR;
+    }
     Some(unsafe { from_raw_parts(source_buffer as *const u8, source_size) })
   };
 
