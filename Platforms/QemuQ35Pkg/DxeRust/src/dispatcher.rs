@@ -104,7 +104,7 @@ fn dispatch() -> Result<bool, efi::Status> {
     });
 
     if let Some(pe32_data) = pe32_section {
-      let image_load_result = core_load_image(DXE_CORE_HANDLE, driver.device_path, Some(pe32_data.as_slice()));
+      let image_load_result = core_load_image(false, DXE_CORE_HANDLE, driver.device_path, Some(pe32_data.as_slice()));
       if let Ok(image_handle) = image_load_result {
         dispatch_attempted = true;
         let status = core_start_image(image_handle);
