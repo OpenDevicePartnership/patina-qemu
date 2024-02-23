@@ -14,6 +14,7 @@ pub mod dispatcher;
 pub mod driver_services;
 pub mod dxe_services;
 pub mod events;
+pub mod filesystems;
 pub mod fv;
 pub mod gdt;
 pub mod image;
