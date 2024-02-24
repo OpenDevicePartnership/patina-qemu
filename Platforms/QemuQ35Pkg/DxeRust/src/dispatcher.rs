@@ -107,7 +107,10 @@ fn dispatch() -> Result<bool, efi::Status> {
       let image_load_result = core_load_image(false, DXE_CORE_HANDLE, driver.device_path, Some(pe32_data.as_slice()));
       if let Ok(image_handle) = image_load_result {
         dispatch_attempted = true;
-        let status = core_start_image(image_handle);
+        let status = match core_start_image(image_handle) {
+          Ok(()) => efi::Status::SUCCESS,
+          Err(err) => err,
+        };
         println!("Module Entry point finished with status: {:?}", status);
       } else {
         println!("Failed to load: load_image returned {:?}", image_load_result);

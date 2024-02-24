@@ -576,24 +576,39 @@ extern "efiapi" fn start_image(
   // retrieve any exit data that was provided by the entry point.
   if !exit_data_size.is_null() && !exit_data.is_null() {
     let private_data = PRIVATE_IMAGE_DATA.lock();
-    let image_data = private_data.private_image_data.get(&image_handle).unwrap();
-    if let Some(image_exit_data) = image_data.exit_data {
-      unsafe {
-        exit_data_size.write(image_exit_data.0);
-        exit_data.write(image_exit_data.1);
+    if let Some(image_data) = private_data.private_image_data.get(&image_handle) {
+      if let Some(image_exit_data) = image_data.exit_data {
+        unsafe {
+          exit_data_size.write(image_exit_data.0);
+          exit_data.write(image_exit_data.1);
+        }
       }
     }
   }
 
-  let image_type = PRIVATE_IMAGE_DATA.lock().private_image_data.get(&image_handle).unwrap().image_type;
-  if status != efi::Status::SUCCESS || image_type == EFI_IMAGE_SUBSYSTEM_EFI_APPLICATION {
+  let image_type = PRIVATE_IMAGE_DATA.lock().private_image_data.get(&image_handle).map(|x| x.image_type);
+
+  if status.is_err() || image_type == Some(EFI_IMAGE_SUBSYSTEM_EFI_APPLICATION) {
     let _result = core_unload_image(image_handle, true);
   }
 
-  status
+  match status {
+    Ok(()) => efi::Status::SUCCESS,
+    Err(err) => err,
+  }
 }
 
-pub fn core_start_image(image_handle: efi::Handle) -> efi::Status {
+pub fn core_start_image(image_handle: efi::Handle) -> Result<(), efi::Status> {
+  PROTOCOL_DB.validate_handle(image_handle)?;
+
+  if let Some(private_data) = PRIVATE_IMAGE_DATA.lock().private_image_data.get_mut(&image_handle) {
+    if private_data.started {
+      Err(efi::Status::INVALID_PARAMETER)?;
+    }
+  } else {
+    Err(efi::Status::INVALID_PARAMETER)?;
+  }
+
   // allocate a buffer for the entry point stack.
   let stack = ImageStack::new(ENTRY_POINT_STACK_SIZE);
 
@@ -655,15 +670,16 @@ pub fn core_start_image(image_handle: efi::Handle) -> efi::Status {
   unsafe { coroutine.force_reset() };
 
   PRIVATE_IMAGE_DATA.lock().current_running_image = previous_image;
-  status
+  match status {
+    efi::Status::SUCCESS => Ok(()),
+    err => Err(err),
+  }
 }
 
-pub fn core_unload_image(image_handle: efi::Handle, force_unload: bool) -> efi::Status {
+pub fn core_unload_image(image_handle: efi::Handle, force_unload: bool) -> Result<(), efi::Status> {
+  PROTOCOL_DB.validate_handle(image_handle)?;
   let private_data = PRIVATE_IMAGE_DATA.lock();
-  let private_image_data = match private_data.private_image_data.get(&image_handle) {
-    Some(data) => data,
-    None => return efi::Status::INVALID_PARAMETER,
-  };
+  let private_image_data = private_data.private_image_data.get(&image_handle).ok_or(efi::Status::INVALID_PARAMETER)?;
   let unload_function = Option::from(private_image_data.image_info.unload);
   let started = private_image_data.started;
   drop(private_data); // release the image lock while unload logic executes as this function may be re-entrant.
@@ -681,18 +697,15 @@ pub fn core_unload_image(image_handle: efi::Handle, force_unload: bool) -> efi::
       unsafe {
         let status = (function)(image_handle);
         if status != efi::Status::SUCCESS {
-          return status;
+          Err(status)?;
         }
       }
     } else if !force_unload {
-      return efi::Status::UNSUPPORTED;
+      Err(efi::Status::UNSUPPORTED)?;
     }
   }
 
-  let handles = match PROTOCOL_DB.locate_handles(None) {
-    Err(err) => return err,
-    Ok(handles) => handles,
-  };
+  let handles = PROTOCOL_DB.locate_handles(None)?;
 
   // close any protocols opened by this image.
   for handle in handles {
@@ -719,27 +732,26 @@ pub fn core_unload_image(image_handle: efi::Handle, force_unload: bool) -> efi::
   // and the image and image_info boxes along with it.
   let private_image_data = PRIVATE_IMAGE_DATA.lock().private_image_data.remove(&image_handle).unwrap();
   // remove the image and device path protocols from the image handle.
-  if let Err(err) = PROTOCOL_DB.uninstall_protocol_interface(
+  PROTOCOL_DB.uninstall_protocol_interface(
     image_handle,
     efi::protocols::loaded_image::PROTOCOL_GUID,
     private_image_data.image_info_ptr,
-  ) {
-    return err;
-  }
+  )?;
 
-  if let Err(err) = PROTOCOL_DB.uninstall_protocol_interface(
+  PROTOCOL_DB.uninstall_protocol_interface(
     image_handle,
     efi::protocols::loaded_image_device_path::PROTOCOL_GUID,
     private_image_data.image_device_path_ptr,
-  ) {
-    return err;
-  }
+  )?;
 
-  efi::Status::SUCCESS
+  Ok(())
 }
 
 extern "efiapi" fn unload_image(image_handle: efi::Handle) -> efi::Status {
-  core_unload_image(image_handle, false)
+  match core_unload_image(image_handle, false) {
+    Ok(()) => efi::Status::SUCCESS,
+    Err(err) => err,
+  }
 }
 
 // Terminates a loaded EFI image and returns control to boot services.
