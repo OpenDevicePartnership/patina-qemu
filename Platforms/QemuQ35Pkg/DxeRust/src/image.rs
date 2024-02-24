@@ -772,7 +772,20 @@ extern "efiapi" fn exit(
   exit_data_size: usize,
   exit_data: *mut efi::Char16,
 ) -> efi::Status {
-  // check the currently running image.
+  let started = match PRIVATE_IMAGE_DATA.lock().private_image_data.get(&image_handle) {
+    Some(image_data) => image_data.started,
+    None => return efi::Status::INVALID_PARAMETER,
+  };
+
+  // if not started, just unload the image.
+  if !started {
+    return match core_unload_image(image_handle, true) {
+      Ok(()) => efi::Status::SUCCESS,
+      Err(_err) => efi::Status::INVALID_PARAMETER,
+    };
+  }
+
+  // image has been started - check the currently running image.
   let mut private_data = PRIVATE_IMAGE_DATA.lock();
   if Some(image_handle) != private_data.current_running_image {
     return efi::Status::INVALID_PARAMETER;
