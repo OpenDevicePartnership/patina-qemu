@@ -66,7 +66,7 @@ extern "efiapi" fn unimplemented_entry_point(
 
 // dummy function used to initialize image_info.Unload.
 extern "efiapi" fn unimplemented_unload(_handle: efi::Handle) -> efi::Status {
-  efi::Status::SUCCESS
+  unimplemented!("unimplemented unload should never be called.")
 }
 
 // define a wrapper for allocators that supports specified alignments.
@@ -688,24 +688,29 @@ pub fn core_unload_image(image_handle: efi::Handle, force_unload: bool) -> Resul
   // the unload function doesn't exist or returns an error.
   if started {
     if let Some(function) = unload_function {
-      //Safety: this is unsafe (even though rust doesn't think so) because we are calling
-      //into the "unload" function pointer that the image itself set. r_efi doesn't mark
-      //the unload function type as unsafe - so rust reports an "unused_unsafe" since it
-      //doesn't know it's unsafe. We suppress the warning and mark it unsafe anyway as a
-      //warning to the future.
-      #[allow(unused_unsafe)]
-      unsafe {
-        let status = (function)(image_handle);
-        if status != efi::Status::SUCCESS {
-          Err(status)?;
+      // rust doesn't allow null function pointers, so "unimplemented_unload" serves as a sentinel value that the
+      // unload function is not implemented.
+      if function != unimplemented_unload {
+        //Safety: this is unsafe (even though rust doesn't think so) because we are calling
+        //into the "unload" function pointer that the image itself set. r_efi doesn't mark
+        //the unload function type as unsafe - so rust reports an "unused_unsafe" since it
+        //doesn't know it's unsafe. We suppress the warning and mark it unsafe anyway as a
+        //warning to the future.
+        #[allow(unused_unsafe)]
+        unsafe {
+          let status = (function)(image_handle);
+          if status != efi::Status::SUCCESS {
+            Err(status)?;
+          }
         }
+      } else if !force_unload {
+        Err(efi::Status::UNSUPPORTED)?;
       }
     } else if !force_unload {
       Err(efi::Status::UNSUPPORTED)?;
     }
   }
-
-  let handles = PROTOCOL_DB.locate_handles(None)?;
+  let handles = PROTOCOL_DB.locate_handles(None).unwrap_or(Vec::new());
 
   // close any protocols opened by this image.
   for handle in handles {
@@ -732,17 +737,17 @@ pub fn core_unload_image(image_handle: efi::Handle, force_unload: bool) -> Resul
   // and the image and image_info boxes along with it.
   let private_image_data = PRIVATE_IMAGE_DATA.lock().private_image_data.remove(&image_handle).unwrap();
   // remove the image and device path protocols from the image handle.
-  PROTOCOL_DB.uninstall_protocol_interface(
+  let _ = PROTOCOL_DB.uninstall_protocol_interface(
     image_handle,
     efi::protocols::loaded_image::PROTOCOL_GUID,
     private_image_data.image_info_ptr,
-  )?;
+  );
 
-  PROTOCOL_DB.uninstall_protocol_interface(
+  let _ = PROTOCOL_DB.uninstall_protocol_interface(
     image_handle,
     efi::protocols::loaded_image_device_path::PROTOCOL_GUID,
     private_image_data.image_device_path_ptr,
-  )?;
+  );
 
   Ok(())
 }
