@@ -499,4 +499,78 @@ mod tests {
 
     assert_eq!(device_path_walker.next(), None);
   }
+
+  #[test]
+  fn device_path_nodes_can_be_compared_for_equality() {
+    //build a device path as a byte array for the test.
+    let device_path_bytes = [
+      TYPE_HARDWARE,
+      Hardware::SUBTYPE_PCI,
+      0x6, //length[0]
+      0x0, //length[1]
+      0x0, //func
+      0x0, //device
+      TYPE_HARDWARE,
+      Hardware::SUBTYPE_PCI,
+      0x6, //length[0]
+      0x0, //length[1]
+      0x0, //func
+      0x0, //device
+      TYPE_HARDWARE,
+      Hardware::SUBTYPE_PCI,
+      0x6, //length[0]
+      0x0, //length[1]
+      0x2, //func
+      0x0, //device
+      TYPE_END,
+      End::SUBTYPE_ENTIRE,
+      0x4,  //length[0]
+      0x00, //length[1]
+    ];
+    let device_path_ptr = device_path_bytes.as_ptr() as *const efi::protocols::device_path::Protocol;
+    let device_path_walker = unsafe { DevicePathWalker::new(device_path_ptr) };
+
+    let nodes: Vec<DevicePathNode> = device_path_walker.collect();
+
+    assert_eq!(nodes[0], nodes[0]);
+    assert_eq!(nodes[0], nodes[1]);
+    assert_ne!(nodes[0], nodes[2]);
+    assert_ne!(nodes[0], nodes[3]);
+    assert_ne!(nodes[1], nodes[2]);
+    assert_ne!(nodes[1], nodes[3]);
+    assert_ne!(nodes[2], nodes[3]);
+  }
+
+  #[test]
+  fn device_path_node_can_be_converted_to_boxed_slice() {
+    //build a device path as a byte array for the test.
+    let device_path_bytes = [
+      TYPE_HARDWARE,
+      Hardware::SUBTYPE_PCI,
+      0x6, //length[0]
+      0x0, //length[1]
+      0x0, //func
+      0x0, //device
+      TYPE_HARDWARE,
+      Hardware::SUBTYPE_PCI,
+      0x6, //length[0]
+      0x0, //length[1]
+      0x0, //func
+      0x0, //device
+      TYPE_HARDWARE,
+      Hardware::SUBTYPE_PCI,
+      0x6, //length[0]
+      0x0, //length[1]
+      0x2, //func
+      0x0, //device
+      TYPE_END,
+      End::SUBTYPE_ENTIRE,
+      0x4,  //length[0]
+      0x00, //length[1]
+    ];
+    let device_path_ptr = device_path_bytes.as_ptr() as *const efi::protocols::device_path::Protocol;
+    let boxed_device_path = copy_device_path_to_boxed_slice(device_path_ptr);
+
+    assert_eq!(boxed_device_path.to_vec(), device_path_bytes.to_vec());
+  }
 }
