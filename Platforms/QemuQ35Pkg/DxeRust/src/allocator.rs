@@ -1,7 +1,7 @@
 use core::{
   ffi::c_void,
   mem,
-  slice::{self, from_raw_parts, from_raw_parts_mut},
+  slice::{self, from_raw_parts_mut},
 };
 
 use alloc::{collections::BTreeMap, vec::Vec};
@@ -274,12 +274,7 @@ extern "efiapi" fn free_pages(memory: efi::PhysicalAddress, pages: usize) -> efi
 
 extern "efiapi" fn copy_mem(destination: *mut c_void, source: *mut c_void, length: usize) {
   //nothing about this is safe.
-  unsafe {
-    let dst_buffer = from_raw_parts_mut(destination as *mut u8, length);
-    let src_buffer = from_raw_parts(source as *mut u8, length);
-
-    dst_buffer.copy_from_slice(src_buffer);
-  }
+  unsafe { core::ptr::copy(source as *mut u8, destination as *mut u8, length) }
 }
 
 extern "efiapi" fn set_mem(buffer: *mut c_void, size: usize, value: u8) {
