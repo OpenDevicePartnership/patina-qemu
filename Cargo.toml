@@ -72,3 +72,7 @@ x86_64 = "0.14.2"
 # that needs to be debugged.
 [profile.dev]
 opt-level = 3
+
+# For tests, disable optimizations to allow accurate coverage profiling.
+[profile.test]
+opt-level = 0
