@@ -46,10 +46,12 @@
 
   PEI_CRYPTO_SERVICES = TINY_SHA
   DXE_CRYPTO_SERVICES = STANDARD
+  RUNTIMEDXE_CRYPTO_SERVICES = STANDARD
   SMM_CRYPTO_SERVICES = NONE
   STANDALONEMM_CRYPTO_SERVICES = STANDARD
   PEI_CRYPTO_ARCH = IA32
   DXE_CRYPTO_ARCH = X64
+  RUNTIMEDXE_CRYPTO_ARCH = X64
   SMM_CRYPTO_ARCH = NONE
   STANDALONEMM_CRYPTO_ARCH = X64
 
@@ -225,7 +227,7 @@
 
   # Crypto Libraries
   RngLib          |MdePkg/Library/BaseRngLib/BaseRngLib.inf
-  Hash2CryptoLib  |SecurityPkg/Library/BaseHash2CryptoLibNull/BaseHash2CryptoLibNull.inf
+  Hash2CryptoLib  |SecurityPkg/Library/DxeHash2CryptoLib/DxeHash2CryptoLib.inf
 
   # Power/Thermal/Power State Libraries
   MsNVBootReasonLib       |OemPkg/Library/MsNVBootReasonLib/MsNVBootReasonLib.inf # interface on Reboot Reason non volatile variables
@@ -861,7 +863,7 @@
 #
 ################################################################################
 [Components]
-  !include CryptoPkg/Driver/Bin/CryptoDriver.inc.dsc
+  !include $(SHARED_CRYPTO_PATH)/Driver/Bin/CryptoDriver.inc.dsc
 
 QemuQ35Pkg/Library/PeiFvMeasurementExclusionLib/PeiFvMeasurementExclusionLib.inf
 
@@ -1438,13 +1440,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   # Variable driver stack (NO SMM)
   #
   MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
-  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf {
-    <LibraryClasses>
-      # TODO: Replace with DxeRuntimeCryptLib.
-      #       In the meantime, a pre-built VariableRuntimeDxe driver is used.
-      #       Kept in the DSC to verify build during this time.
-      BaseCryptLib|CryptoPkg/Library/BaseCryptLibNull/BaseCryptLibNull.inf
-  }
+  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
 
   #
   # TPM support
