@@ -16,6 +16,7 @@ pub mod dxe_services;
 pub mod events;
 pub mod filesystems;
 pub mod fv;
+pub mod gcd;
 pub mod gdt;
 pub mod image;
 #[cfg(target_os = "uefi")]
