@@ -419,6 +419,10 @@ fn get_file_buffer_from_load_protocol(
   }
 }
 
+pub fn core_relocate_runtime_images() {
+  unimplemented!();
+}
+
 /// Loads the image specified by the device path (not yet supported) or slice.
 /// * parent_image_handle - the handle of the image that is loading this one.
 /// * device_path - optional device path describing where to load the image from.
