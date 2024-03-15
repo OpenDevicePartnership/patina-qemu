@@ -5,7 +5,6 @@ use core::{
 };
 
 use alloc::{collections::BTreeMap, vec::Vec};
-use crc32fast::Hasher;
 
 use crate::{protocols::PROTOCOL_DB, GCD};
 use r_efi::{efi, system::TPL_HIGH_LEVEL};
@@ -407,8 +406,6 @@ extern "efiapi" fn get_memory_map(
     return efi::Status::INVALID_PARAMETER;
   }
 
-  let mut hash = Hasher::new();
-
   // Rust will try to prevent an unaligned copy, given no one checks whether their points are aligned
   // treat the slice as a u8 slice and copy the bytes.
   for descriptor in efi_descriptors.iter_mut() {
@@ -417,13 +414,11 @@ extern "efiapi" fn get_memory_map(
   let efi_descriptors_ptr = efi_descriptors.as_ptr() as *mut u8;
 
   unsafe {
-    slice::from_raw_parts_mut(memory_map as *mut u8, required_map_size)
-      .copy_from_slice(slice::from_raw_parts_mut(efi_descriptors_ptr, required_map_size));
+    core::ptr::copy(efi_descriptors_ptr, memory_map as *mut u8, required_map_size);
 
     if !map_key.is_null() {
       let memory_map_as_bytes = slice::from_raw_parts(memory_map as *mut u8, required_map_size);
-      hash.update(memory_map_as_bytes);
-      map_key.write(hash.finalize() as usize);
+      map_key.write(crc32fast::hash(memory_map_as_bytes) as usize);
     }
   }
 
