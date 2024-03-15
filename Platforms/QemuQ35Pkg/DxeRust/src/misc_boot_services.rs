@@ -2,15 +2,16 @@ use alloc::{boxed::Box, vec};
 use core::{
   ffi::c_void,
   slice::{from_raw_parts, from_raw_parts_mut},
-  sync::atomic::{AtomicPtr, Ordering},
+  sync::atomic::{AtomicBool, AtomicPtr, Ordering},
 };
 use r_efi::efi;
-use r_pi::{metronome, watchdog};
+use r_pi::{cpu_arch, metronome, status_code, timer, watchdog};
 
 use crate::{
-  allocator::EFI_RUNTIME_SERVICES_DATA_ALLOCATOR,
+  allocator::{terminate_memory_map, EFI_RUNTIME_SERVICES_DATA_ALLOCATOR},
   events::EVENT_DB,
   protocols::PROTOCOL_DB,
+  runtime,
   systemtables::{EfiSystemTable, SYSTEM_TABLE},
 };
 
@@ -18,6 +19,35 @@ use serial_print_dxe::println;
 
 static METRONOME_ARCH_PTR: AtomicPtr<metronome::Protocol> = AtomicPtr::new(core::ptr::null_mut());
 static WATCHDOG_ARCH_PTR: AtomicPtr<watchdog::Protocol> = AtomicPtr::new(core::ptr::null_mut());
+static PRE_EXIT_BOOT_SERVICES_SIGNAL: AtomicBool = AtomicBool::new(false);
+
+// TODO [BEGIN]: LOCAL (TEMP) GUID DEFINITIONS (MOVE LATER)
+
+// These will likely get moved to different places. Pre-Exit Boot Services and Before Exit Boot Services are defined
+// in the UEFI Specification (so r-efi). Pre-exit boot services is defined in Project Mu. DXE Core GUID is the GUID of
+// this DXE Core instance. Exit Boot Services Failed is a edk2 customization as far as I can tell.
+
+// { 0x5f1d7e16, 0x784a, 0x4da2, { 0xb0, 0x84, 0xf8, 0x12, 0xf2, 0x3a, 0x8d, 0xce }}
+pub const PRE_EBS_GUID: efi::Guid =
+  efi::Guid::from_fields(0x5f1d7e16, 0x784a, 0x4da2, 0xb0, 0x84, &[0xf8, 0x12, 0xf2, 0x3a, 0x8d, 0xce]);
+
+// { 0x8BE0E274, 0x3970, 0x4B44, { 0x80, 0xC5, 0x1A, 0xB9, 0x50, 0x2F, 0x3B, 0xFC }}
+pub const BEFORE_EBS_GUID: efi::Guid =
+  efi::Guid::from_fields(0x8be0e274, 0x3970, 0x4b44, 0x80, 0xc5, &[0x1a, 0xb9, 0x50, 0x2f, 0x3b, 0xfc]);
+
+// { 0x4f6c5507, 0x232f, 0x4787, { 0xb9, 0x5e, 0x72, 0xf8, 0x62, 0x49, 0xc, 0xb1 } }
+pub const EBS_FAILED_GUID: efi::Guid =
+  efi::Guid::from_fields(0x4f6c5507, 0x232f, 0x4787, 0xb9, 0x5e, &[0x72, 0xf8, 0x62, 0x49, 0x0c, 0xb1]);
+
+// { 0x27ABF055, 0xB1B8, 0x4C26, { 0x80, 0x48, 0x74, 0x8F, 0x37, 0xBA, 0xA2, 0xDF }}
+pub const EBS_GUID: efi::Guid =
+  efi::Guid::from_fields(0x27ABF055, 0xB1B8, 0x4C26, 0x80, 0x48, &[0x74, 0x8f, 0x37, 0xba, 0xa2, 0xdf]);
+
+// DxeCore module GUID (23C9322F-2AF2-476A-BC4C-26BC88266C71)
+pub const DXE_CORE_GUID: efi::Guid =
+  efi::Guid::from_fields(0x23C9322F, 0x2AF2, 0x476A, 0xBC, 0x4C, &[0x26, 0xBC, 0x88, 0x26, 0x6C, 0x71]);
+
+// TODO [END]: LOCAL (TEMP) GUID DEFINITIONS (MOVE LATER)
 
 extern "efiapi" fn calculate_crc32(data: *mut c_void, data_size: usize, crc_32: *mut u32) -> efi::Status {
   if data.is_null() || data_size == 0 || crc_32.is_null() {
@@ -211,8 +241,81 @@ extern "efiapi" fn watchdog_arch_available(event: efi::Event, _context: *mut c_v
   }
 }
 
+pub extern "efiapi" fn exit_boot_services(_handle: efi::Handle, map_key: usize) -> efi::Status {
+  // Pre-exit boot servces is only signaled once
+  if !PRE_EXIT_BOOT_SERVICES_SIGNAL.load(Ordering::SeqCst) {
+    EVENT_DB.signal_group(PRE_EBS_GUID);
+    PRE_EXIT_BOOT_SERVICES_SIGNAL.store(true, Ordering::SeqCst);
+  }
+
+  // Signal the event group before exit boot services
+  EVENT_DB.signal_group(BEFORE_EBS_GUID);
+
+  // Disable the timer
+  match PROTOCOL_DB.locate_protocol(timer::TIMER_ARCH_PROTOCOL_GUID) {
+    Ok(timer_arch_ptr) => {
+      let timer_arch_ptr = timer_arch_ptr as *mut timer::TimerArchProtocol;
+      let timer_arch = unsafe { &*(timer_arch_ptr) };
+      (timer_arch.set_timer_period)(timer_arch_ptr, 0);
+    }
+    Err(err) => println!("Unable to locate timer arch: {:?}", err),
+  };
+
+  // Terminate the memory map
+  let status = terminate_memory_map(map_key);
+  if status.is_error() {
+    EVENT_DB.signal_group(EBS_FAILED_GUID);
+    return status;
+  }
+
+  // Signal Exit Boot Services
+  EVENT_DB.signal_group(EBS_GUID);
+
+  // Initialize StatusCode and send EFI_SW_BS_PC_EXIT_BOOT_SERVICES
+  match PROTOCOL_DB.locate_protocol(status_code::PROTOCOL) {
+    Ok(status_code_ptr) => {
+      let status_code_ptr = status_code_ptr as *mut status_code::Protocol;
+      let status_code_protocol = unsafe { &*(status_code_ptr) };
+      (status_code_protocol.report_status_code)(
+        status_code::EFI_PROGRESS_CODE as u32,
+        (status_code::EFI_SOFTWARE_EFI_BOOT_SERVICE | status_code::EFI_SW_BS_PC_EXIT_BOOT_SERVICES) as u32,
+        0,
+        &DXE_CORE_GUID,
+        core::ptr::null(),
+      );
+    }
+    Err(err) => println!("Unable to locate status code runtime protocol: {:?}", err),
+  };
+
+  // Disable CPU interrupts
+  match PROTOCOL_DB.locate_protocol(cpu_arch::PROTOCOL) {
+    Ok(cpu_arch_ptr) => {
+      let cpu_arch_ptr = cpu_arch_ptr as *mut cpu_arch::Protocol;
+      let cpu_arch_protocol = unsafe { &*(cpu_arch_ptr) };
+      (cpu_arch_protocol.disable_interrupt)(cpu_arch_ptr);
+    }
+    Err(err) => println!("Unable to locate CPU arch protocol: {:?}", err),
+  };
+
+  // Clear non-runtime services from the EFI System Table
+  SYSTEM_TABLE.lock().as_mut().unwrap().clear_boot_time_services();
+
+  match PROTOCOL_DB.locate_protocol(r_pi::runtime::PROTOCOL) {
+    Ok(rt_arch_ptr) => {
+      let rt_arch_ptr = rt_arch_ptr as *mut r_pi::runtime::Protocol;
+      let rt_arch_protocol = unsafe { &mut *(rt_arch_ptr) };
+      rt_arch_protocol.at_runtime = true;
+      runtime::AT_RUNTIME.store(true, Ordering::SeqCst);
+    }
+    Err(err) => println!("Unable to locate runtime architectural protocol: {:?}", err),
+  };
+
+  efi::Status::SUCCESS
+}
+
 pub fn init_misc_boot_services_support(bs: &mut efi::BootServices) {
   bs.calculate_crc32 = calculate_crc32;
+  bs.exit_boot_services = exit_boot_services;
   bs.install_configuration_table = install_configuration_table;
   bs.stall = stall;
   bs.set_watchdog_timer = set_watchdog_timer;
