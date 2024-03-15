@@ -350,7 +350,7 @@ extern "efiapi" fn get_memory_map(
       Some(efi::MemoryDescriptor {
         r#type: memory_type,
         physical_start: descriptor.base_address,
-        virtual_start: descriptor.base_address,
+        virtual_start: 0,
         number_of_pages,
         attribute: descriptor.attributes,
       })
