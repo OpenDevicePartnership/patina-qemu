@@ -43,6 +43,12 @@ extends:
         artifactName: 'Binaries'
       displayName: Download Cargo Make
     - script: sudo chmod +x $(CARGO_HOME)/bin/cargo-make
+    - task: Bash@3
+      displayName: Exclude Cargo Tarpaulin on Windows
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "##vso[task.setvariable variable=RUST_ENV_CHECK_TOOL_EXCLUSIONS;]cargo make"
     build_matrix:
       TARGET_Q35_RELEASE:
         Pkgs: 'QemuQ35Pkg'

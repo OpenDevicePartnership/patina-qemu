@@ -58,7 +58,13 @@ extends:
         targetPath: '$(CARGO_HOME)\bin\'
         itemPattern: '**/cargo-make'
         artifactName: 'Binaries'
-      displayName: Download Cargo Make
+      displayName: Download Cargo make
+    - task: Bash@3
+      displayName: Exclude Cargo Make
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "##vso[task.setvariable variable=RUST_ENV_CHECK_TOOL_EXCLUSIONS;]cargo make"
     - script: sudo chmod +x $(CARGO_HOME)/bin/cargo-make
     build_matrix:
 #     TARGET_QEMU:

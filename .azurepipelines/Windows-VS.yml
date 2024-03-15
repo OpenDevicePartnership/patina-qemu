@@ -61,7 +61,7 @@ extends:
       inputs:
         targetType: 'inline'
         script: |
-          echo "##vso[task.setvariable variable=RUST_ENV_CHECK_TOOL_EXCLUSIONS;]cargo tarpaulin"
+          echo "##vso[task.setvariable variable=RUST_ENV_CHECK_TOOL_EXCLUSIONS;]cargo tarpaulin, cargo make"
     - task: CmdLine@2
       displayName: Install rust-src Component
       inputs:
