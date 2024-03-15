@@ -15,6 +15,37 @@ use uefi_rust_allocator_lib::{uefi_allocator::UefiAllocator, AllocationStrategy}
 
 const UEFI_PAGE_SIZE: usize = 0x1000; //per UEFI spec.
 
+// TODO [BEGIN] - Move to r-efi later
+//
+// Note: UEFI spec 2.8 and following:
+//
+// Specific-purpose memory (SPM). The memory is earmarked for
+// specific purposes such as for specific device drivers or applications.
+// The SPM attribute serves as a hint to the OS to avoid allocating this
+// memory for core OS data or code that can not be relocated.
+//
+#[allow(dead_code)]
+const MEMORY_SP: u64 = 0x0000000000040000;
+
+//
+// If this flag is set, the memory region is capable of being
+// protected with the CPU's memory cryptographic
+// capabilities. If this flag is clear, the memory region is not
+// capable of being protected with the CPU's memory
+// cryptographic capabilities or the CPU does not support CPU
+// memory cryptographic capabilities.
+//
+#[allow(dead_code)]
+const MEMORY_CPU_CRYPTO: u64 = 0x0000000000080000;
+
+#[allow(dead_code)]
+const CACHE_ATTRIBUTE_MASK: u64 =
+  efi::MEMORY_UC | efi::MEMORY_WC | efi::MEMORY_WT | efi::MEMORY_WB | efi::MEMORY_UCE | efi::MEMORY_WP;
+const MEMORY_ACCESS_MASK: u64 = efi::MEMORY_RP | efi::MEMORY_XP | efi::MEMORY_RO;
+#[allow(dead_code)]
+const MEMORY_ATTRIBUTE_MASK: u64 = MEMORY_ACCESS_MASK | MEMORY_SP | MEMORY_CPU_CRYPTO;
+// TODO [END] - Move to r-efi later
+
 // Private tracking guid used to generate new handles for allocator tracking
 // {9D1FA6E9-0C86-4F7F-A99B-DD229C9B3893}
 const PRIVATE_ALLOCATOR_TRACKING_GUID: efi::Guid =
@@ -285,33 +316,11 @@ extern "efiapi" fn set_mem(buffer: *mut c_void, size: usize, value: u8) {
   }
 }
 
-extern "efiapi" fn get_memory_map(
-  memory_map_size: *mut usize,
-  memory_map: *mut efi::MemoryDescriptor,
-  map_key: *mut usize,
-  descriptor_size: *mut usize,
-  descriptor_version: *mut u32,
-) -> efi::Status {
-  if memory_map_size.is_null() {
-    return efi::Status::INVALID_PARAMETER;
-  }
-
-  if !descriptor_size.is_null() {
-    unsafe { descriptor_size.write(mem::size_of::<efi::MemoryDescriptor>()) };
-  }
-
-  if !descriptor_version.is_null() {
-    unsafe { descriptor_version.write(efi::MEMORY_DESCRIPTOR_VERSION) };
-  }
-
-  //allocate an empty vector with enough space for all the descriptors with some padding (in the event)
-  //that extra descriptors come into being after creation but before usage.
+fn get_memory_map_descriptors() -> Vec<efi::MemoryDescriptor> {
   let mut descriptors: Vec<MemorySpaceDescriptor> = Vec::with_capacity(GCD.memory_descriptor_count() + 10);
   GCD.get_memory_descriptors(&mut descriptors).expect("get_memory_descriptors failed.");
 
-  let map_size = unsafe { *memory_map_size };
-
-  let efi_descriptors: Vec<efi::MemoryDescriptor> = descriptors
+  descriptors
     .iter()
     .filter_map(|descriptor| {
       let memory_type = ALLOCATORS.lock().memory_type_for_handle(descriptor.image_handle).or_else(|| {
@@ -358,7 +367,31 @@ extern "efiapi" fn get_memory_map(
         },
       })
     })
-    .collect();
+    .collect()
+}
+
+extern "efiapi" fn get_memory_map(
+  memory_map_size: *mut usize,
+  memory_map: *mut efi::MemoryDescriptor,
+  map_key: *mut usize,
+  descriptor_size: *mut usize,
+  descriptor_version: *mut u32,
+) -> efi::Status {
+  if memory_map_size.is_null() {
+    return efi::Status::INVALID_PARAMETER;
+  }
+
+  if !descriptor_size.is_null() {
+    unsafe { descriptor_size.write(mem::size_of::<efi::MemoryDescriptor>()) };
+  }
+
+  if !descriptor_version.is_null() {
+    unsafe { descriptor_version.write(efi::MEMORY_DESCRIPTOR_VERSION) };
+  }
+
+  let map_size = unsafe { *memory_map_size };
+
+  let mut efi_descriptors = get_memory_map_descriptors();
 
   assert_ne!(efi_descriptors.len(), 0);
 
@@ -376,8 +409,16 @@ extern "efiapi" fn get_memory_map(
 
   let mut hash = Hasher::new();
 
+  // Rust will try to prevent an unaligned copy, given no one checks whether their points are aligned
+  // treat the slice as a u8 slice and copy the bytes.
+  for descriptor in efi_descriptors.iter_mut() {
+    descriptor.attribute = descriptor.attribute & !MEMORY_ACCESS_MASK;
+  }
+  let efi_descriptors_ptr = efi_descriptors.as_ptr() as *mut u8;
+
   unsafe {
-    slice::from_raw_parts_mut(memory_map, efi_descriptors.len()).copy_from_slice(&efi_descriptors);
+    slice::from_raw_parts_mut(memory_map as *mut u8, required_map_size)
+      .copy_from_slice(slice::from_raw_parts_mut(efi_descriptors_ptr, required_map_size));
 
     if !map_key.is_null() {
       let memory_map_as_bytes = slice::from_raw_parts(memory_map as *mut u8, required_map_size);
@@ -387,6 +428,22 @@ extern "efiapi" fn get_memory_map(
   }
 
   efi::Status::SUCCESS
+}
+
+pub fn terminate_memory_map(map_key: usize) -> efi::Status {
+  let mut mm_desc = get_memory_map_descriptors();
+  for descriptor in mm_desc.iter_mut() {
+    descriptor.attribute = descriptor.attribute & !MEMORY_ACCESS_MASK;
+  }
+  let mm_desc_size = mm_desc.len() * mem::size_of::<efi::MemoryDescriptor>();
+  let mm_desc_bytes: &[u8] = unsafe { slice::from_raw_parts(mm_desc.as_ptr() as *const u8, mm_desc_size) };
+
+  let current_map_key = crc32fast::hash(&mm_desc_bytes) as usize;
+  if map_key == current_map_key {
+    efi::Status::SUCCESS
+  } else {
+    efi::Status::INVALID_PARAMETER
+  }
 }
 
 pub fn init_memory_support(bs: &mut efi::BootServices) {
