@@ -519,6 +519,10 @@ impl EfiSystemTable {
     self.as_ptr() as *mut efi::SystemTable
   }
 
+  pub fn system_table(&mut self) -> &mut efi::SystemTable {
+    self.system_table.as_mut()
+  }
+
   pub fn boot_services(&mut self) -> &mut efi::BootServices {
     unsafe { self.system_table.boot_services.as_mut().expect("BootServices uninitialized") }
   }
@@ -534,9 +538,28 @@ impl EfiSystemTable {
     self.system_table.hdr.crc32 = crc32fast::hash(st_slice);
   }
 
+  pub fn checksum_boot_services(&mut self) {
+    self.boot_service.checksum();
+  }
+
+  pub fn checksum_runtime_services(&mut self) {
+    self.runtime_service.checksum();
+  }
+
   pub fn checksum_all(&mut self) {
     self.boot_service.checksum();
     self.runtime_service.checksum();
+    self.checksum();
+  }
+
+  pub fn clear_boot_time_services(&mut self) {
+    self.system_table.boot_services = core::ptr::null_mut();
+    self.system_table.con_in = core::ptr::null_mut();
+    self.system_table.console_in_handle = core::ptr::null_mut();
+    self.system_table.con_out = core::ptr::null_mut();
+    self.system_table.console_out_handle = core::ptr::null_mut();
+    self.system_table.std_err = core::ptr::null_mut();
+    self.system_table.standard_error_handle = core::ptr::null_mut();
     self.checksum();
   }
 }
