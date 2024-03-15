@@ -17,6 +17,7 @@ use crate::{
   allocator::{EFI_BOOT_SERVICES_CODE_ALLOCATOR, EFI_LOADER_CODE_ALLOCATOR, EFI_RUNTIME_SERVICES_CODE_ALLOCATOR},
   filesystems::SimpleFile,
   protocols::{core_install_protocol_interface, core_locate_device_path, PROTOCOL_DB},
+  runtime,
   systemtables::EfiSystemTable,
 };
 
@@ -137,6 +138,7 @@ struct PrivateImageData {
   exit_data: Option<(usize, *mut efi::Char16)>,
   image_info_ptr: *mut c_void,
   image_device_path_ptr: *mut c_void,
+  relocation_data: Vec<uefi_pe32_lib::RelocationBlock>,
 }
 
 impl PrivateImageData {
@@ -152,6 +154,7 @@ impl PrivateImageData {
       exit_data: None,
       image_info_ptr: core::ptr::null_mut(),
       image_device_path_ptr: core::ptr::null_mut(),
+      relocation_data: Vec::new(),
     }
   }
 
@@ -308,7 +311,8 @@ fn core_load_pe_image(
 
   //relocate the image to the address at which it was loaded.
   let loaded_image_addr = private_info.image_info.image_base as usize;
-  uefi_pe32_lib::pe32_relocate_image(loaded_image_addr, loaded_image).map_err(|_| efi::Status::LOAD_ERROR)?;
+  private_info.relocation_data = uefi_pe32_lib::pe32_relocate_image(loaded_image_addr, loaded_image, &Vec::new())
+    .map_err(|_| efi::Status::LOAD_ERROR)?;
 
   // update the entry point. Transmute is required here to cast the raw function address to the ImageEntryPoint function pointer type.
   private_info.entry_point = unsafe { transmute(loaded_image_addr + pe_info.entry_point_offset) };
@@ -419,8 +423,21 @@ fn get_file_buffer_from_load_protocol(
   }
 }
 
+/// Relocates all runtime images to their virtual memory address. This function must only be called
+/// after the Runtime Service SetVirtualAddressMap() has been called by the OS.
 pub fn core_relocate_runtime_images() {
-  unimplemented!();
+  let mut private_data = PRIVATE_IMAGE_DATA.lock();
+
+  for image in private_data.private_image_data.values_mut() {
+    if image.image_type == EFI_IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER {
+      let loaded_image = &mut image.image_buffer;
+      let loaded_image_addr = image.image_info.image_base as usize;
+      let mut loaded_image_virt_addr = loaded_image_addr;
+
+      let _ = runtime::convert_pointer(0, core::ptr::addr_of_mut!(loaded_image_virt_addr) as *mut *mut c_void);
+      let _ = uefi_pe32_lib::pe32_relocate_image(loaded_image_virt_addr, loaded_image, &image.relocation_data);
+    }
+  }
 }
 
 /// Loads the image specified by the device path (not yet supported) or slice.
