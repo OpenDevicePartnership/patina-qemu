@@ -24,6 +24,7 @@ pub mod interrupts;
 pub mod misc_boot_services;
 pub mod physical_memory;
 pub mod protocols;
+pub mod runtime;
 pub mod systemtables;
 
 pub static GCD: SpinLockedGcd = SpinLockedGcd::new(Some(events::gcd_map_change));

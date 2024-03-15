@@ -20,6 +20,7 @@ use dxe_rust::{
   image::init_image_support,
   misc_boot_services::init_misc_boot_services_support,
   protocols::{init_protocol_support, PROTOCOL_DB},
+  runtime::init_runtime_support,
   systemtables::{init_system_table, SYSTEM_TABLE},
   GCD,
 };
@@ -59,6 +60,7 @@ pub extern "efiapi" fn _start(physical_hob_list: *const c_void) -> ! {
     init_events_support(st.boot_services());
     init_protocol_support(st.boot_services());
     init_misc_boot_services_support(st.boot_services());
+    init_runtime_support(st.runtime_services());
     init_image_support(&hob_list, st);
     init_dispatcher();
     init_fv_support(&hob_list);

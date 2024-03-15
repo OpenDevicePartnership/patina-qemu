@@ -11,7 +11,6 @@ use crate::{
   allocator::{terminate_memory_map, EFI_RUNTIME_SERVICES_DATA_ALLOCATOR},
   events::EVENT_DB,
   protocols::PROTOCOL_DB,
-  runtime,
   systemtables::{EfiSystemTable, SYSTEM_TABLE},
 };
 
@@ -304,8 +303,7 @@ pub extern "efiapi" fn exit_boot_services(_handle: efi::Handle, map_key: usize) 
     Ok(rt_arch_ptr) => {
       let rt_arch_ptr = rt_arch_ptr as *mut r_pi::runtime::Protocol;
       let rt_arch_protocol = unsafe { &mut *(rt_arch_ptr) };
-      rt_arch_protocol.at_runtime = true;
-      runtime::AT_RUNTIME.store(true, Ordering::SeqCst);
+      rt_arch_protocol.at_runtime.store(true, Ordering::SeqCst);
     }
     Err(err) => println!("Unable to locate runtime architectural protocol: {:?}", err),
   };
