@@ -352,7 +352,10 @@ extern "efiapi" fn get_memory_map(
         physical_start: descriptor.base_address,
         virtual_start: 0,
         number_of_pages,
-        attribute: descriptor.attributes,
+        attribute: match memory_type {
+          efi::RUNTIME_SERVICES_CODE | efi::RUNTIME_SERVICES_DATA => descriptor.attributes | efi::MEMORY_RUNTIME,
+          _ => descriptor.attributes,
+        },
       })
     })
     .collect();
