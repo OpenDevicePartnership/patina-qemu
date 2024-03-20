@@ -230,3 +230,102 @@ pub fn init_runtime_support(rt: &mut efi::RuntimeServices) {
     },
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::{convert_pointer, init_runtime_support, set_virtual_address_map, RUNTIME_DATA};
+  use crate::test_support;
+  use core::{ffi::c_void, mem};
+  use r_efi::efi;
+
+  fn fake_runtime_services() -> efi::RuntimeServices {
+    let runtime_services = mem::MaybeUninit::zeroed();
+    let mut runtime_services: efi::RuntimeServices = unsafe { runtime_services.assume_init() };
+    runtime_services.hdr.signature = efi::RUNTIME_SERVICES_SIGNATURE;
+    runtime_services.hdr.revision = efi::RUNTIME_SERVICES_REVISION;
+    runtime_services.hdr.header_size = mem::size_of::<efi::RuntimeServices>() as u32;
+    runtime_services
+  }
+
+  unsafe fn get_memory(size: usize) -> &'static mut [u8] {
+    let addr = alloc::alloc::alloc(alloc::alloc::Layout::from_size_align(size, 0x1000).unwrap());
+    core::slice::from_raw_parts_mut(addr, size)
+  }
+
+  #[test]
+  fn init_should_initialize_convert_pointer_and_set_virtual_address_map() {
+    let test_lock = test_support::GLOBAL_STATE_TEST_LOCK.lock();
+    unsafe {
+      test_support::init_test_gcd(Some(0x100000));
+      test_support::init_test_protocol_db();
+    }
+
+    let mut rt = fake_runtime_services();
+
+    init_runtime_support(&mut rt);
+
+    assert_eq!(rt.convert_pointer as usize, convert_pointer as usize);
+    assert_eq!(rt.set_virtual_address_map as usize, set_virtual_address_map as usize);
+
+    drop(test_lock);
+  }
+
+  #[test]
+  fn test_convert_pointer() {
+    let test_lock = test_support::GLOBAL_STATE_TEST_LOCK.lock();
+    unsafe {
+      test_support::init_test_gcd(Some(0x100000));
+      test_support::init_test_protocol_db();
+    }
+
+    let mut rt = fake_runtime_services();
+
+    init_runtime_support(&mut rt);
+
+    let address_ptr = unsafe { get_memory(0x1000).as_ptr() as *mut c_void };
+    unsafe { (address_ptr as *mut usize).write(0x1000) };
+    let mut desc = efi::MemoryDescriptor {
+      r#type: efi::RUNTIME_SERVICES_DATA,
+      physical_start: 0x1000,
+      virtual_start: 0x2000,
+      number_of_pages: 1,
+      attribute: efi::MEMORY_RUNTIME | efi::MEMORY_WB,
+    };
+
+    {
+      let mut runtime_data = RUNTIME_DATA.lock();
+      runtime_data.virtual_map = &mut desc;
+      runtime_data.virtual_map_index = 1;
+    }
+
+    // let convert_address = &mut address as *mut _ as *mut *mut c_void;
+    unsafe {
+      assert_eq!(convert_pointer(0, address_ptr as *mut *mut c_void), efi::Status::SUCCESS);
+      assert_eq!(*(address_ptr as *mut usize), 0x2000);
+
+      (address_ptr as *mut usize).write(0x3000);
+      assert_eq!(convert_pointer(0, address_ptr as *mut *mut c_void), efi::Status::NOT_FOUND);
+      assert_eq!(*(address_ptr as *mut usize), 0x3000);
+
+      (address_ptr as *mut usize).write(0);
+      assert_eq!(convert_pointer(0, address_ptr as *mut *mut c_void), efi::Status::INVALID_PARAMETER);
+      assert_eq!(*(address_ptr as *mut usize), 0);
+
+      (address_ptr as *mut usize).write(0x1000);
+      assert_eq!(
+        convert_pointer(efi::OPTIONAL_POINTER as usize, address_ptr as *mut *mut c_void),
+        efi::Status::SUCCESS
+      );
+      assert_eq!(*(address_ptr as *mut usize), 0x2000);
+
+      (address_ptr as *mut usize).write(0);
+      assert_eq!(
+        convert_pointer(efi::OPTIONAL_POINTER as usize, address_ptr as *mut *mut c_void),
+        efi::Status::SUCCESS
+      );
+      assert_eq!(*(address_ptr as *mut usize), 0);
+    }
+
+    drop(test_lock);
+  }
+}
