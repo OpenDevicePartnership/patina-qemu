@@ -1,0 +1,13 @@
+[package]
+name = "RustImageTestDxe"
+version = "0.1.0"
+authors = ["MS UEFI Rust Team"]
+edition = "2021"
+
+[[bin]]
+name = "RustImageTestDxe"
+path = "src/main.rs"
+test = false
+
+[dependencies]
+r-efi = {workspace=true}

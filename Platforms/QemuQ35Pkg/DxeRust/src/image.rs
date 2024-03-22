@@ -21,15 +21,13 @@ use crate::{
   systemtables::EfiSystemTable,
 };
 
+#[cfg(not(test))]
 use serial_print_dxe::println;
 
 use corosensei::{
   stack::{Stack, StackPointer, MIN_STACK_SIZE, STACK_ALIGNMENT},
   Coroutine, CoroutineResult, Yielder,
 };
-
-#[cfg(windows)]
-use corosensei::stack::StackTebFields;
 
 //TODO: the following protocol definitions should be pushed to r_efi
 const EFI_LOAD_FILE_PROTOCOL: efi::Guid =
@@ -58,6 +56,7 @@ pub const EFI_IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER: u16 = 12;
 const ENTRY_POINT_STACK_SIZE: usize = 0x100000;
 
 // dummy function used to initialize PrivateImageData.entry_point.
+#[cfg(not(tarpaulin_include))]
 extern "efiapi" fn unimplemented_entry_point(
   _handle: efi::Handle,
   _system_table: *mut efi::SystemTable,
@@ -66,6 +65,7 @@ extern "efiapi" fn unimplemented_entry_point(
 }
 
 // dummy function used to initialize image_info.Unload.
+#[cfg(not(tarpaulin_include))]
 extern "efiapi" fn unimplemented_unload(_handle: efi::Handle) -> efi::Status {
   unimplemented!("unimplemented unload should never be called.")
 }
@@ -113,16 +113,6 @@ unsafe impl Stack for ImageStack {
   fn limit(&self) -> StackPointer {
     //stack grows downward, so "limit" is the lowest address, i.e. the box ptr.
     StackPointer::new(self.stack.as_ref() as *const [u8] as *const u8 as usize).unwrap()
-  }
-  // these are required when building against windows target for testing
-  #[cfg(windows)]
-  fn teb_fields(&self) -> StackTebFields {
-    unimplemented!()
-  }
-
-  #[cfg(windows)]
-  fn update_teb_fields(&mut self, _: usize, _: usize) {
-    unimplemented!()
   }
 }
 
@@ -186,10 +176,19 @@ impl DxeCoreGlobalImageData {
     DxeCoreGlobalImageData {
       dxe_core_image_handle: core::ptr::null_mut(),
       system_table: core::ptr::null_mut(),
-      private_image_data: BTreeMap::<efi::Handle, PrivateImageData>::new(),
+      private_image_data: BTreeMap::new(),
       current_running_image: None,
       image_start_contexts: Vec::new(),
     }
+  }
+
+  #[cfg(test)]
+  unsafe fn reset(&mut self) {
+    self.dxe_core_image_handle = core::ptr::null_mut();
+    self.system_table = core::ptr::null_mut();
+    self.private_image_data = BTreeMap::new();
+    self.current_running_image = None;
+    self.image_start_contexts = Vec::new();
   }
 }
 
@@ -856,4 +855,563 @@ pub fn init_image_support(hob_list: &HobList, system_table: &mut EfiSystemTable)
   system_table.boot_services().start_image = start_image;
   system_table.boot_services().unload_image = unload_image;
   system_table.boot_services().exit = exit;
+}
+
+#[cfg(test)]
+mod tests {
+  use super::{get_buffer_by_file_path, init_image_support, load_image};
+  use crate::{
+    image::{start_image, unload_image, LoadFileProtocol, EFI_LOAD_FILE_PROTOCOL, PRIVATE_IMAGE_DATA},
+    protocols::core_install_protocol_interface,
+    systemtables::{init_system_table, SYSTEM_TABLE},
+    test_support,
+  };
+  use core::{ffi::c_void, sync::atomic::AtomicBool};
+  use r_efi::efi;
+  use r_pi::hob;
+  use std::{fs::File, io::Read};
+
+  unsafe fn init_test_image_support() {
+    PRIVATE_IMAGE_DATA.lock().reset();
+    let mut hob_list: hob::HobList = Default::default();
+
+    hob_list.push(hob::Hob::MemoryAllocationModule(
+      Box::into_raw(Box::new(hob::MemoryAllocationModule {
+        header: hob::header::Hob {
+          r#type: hob::MEMORY_ALLOCATION,
+          length: core::mem::size_of::<hob::MemoryAllocationModule>() as u16,
+          reserved: Default::default(),
+        },
+        alloc_descriptor: hob::header::MemoryAllocation {
+          name: efi::Guid::from_bytes(&[
+            0x2F, 0x32, 0xC9, 0x23, 0xF2, 0x2A, 0x6A, 0x47, 0xBC, 0x4C, 0x26, 0xBC, 0x88, 0x26, 0x6C, 0x71,
+          ]),
+          memory_base_address: 0,
+          memory_length: 0,
+          memory_type: 0,
+          reserved: Default::default(),
+        },
+        module_name: efi::Guid::from_bytes(&[
+          0x2F, 0x32, 0xC9, 0x23, 0xF2, 0x2A, 0x6A, 0x47, 0xBC, 0x4C, 0x26, 0xBC, 0x88, 0x26, 0x6C, 0x71,
+        ]),
+        entry_point: 0,
+      }))
+      .as_mut()
+      .unwrap(),
+    ));
+    init_image_support(&hob_list, SYSTEM_TABLE.lock().as_mut().unwrap());
+  }
+
+  #[test]
+  fn load_image_should_load_the_image() {
+    let test_lock = test_support::GLOBAL_STATE_TEST_LOCK.lock();
+
+    unsafe {
+      test_support::init_test_gcd(None);
+      test_support::init_test_protocol_db();
+      init_system_table();
+      init_test_image_support();
+    }
+
+    let mut test_file = File::open(test_collateral!("test_image_msvc_hii.pe32")).expect("failed to open test file.");
+    let mut image: Vec<u8> = Vec::new();
+    test_file.read_to_end(&mut image).expect("failed to read test file");
+
+    let mut image_handle: efi::Handle = core::ptr::null_mut();
+    let status = load_image(
+      false.into(),
+      uefi_protocol_db_lib::DXE_CORE_HANDLE,
+      core::ptr::null_mut(),
+      image.as_mut_ptr() as *mut c_void,
+      image.len(),
+      core::ptr::addr_of_mut!(image_handle),
+    );
+    assert_eq!(status, efi::Status::SUCCESS);
+
+    let private_data = PRIVATE_IMAGE_DATA.lock();
+    let image_data = private_data.private_image_data.get(&image_handle).unwrap();
+    assert_eq!(image_data.image_buffer.len(), image_data.image_info.image_size as usize);
+    assert_eq!(image_data.image_info.image_data_type, efi::BOOT_SERVICES_DATA);
+    assert_eq!(image_data.image_info.image_code_type, efi::BOOT_SERVICES_CODE);
+    assert_ne!(image_data.entry_point as usize, 0);
+    assert!(!image_data.relocation_data.is_empty());
+    assert!(image_data.hii_resource_section.is_some());
+
+    drop(test_lock);
+  }
+
+  #[test]
+  fn start_image_should_start_image() {
+    let test_lock = test_support::GLOBAL_STATE_TEST_LOCK.lock();
+
+    unsafe {
+      test_support::init_test_gcd(None);
+      test_support::init_test_protocol_db();
+      init_system_table();
+      init_test_image_support();
+    }
+
+    let mut test_file = File::open(test_collateral!("RustImageTestDxe.efi")).expect("failed to open test file.");
+    let mut image: Vec<u8> = Vec::new();
+    test_file.read_to_end(&mut image).expect("failed to read test file");
+
+    let mut image_handle: efi::Handle = core::ptr::null_mut();
+    let status = load_image(
+      false.into(),
+      uefi_protocol_db_lib::DXE_CORE_HANDLE,
+      core::ptr::null_mut(),
+      image.as_mut_ptr() as *mut c_void,
+      image.len(),
+      core::ptr::addr_of_mut!(image_handle),
+    );
+    assert_eq!(status, efi::Status::SUCCESS);
+
+    // Getting the image loaded into a buffer that is executable would require OS-specific interactions. This means that
+    // all the memory backing our test GCD instance is likely to be marked "NX" - which makes it hard for start_image to
+    // jump to it.
+    // To allow testing of start_image, override the image entrypoint pointer so that it points to a stub routine
+    // in this test - because it is part of the test executable and not part of the "load_image" buffer, it can be
+    // executed.
+    static ENTRY_POINT_RAN: AtomicBool = AtomicBool::new(false);
+    pub extern "efiapi" fn test_entry_point(
+      _image_handle: *mut core::ffi::c_void,
+      _system_table: *mut r_efi::system::SystemTable,
+    ) -> efi::Status {
+      println!("test_entry_point executed.");
+      ENTRY_POINT_RAN.store(true, core::sync::atomic::Ordering::Relaxed);
+      efi::Status::SUCCESS
+    }
+    let mut private_data = PRIVATE_IMAGE_DATA.lock();
+    let image_data = private_data.private_image_data.get_mut(&image_handle).unwrap();
+    image_data.entry_point = test_entry_point;
+    drop(private_data);
+
+    let mut exit_data_size = 0;
+    let mut exit_data: *mut u16 = core::ptr::null_mut();
+    let status = start_image(image_handle, core::ptr::addr_of_mut!(exit_data_size), core::ptr::addr_of_mut!(exit_data));
+    assert_eq!(status, efi::Status::SUCCESS);
+    assert!(ENTRY_POINT_RAN.load(core::sync::atomic::Ordering::Relaxed));
+
+    let mut private_data = PRIVATE_IMAGE_DATA.lock();
+    let image_data = private_data.private_image_data.get_mut(&image_handle).unwrap();
+    assert!(image_data.started);
+    drop(private_data);
+
+    drop(test_lock);
+  }
+
+  #[test]
+  fn start_image_error_status_should_unload_image() {
+    let test_lock = test_support::GLOBAL_STATE_TEST_LOCK.lock();
+
+    unsafe {
+      test_support::init_test_gcd(None);
+      test_support::init_test_protocol_db();
+      init_system_table();
+      init_test_image_support();
+    }
+
+    let mut test_file = File::open(test_collateral!("RustImageTestDxe.efi")).expect("failed to open test file.");
+    let mut image: Vec<u8> = Vec::new();
+    test_file.read_to_end(&mut image).expect("failed to read test file");
+
+    let mut image_handle: efi::Handle = core::ptr::null_mut();
+    let status = load_image(
+      false.into(),
+      uefi_protocol_db_lib::DXE_CORE_HANDLE,
+      core::ptr::null_mut(),
+      image.as_mut_ptr() as *mut c_void,
+      image.len(),
+      core::ptr::addr_of_mut!(image_handle),
+    );
+    assert_eq!(status, efi::Status::SUCCESS);
+
+    // Getting the image loaded into a buffer that is executable would require OS-specific interactions. This means that
+    // all the memory backing our test GCD instance is likely to be marked "NX" - which makes it hard for start_image to
+    // jump to it.
+    // To allow testing of start_image, override the image entrypoint pointer so that it points to a stub routine
+    // in this test - because it is part of the test executable and not part of the "load_image" buffer, it will not be
+    // in memory marked NX and can be executed. Since this test is designed to test the load and start framework and not
+    // the test driver, this will not reduce coverage of what is being tested here.
+    static ENTRY_POINT_RAN: AtomicBool = AtomicBool::new(false);
+    extern "efiapi" fn test_entry_point(
+      _image_handle: *mut core::ffi::c_void,
+      _system_table: *mut r_efi::system::SystemTable,
+    ) -> efi::Status {
+      println!("test_entry_point executed.");
+      ENTRY_POINT_RAN.store(true, core::sync::atomic::Ordering::Relaxed);
+      efi::Status::UNSUPPORTED
+    }
+    let mut private_data = PRIVATE_IMAGE_DATA.lock();
+    let image_data = private_data.private_image_data.get_mut(&image_handle).unwrap();
+    image_data.entry_point = test_entry_point;
+    drop(private_data);
+
+    let mut exit_data_size = 0;
+    let mut exit_data: *mut u16 = core::ptr::null_mut();
+    let status = start_image(image_handle, core::ptr::addr_of_mut!(exit_data_size), core::ptr::addr_of_mut!(exit_data));
+    assert_eq!(status, efi::Status::UNSUPPORTED);
+    assert!(ENTRY_POINT_RAN.load(core::sync::atomic::Ordering::Relaxed));
+
+    let private_data = PRIVATE_IMAGE_DATA.lock();
+    assert!(private_data.private_image_data.get(&image_handle).is_none());
+    drop(private_data);
+
+    drop(test_lock);
+  }
+
+  #[test]
+  fn unload_non_started_image_should_unload_the_image() {
+    let test_lock = test_support::GLOBAL_STATE_TEST_LOCK.lock();
+
+    unsafe {
+      test_support::init_test_gcd(None);
+      test_support::init_test_protocol_db();
+      init_system_table();
+      init_test_image_support();
+    }
+
+    let mut test_file = File::open(test_collateral!("RustImageTestDxe.efi")).expect("failed to open test file.");
+    let mut image: Vec<u8> = Vec::new();
+    test_file.read_to_end(&mut image).expect("failed to read test file");
+
+    let mut image_handle: efi::Handle = core::ptr::null_mut();
+    let status = load_image(
+      false.into(),
+      uefi_protocol_db_lib::DXE_CORE_HANDLE,
+      core::ptr::null_mut(),
+      image.as_mut_ptr() as *mut c_void,
+      image.len(),
+      core::ptr::addr_of_mut!(image_handle),
+    );
+    assert_eq!(status, efi::Status::SUCCESS);
+
+    let status = unload_image(image_handle);
+    assert_eq!(status, efi::Status::SUCCESS);
+
+    let private_data = PRIVATE_IMAGE_DATA.lock();
+    assert!(private_data.private_image_data.get(&image_handle).is_none());
+    drop(private_data);
+
+    drop(test_lock);
+  }
+
+  #[test]
+  fn get_buffer_by_file_path_should_fail_if_no_file_support() {
+    let test_lock = test_support::GLOBAL_STATE_TEST_LOCK.lock();
+
+    unsafe {
+      test_support::init_test_gcd(None);
+      test_support::init_test_protocol_db();
+      init_system_table();
+      init_test_image_support();
+    }
+
+    assert_eq!(get_buffer_by_file_path(true, core::ptr::null_mut()), Err(efi::Status::INVALID_PARAMETER));
+
+    //build a device path as a byte array for the test.
+    let mut device_path_bytes = [
+      efi::protocols::device_path::TYPE_MEDIA,
+      4,   // Media::FilePath
+      0x8, //length[0]
+      0x0, //length[1]
+      0x41,
+      0x00, //'A' (as CHAR16)
+      0x00,
+      0x00, //NULL (as CHAR16)
+      4,    // Media::FilePath
+      0x8,  //length[0]
+      0x0,  //length[1]
+      0x42,
+      0x00, //'B' (as CHAR16)
+      0x00,
+      0x00, //NULL (as CHAR16)
+      4,    // Media::FilePath
+      0x8,  //length[0]
+      0x0,  //length[1]
+      0x43,
+      0x00, //'C' (as CHAR16)
+      0x00,
+      0x00, //NULL (as CHAR16)
+      efi::protocols::device_path::TYPE_END,
+      efi::protocols::device_path::End::SUBTYPE_ENTIRE,
+      0x4,  //length[0]
+      0x00, //length[1]
+    ];
+    let device_path_ptr = device_path_bytes.as_mut_ptr() as *mut efi::protocols::device_path::Protocol;
+
+    assert_eq!(get_buffer_by_file_path(true, device_path_ptr), Err(efi::Status::NOT_FOUND));
+
+    drop(test_lock);
+  }
+
+  // mock file support.
+  extern "efiapi" fn file_read(
+    _this: *mut efi::protocols::file::Protocol,
+    buffer_size: *mut usize,
+    buffer: *mut c_void,
+  ) -> efi::Status {
+    let mut test_file = File::open(test_collateral!("RustImageTestDxe.efi")).expect("failed to open test file.");
+    unsafe {
+      let slice = core::slice::from_raw_parts_mut(buffer as *mut u8, *buffer_size);
+      let read_bytes = test_file.read(slice).unwrap();
+      buffer_size.write(read_bytes);
+    }
+    efi::Status::SUCCESS
+  }
+
+  extern "efiapi" fn file_close(_this: *mut efi::protocols::file::Protocol) -> efi::Status {
+    efi::Status::SUCCESS
+  }
+
+  extern "efiapi" fn file_info(
+    _this: *mut efi::protocols::file::Protocol,
+    _prot: *mut efi::Guid,
+    size: *mut usize,
+    buffer: *mut c_void,
+  ) -> efi::Status {
+    let test_file = File::open(test_collateral!("RustImageTestDxe.efi")).expect("failed to open test file.");
+    let file_info = efi::protocols::file::Info {
+      size: core::mem::size_of::<efi::protocols::file::Info>() as u64,
+      file_size: test_file.metadata().unwrap().len(),
+      physical_size: test_file.metadata().unwrap().len(),
+      create_time: Default::default(),
+      last_access_time: Default::default(),
+      modification_time: Default::default(),
+      attribute: 0,
+      file_name: [0; 0],
+    };
+    let file_info_ptr = Box::into_raw(Box::new(file_info));
+
+    let mut status = efi::Status::SUCCESS;
+    unsafe {
+      if *size >= (*file_info_ptr).size.try_into().unwrap() {
+        core::ptr::copy(file_info_ptr, buffer as *mut efi::protocols::file::Info, 1);
+      } else {
+        status = efi::Status::BUFFER_TOO_SMALL;
+      }
+      size.write((*file_info_ptr).size.try_into().unwrap());
+    }
+
+    status
+  }
+
+  extern "efiapi" fn file_open(
+    _this: *mut efi::protocols::file::Protocol,
+    new_handle: *mut *mut efi::protocols::file::Protocol,
+    _filename: *mut efi::Char16,
+    _open_mode: u64,
+    _attributes: u64,
+  ) -> efi::Status {
+    let file_ptr = get_file_protocol_mock();
+    unsafe {
+      new_handle.write(file_ptr);
+    }
+    efi::Status::SUCCESS
+  }
+
+  extern "efiapi" fn file_set_position(_this: *mut efi::protocols::file::Protocol, _pos: u64) -> efi::Status {
+    efi::Status::SUCCESS
+  }
+
+  extern "efiapi" fn unimplemented_extern() {
+    unimplemented!();
+  }
+
+  fn get_file_protocol_mock() -> *mut efi::protocols::file::Protocol {
+    // mock file interface
+    let file = efi::protocols::file::Protocol {
+      revision: efi::protocols::file::LATEST_REVISION,
+      open: file_open,
+      close: file_close,
+      delete: unsafe { core::mem::transmute(unimplemented_extern as extern "efiapi" fn()) },
+      read: file_read,
+      write: unsafe { core::mem::transmute(unimplemented_extern as extern "efiapi" fn()) },
+      get_position: unsafe { core::mem::transmute(unimplemented_extern as extern "efiapi" fn()) },
+      set_position: file_set_position,
+      get_info: file_info,
+      set_info: unsafe { core::mem::transmute(unimplemented_extern as extern "efiapi" fn()) },
+      flush: unsafe { core::mem::transmute(unimplemented_extern as extern "efiapi" fn()) },
+      open_ex: unsafe { core::mem::transmute(unimplemented_extern as extern "efiapi" fn()) },
+      read_ex: unsafe { core::mem::transmute(unimplemented_extern as extern "efiapi" fn()) },
+      write_ex: unsafe { core::mem::transmute(unimplemented_extern as extern "efiapi" fn()) },
+      flush_ex: unsafe { core::mem::transmute(unimplemented_extern as extern "efiapi" fn()) },
+    };
+    //deliberately leak for simplicity.
+    Box::into_raw(Box::new(file))
+  }
+
+  //build a "root device path". Note that for simplicity, this doesn't model a typical device path which would be
+  //more complex than this.
+  const ROOT_DEVICE_PATH_BYTES: [u8; 12] = [
+    efi::protocols::device_path::TYPE_MEDIA,
+    4,   // Media::FilePath
+    0x8, //length[0]
+    0x0, //length[1]
+    0x41,
+    0x00, //'A' (as CHAR16)
+    0x00,
+    0x00, //NULL (as CHAR16)
+    efi::protocols::device_path::TYPE_END,
+    efi::protocols::device_path::End::SUBTYPE_ENTIRE,
+    0x4,  //length[0]
+    0x00, //length[1]
+  ];
+
+  //build a full device path (note: not intended to be necessarily what would happen on a real system, which would
+  //potentially have a larger device path e.g. with hardware nodes etc).
+  const FULL_DEVICE_PATH_BYTES: [u8; 28] = [
+    efi::protocols::device_path::TYPE_MEDIA,
+    4,   // Media::FilePath
+    0x8, //length[0]
+    0x0, //length[1]
+    0x41,
+    0x00, //'A' (as CHAR16)
+    0x00,
+    0x00, //NULL (as CHAR16)
+    efi::protocols::device_path::TYPE_MEDIA,
+    4,   // Media::FilePath
+    0x8, //length[0]
+    0x0, //length[1]
+    0x42,
+    0x00, //'B' (as CHAR16)
+    0x00,
+    0x00, //NULL (as CHAR16)
+    efi::protocols::device_path::TYPE_MEDIA,
+    4,   // Media::FilePath
+    0x8, //length[0]
+    0x0, //length[1]
+    0x43,
+    0x00, //'C' (as CHAR16)
+    0x00,
+    0x00, //NULL (as CHAR16)
+    efi::protocols::device_path::TYPE_END,
+    efi::protocols::device_path::End::SUBTYPE_ENTIRE,
+    0x4,  //length[0]
+    0x00, //length[1]
+  ];
+
+  #[test]
+  fn get_buffer_by_file_path_should_work_over_sfs() {
+    let test_lock = test_support::GLOBAL_STATE_TEST_LOCK.lock();
+
+    unsafe {
+      test_support::init_test_gcd(None);
+      test_support::init_test_protocol_db();
+      init_system_table();
+      init_test_image_support();
+    }
+
+    extern "efiapi" fn open_volume(
+      _this: *mut efi::protocols::simple_file_system::Protocol,
+      root: *mut *mut efi::protocols::file::Protocol,
+    ) -> efi::Status {
+      let file_ptr = get_file_protocol_mock();
+      unsafe {
+        root.write(file_ptr);
+      }
+      efi::Status::SUCCESS
+    }
+
+    //build a mock SFS protocol.
+    let protocol = efi::protocols::simple_file_system::Protocol {
+      revision: efi::protocols::simple_file_system::REVISION,
+      open_volume: open_volume,
+    };
+
+    //Note: deliberate leak for simplicity.
+    let protocol_ptr = Box::into_raw(Box::new(protocol));
+    let handle = core_install_protocol_interface(
+      None,
+      efi::protocols::simple_file_system::PROTOCOL_GUID,
+      protocol_ptr as *mut c_void,
+    )
+    .unwrap();
+
+    //deliberate leak
+    let root_device_path_ptr =
+      Box::into_raw(Box::new(ROOT_DEVICE_PATH_BYTES)) as *mut u8 as *mut efi::protocols::device_path::Protocol;
+
+    core_install_protocol_interface(
+      Some(handle),
+      efi::protocols::device_path::PROTOCOL_GUID,
+      root_device_path_ptr as *mut c_void,
+    )
+    .unwrap();
+
+    let mut full_device_path_bytes = FULL_DEVICE_PATH_BYTES.clone();
+
+    let device_path_ptr = full_device_path_bytes.as_mut_ptr() as *mut efi::protocols::device_path::Protocol;
+
+    let mut test_file = File::open(test_collateral!("RustImageTestDxe.efi")).expect("failed to open test file.");
+    let mut image: Vec<u8> = Vec::new();
+    test_file.read_to_end(&mut image).expect("failed to read test file");
+
+    assert_eq!(get_buffer_by_file_path(true, device_path_ptr), Ok(image));
+
+    drop(test_lock);
+  }
+
+  #[test]
+  fn get_buffer_by_file_path_should_work_over_load_protocol() {
+    let test_lock = test_support::GLOBAL_STATE_TEST_LOCK.lock();
+
+    unsafe {
+      test_support::init_test_gcd(None);
+      test_support::init_test_protocol_db();
+      init_system_table();
+      init_test_image_support();
+    }
+
+    extern "efiapi" fn load_file(
+      _this: *mut LoadFileProtocol,
+      _file_path: *mut efi::protocols::device_path::Protocol,
+      _boot_policy: bool,
+      buffer_size: *mut usize,
+      buffer: *mut c_void,
+    ) -> efi::Status {
+      let mut test_file = File::open(test_collateral!("RustImageTestDxe.efi")).expect("failed to open test file.");
+      let status;
+      unsafe {
+        if *buffer_size < test_file.metadata().unwrap().len() as usize {
+          buffer_size.write(test_file.metadata().unwrap().len() as usize);
+          status = efi::Status::BUFFER_TOO_SMALL;
+        } else {
+          let slice = core::slice::from_raw_parts_mut(buffer as *mut u8, *buffer_size);
+          let read_bytes = test_file.read(slice).unwrap();
+          buffer_size.write(read_bytes);
+          status = efi::Status::SUCCESS;
+        }
+      }
+      status
+    }
+
+    let protocol = LoadFileProtocol { load_file: load_file };
+    //Note: deliberate leak for simplicity.
+    let protocol_ptr = Box::into_raw(Box::new(protocol));
+    let handle = core_install_protocol_interface(None, EFI_LOAD_FILE_PROTOCOL, protocol_ptr as *mut c_void).unwrap();
+
+    //deliberate leak
+    let root_device_path_ptr =
+      Box::into_raw(Box::new(ROOT_DEVICE_PATH_BYTES)) as *mut u8 as *mut efi::protocols::device_path::Protocol;
+
+    core_install_protocol_interface(
+      Some(handle),
+      efi::protocols::device_path::PROTOCOL_GUID,
+      root_device_path_ptr as *mut c_void,
+    )
+    .unwrap();
+
+    let mut full_device_path_bytes = FULL_DEVICE_PATH_BYTES.clone();
+
+    let device_path_ptr = full_device_path_bytes.as_mut_ptr() as *mut efi::protocols::device_path::Protocol;
+
+    let mut test_file = File::open(test_collateral!("RustImageTestDxe.efi")).expect("failed to open test file.");
+    let mut image: Vec<u8> = Vec::new();
+    test_file.read_to_end(&mut image).expect("failed to read test file");
+
+    assert_eq!(get_buffer_by_file_path(true, device_path_ptr), Ok(image));
+
+    drop(test_lock);
+  }
 }

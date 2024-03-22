@@ -1052,6 +1052,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   }
 
   QemuQ35Pkg/RustFfiImageTestDxe/RustFfiImageTestDxe.inf
+  QemuQ35Pkg/RustImageTestDxe/RustImageTestDxe.inf
 
   MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
   MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf

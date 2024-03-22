@@ -1,0 +1,21 @@
+### @file
+# Simple DXE driver implementation designed to facilitate image unit test.
+#
+# Copyright (C) Microsoft Corporation. All rights reserved.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+###
+
+[Defines]
+  INF_VERSION               = 1.27
+  BASE_NAME                 = RustImageTestDxe
+  FILE_GUID                 = F7507F11-6A53-4108-8C8A-193F38E54BAB
+  MODULE_TYPE               = DXE_DRIVER
+  RUST_MODULE               = TRUE
+
+[Sources]
+  Cargo.toml
+
+[Depex]
+  TRUE

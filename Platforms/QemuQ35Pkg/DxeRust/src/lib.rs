@@ -8,6 +8,10 @@
 #![feature(pointer_byte_offsets)]
 use uefi_gcd_lib::gcd::SpinLockedGcd;
 
+#[cfg(test)]
+#[macro_use]
+pub mod test_support;
+
 extern crate alloc;
 pub mod allocator;
 pub mod dispatcher;
@@ -26,9 +30,6 @@ pub mod physical_memory;
 pub mod protocols;
 pub mod runtime;
 pub mod systemtables;
-
-#[cfg(test)]
-pub mod test_support;
 
 pub static GCD: SpinLockedGcd = SpinLockedGcd::new(Some(events::gcd_map_change));
 

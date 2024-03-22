@@ -2,6 +2,12 @@ use crate::{protocols::PROTOCOL_DB, GCD};
 use r_efi::efi;
 use r_pi::dxe_services::GcdMemoryType;
 
+macro_rules! test_collateral {
+  ($fname:expr) => {
+    concat!(env!("CARGO_MANIFEST_DIR"), "/resources/test/", $fname)
+  };
+}
+
 /// A global mutex that can be used for tests to synchronize on access to global state.
 /// Usage model is for tests that affect or assert things against global state to acquire this mutex to ensure that
 /// other tests run in parallel do not modify or interact with global state non-deterministically.
