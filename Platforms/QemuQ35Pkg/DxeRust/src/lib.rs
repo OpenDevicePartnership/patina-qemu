@@ -27,6 +27,9 @@ pub mod protocols;
 pub mod runtime;
 pub mod systemtables;
 
+#[cfg(test)]
+pub mod test_support;
+
 pub static GCD: SpinLockedGcd = SpinLockedGcd::new(Some(events::gcd_map_change));
 
 #[cfg(target_os = "uefi")]

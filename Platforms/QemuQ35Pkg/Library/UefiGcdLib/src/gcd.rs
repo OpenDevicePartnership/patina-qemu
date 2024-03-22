@@ -1071,6 +1071,15 @@ impl SpinLockedGcd {
     }
   }
 
+  /// Resets the GCD to default state. Intended for test scenarios.
+  pub unsafe fn reset(&self) {
+    let (mut mem, mut io) = (self.memory.lock(), self.io.lock());
+    mem.maximum_address = 0;
+    mem.memory_blocks = None;
+    io.maximum_address = 0;
+    io.io_blocks = None;
+  }
+
   /// Acquires lock and delegates to [`GCD::init`] and [`IoGCD::init`]
   pub fn init(&self, memory_address_bits: u32, io_address_bits: u32) {
     self.memory.lock().init(memory_address_bits);

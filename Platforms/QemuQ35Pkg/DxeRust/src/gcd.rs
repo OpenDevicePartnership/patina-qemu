@@ -294,7 +294,7 @@ mod tests {
     hob::{self, header, HobList},
   };
 
-  use crate::{gcd::init_gcd, GCD};
+  use crate::{gcd::init_gcd, test_support, GCD};
 
   use super::{add_hob_allocations_to_gcd, add_hob_resource_descriptors_to_gcd};
 
@@ -632,8 +632,12 @@ mod tests {
 
   #[test]
   fn test_full_gcd_init() {
-    // Note: these tests interact with global GCD state, so they cannot be run in parallel as would be typical for rust
-    // unit tests.
+    //ensure this test has exclusive access to GCD state.
+    let test_lock = test_support::GLOBAL_STATE_TEST_LOCK.lock();
+    unsafe {
+      GCD.reset();
+    }
+
     let physical_hob_list = build_hob_list();
     let (free_memory_start, free_memory_size) = init_gcd_should_init_gcd(physical_hob_list, physical_hob_list as u64);
 
@@ -648,5 +652,6 @@ mod tests {
     );
 
     add_allocations_should_add_allocations(&hob_list, physical_hob_list as u64);
+    drop(test_lock);
   }
 }

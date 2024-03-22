@@ -567,6 +567,15 @@ impl SpinLockedProtocolDb {
     SpinLockedProtocolDb { inner: tpl_lock::TplMutex::new(efi::TPL_NOTIFY, ProtocolDb::new(), "ProtocolLock") }
   }
 
+  pub unsafe fn reset(&self) {
+    let mut inner = self.inner.lock();
+    inner.handles.clear();
+    inner.notifications.clear();
+    inner.hash_new_handles = false;
+    inner.next_handle = 1;
+    inner.next_registration = 1;
+  }
+
   fn lock(&self) -> tpl_lock::TplGuard<ProtocolDb> {
     self.inner.lock()
   }

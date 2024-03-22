@@ -221,6 +221,8 @@ impl UefiAllocator {
       )
       .unwrap_or_else(|err| panic!("Allocation layout error: {:#?}", err));
 
+    //TODO: trusting that "buffer" is legit is pretty naive - but performant. Presently the allocator doesn't have
+    //tracking mechanisms that permit the validation of the pointer (hence the unsafe).
     let allocation_info: *mut AllocationInfo = ((buffer as usize) - offset) as *mut AllocationInfo;
 
     //must be true for any pool allocation
