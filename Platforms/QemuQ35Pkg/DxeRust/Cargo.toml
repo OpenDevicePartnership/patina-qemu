@@ -37,6 +37,9 @@ volatile = {workspace = true}
 SerialPrintDxe = {workspace = true}
 TplLock = {workspace = true}
 
+[dev-dependencies]
+SerialPrintDxe = {workspace=true, features=["std"]}
+
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 uart_16550 = {workspace = true}
 x86_64 = {workspace = true}

@@ -11,10 +11,7 @@ use crate::{
   events::{signal_event, EVENT_DB},
 };
 
-// TODO: Remove this after SerialPrintDxe is updated to handle std.
-#[cfg(not(test))]
 use serial_print_dxe::println;
-
 pub static PROTOCOL_DB: SpinLockedProtocolDb = SpinLockedProtocolDb::new();
 
 pub fn core_install_protocol_interface(

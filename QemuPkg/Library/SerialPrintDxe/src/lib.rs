@@ -9,22 +9,34 @@
 //! SPDX-License-Identifier: BSD-2-Clause-Patent
 //!
 #![no_std]
+#[cfg(not(feature = "std"))]
 pub mod serial_port_print;
 
-#[macro_export]
-macro_rules! print {
-  ($fmt:expr) => ($crate::serial_print!($fmt));
-  ($fmt:expr, $($arg:tt)*) => ($crate::serial_print!($fmt, $($arg)*));
-}
+#[cfg(feature = "std")]
+extern crate std;
 
-#[macro_export]
-macro_rules! println {
-  ($fmt:expr) => ($crate::serial_println!($fmt));
-  ($fmt:expr, $($arg:tt)*) => ($crate::serial_println!($fmt, $($arg)*));
+#[cfg(feature = "std")]
+pub use {std::print, std::println};
+
+#[cfg(not(feature = "std"))]
+mod no_std_debug {
+  #[macro_export]
+  macro_rules! print {
+    ($fmt:expr) => ($crate::serial_print!($fmt));
+    ($fmt:expr, $($arg:tt)*) => ($crate::serial_print!($fmt, $($arg)*));
+  }
+
+  #[macro_export]
+  macro_rules! println {
+    ($fmt:expr) => ($crate::serial_println!($fmt));
+    ($fmt:expr, $($arg:tt)*) => ($crate::serial_println!($fmt, $($arg)*));
+  }
 }
 
 #[cfg(test)]
 mod tests {
+
+  use crate::print;
 
   #[test]
   fn test_print() {

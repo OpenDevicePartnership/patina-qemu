@@ -21,7 +21,6 @@ use crate::{
   systemtables::EfiSystemTable,
 };
 
-#[cfg(not(test))]
 use serial_print_dxe::println;
 
 use corosensei::{
