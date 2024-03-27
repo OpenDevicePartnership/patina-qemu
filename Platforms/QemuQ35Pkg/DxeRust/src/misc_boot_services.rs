@@ -22,25 +22,16 @@ static PRE_EXIT_BOOT_SERVICES_SIGNAL: AtomicBool = AtomicBool::new(false);
 
 // TODO [BEGIN]: LOCAL (TEMP) GUID DEFINITIONS (MOVE LATER)
 
-// These will likely get moved to different places. Pre-Exit Boot Services and Before Exit Boot Services are defined
-// in the UEFI Specification (so r-efi). Pre-exit boot services is defined in Project Mu. DXE Core GUID is the GUID of
-// this DXE Core instance. Exit Boot Services Failed is a edk2 customization as far as I can tell.
+// These will likely get moved to different places. Pre-exit boot services is defined in Project Mu. DXE Core GUID is
+// the GUID of this DXE Core instance. Exit Boot Services Failed is a edk2 customization as far as I can tell.
 
 // { 0x5f1d7e16, 0x784a, 0x4da2, { 0xb0, 0x84, 0xf8, 0x12, 0xf2, 0x3a, 0x8d, 0xce }}
 pub const PRE_EBS_GUID: efi::Guid =
   efi::Guid::from_fields(0x5f1d7e16, 0x784a, 0x4da2, 0xb0, 0x84, &[0xf8, 0x12, 0xf2, 0x3a, 0x8d, 0xce]);
 
-// { 0x8BE0E274, 0x3970, 0x4B44, { 0x80, 0xC5, 0x1A, 0xB9, 0x50, 0x2F, 0x3B, 0xFC }}
-pub const BEFORE_EBS_GUID: efi::Guid =
-  efi::Guid::from_fields(0x8be0e274, 0x3970, 0x4b44, 0x80, 0xc5, &[0x1a, 0xb9, 0x50, 0x2f, 0x3b, 0xfc]);
-
 // { 0x4f6c5507, 0x232f, 0x4787, { 0xb9, 0x5e, 0x72, 0xf8, 0x62, 0x49, 0xc, 0xb1 } }
 pub const EBS_FAILED_GUID: efi::Guid =
   efi::Guid::from_fields(0x4f6c5507, 0x232f, 0x4787, 0xb9, 0x5e, &[0x72, 0xf8, 0x62, 0x49, 0x0c, 0xb1]);
-
-// { 0x27ABF055, 0xB1B8, 0x4C26, { 0x80, 0x48, 0x74, 0x8F, 0x37, 0xBA, 0xA2, 0xDF }}
-pub const EBS_GUID: efi::Guid =
-  efi::Guid::from_fields(0x27ABF055, 0xB1B8, 0x4C26, 0x80, 0x48, &[0x74, 0x8f, 0x37, 0xba, 0xa2, 0xdf]);
 
 // DxeCore module GUID (23C9322F-2AF2-476A-BC4C-26BC88266C71)
 pub const DXE_CORE_GUID: efi::Guid =
@@ -248,7 +239,7 @@ pub extern "efiapi" fn exit_boot_services(_handle: efi::Handle, map_key: usize) 
   }
 
   // Signal the event group before exit boot services
-  EVENT_DB.signal_group(BEFORE_EBS_GUID);
+  EVENT_DB.signal_group(efi::EVENT_GROUP_BEFORE_EXIT_BOOT_SERVICES);
 
   // Disable the timer
   match PROTOCOL_DB.locate_protocol(timer::TIMER_ARCH_PROTOCOL_GUID) {
@@ -268,7 +259,7 @@ pub extern "efiapi" fn exit_boot_services(_handle: efi::Handle, map_key: usize) 
   }
 
   // Signal Exit Boot Services
-  EVENT_DB.signal_group(EBS_GUID);
+  EVENT_DB.signal_group(efi::EVENT_GROUP_EXIT_BOOT_SERVICES);
 
   // Initialize StatusCode and send EFI_SW_BS_PC_EXIT_BOOT_SERVICES
   match PROTOCOL_DB.locate_protocol(status_code::PROTOCOL) {

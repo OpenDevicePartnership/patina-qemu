@@ -28,26 +28,6 @@ use corosensei::{
   Coroutine, CoroutineResult, Yielder,
 };
 
-//TODO: the following protocol definitions should be pushed to r_efi
-const EFI_LOAD_FILE_PROTOCOL: efi::Guid =
-  efi::Guid::from_fields(0x56EC3091, 0x954C, 0x11d2, 0x8e, 0x3f, &[0x00, 0xa0, 0xc9, 0x69, 0x72, 0x3b]);
-
-const EFI_LOAD_FILE2_PROTOCOL: efi::Guid =
-  efi::Guid::from_fields(0x4006c0c1, 0xfcb3, 0x403e, 0x99, 0x6d, &[0x4a, 0x6c, 0x87, 0x24, 0xe0, 0x6d]);
-
-type LoadFile = extern "efiapi" fn(
-  this: *mut LoadFileProtocol,
-  file_path: *mut efi::protocols::device_path::Protocol,
-  boot_policy: bool,
-  buffer_size: *mut usize,
-  buffer: *mut c_void,
-) -> efi::Status;
-
-struct LoadFileProtocol {
-  load_file: LoadFile,
-}
-//end r_efi protocols
-
 pub const EFI_IMAGE_SUBSYSTEM_EFI_APPLICATION: u16 = 10;
 pub const EFI_IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER: u16 = 11;
 pub const EFI_IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER: u16 = 12;
@@ -340,12 +320,15 @@ fn get_buffer_by_file_path(
   }
 
   if boot_policy {
-    if let Ok(buffer) = get_file_buffer_from_load_protocol(EFI_LOAD_FILE2_PROTOCOL, false, file_path) {
+    if let Ok(buffer) = get_file_buffer_from_load_protocol(efi::protocols::load_file2::PROTOCOL_GUID, false, file_path)
+    {
       return Ok(buffer);
     }
   }
 
-  if let Ok(buffer) = get_file_buffer_from_load_protocol(EFI_LOAD_FILE_PROTOCOL, boot_policy, file_path) {
+  if let Ok(buffer) =
+    get_file_buffer_from_load_protocol(efi::protocols::load_file::PROTOCOL_GUID, boot_policy, file_path)
+  {
     return Ok(buffer);
   }
 
@@ -360,8 +343,11 @@ fn get_file_buffer_from_sfs(file_path: *mut efi::protocols::device_path::Protoco
 
   for node in unsafe { DevicePathWalker::new(remaining_file_path) } {
     match node.header.r#type {
-      //TODO: Subtype MEDIA_FILE_PATH_DP = 4 not defined in r_efi yet.
-      efi::protocols::device_path::TYPE_MEDIA if node.header.sub_type == 4 => (), //proceed on valid path node
+      efi::protocols::device_path::TYPE_MEDIA
+        if node.header.sub_type == efi::protocols::device_path::Media::SUBTYPE_FILE_PATH =>
+      {
+        ()
+      } //proceed on valid path node
       efi::protocols::device_path::TYPE_END => break,
       _ => Err(efi::Status::UNSUPPORTED)?,
     }
@@ -381,25 +367,26 @@ fn get_file_buffer_from_load_protocol(
   boot_policy: bool,
   file_path: *mut efi::protocols::device_path::Protocol,
 ) -> Result<Vec<u8>, efi::Status> {
-  if !(protocol == EFI_LOAD_FILE_PROTOCOL || protocol == EFI_LOAD_FILE2_PROTOCOL) {
+  if !(protocol == efi::protocols::load_file::PROTOCOL_GUID || protocol == efi::protocols::load_file2::PROTOCOL_GUID) {
     Err(efi::Status::INVALID_PARAMETER)?;
   }
 
-  if protocol == EFI_LOAD_FILE2_PROTOCOL && boot_policy {
+  if protocol == efi::protocols::load_file2::PROTOCOL_GUID && boot_policy {
     Err(efi::Status::INVALID_PARAMETER)?;
   }
 
   let (remaining_file_path, handle) = core_locate_device_path(protocol, file_path)?;
 
   let load_file = PROTOCOL_DB.get_interface_for_handle(handle, protocol)?;
-  let load_file = unsafe { (load_file as *mut LoadFileProtocol).as_mut().ok_or(efi::Status::UNSUPPORTED)? };
+  let load_file =
+    unsafe { (load_file as *mut efi::protocols::load_file::Protocol).as_mut().ok_or(efi::Status::UNSUPPORTED)? };
 
   //determine buffer size.
   let mut buffer_size = 0;
   match (load_file.load_file)(
     load_file,
     remaining_file_path,
-    boot_policy,
+    boot_policy.into(),
     core::ptr::addr_of_mut!(buffer_size),
     core::ptr::null_mut(),
   ) {
@@ -412,7 +399,7 @@ fn get_file_buffer_from_load_protocol(
   match (load_file.load_file)(
     load_file,
     remaining_file_path,
-    boot_policy,
+    boot_policy.into(),
     core::ptr::addr_of_mut!(buffer_size),
     file_buffer.as_mut_ptr() as *mut c_void,
   ) {
@@ -860,7 +847,7 @@ pub fn init_image_support(hob_list: &HobList, system_table: &mut EfiSystemTable)
 mod tests {
   use super::{get_buffer_by_file_path, init_image_support, load_image};
   use crate::{
-    image::{start_image, unload_image, LoadFileProtocol, EFI_LOAD_FILE_PROTOCOL, PRIVATE_IMAGE_DATA},
+    image::{start_image, unload_image, PRIVATE_IMAGE_DATA},
     protocols::core_install_protocol_interface,
     systemtables::{init_system_table, SYSTEM_TABLE},
     test_support,
@@ -1111,23 +1098,23 @@ mod tests {
     //build a device path as a byte array for the test.
     let mut device_path_bytes = [
       efi::protocols::device_path::TYPE_MEDIA,
-      4,   // Media::FilePath
+      efi::protocols::device_path::Media::SUBTYPE_FILE_PATH,
       0x8, //length[0]
       0x0, //length[1]
       0x41,
       0x00, //'A' (as CHAR16)
       0x00,
       0x00, //NULL (as CHAR16)
-      4,    // Media::FilePath
-      0x8,  //length[0]
-      0x0,  //length[1]
+      efi::protocols::device_path::Media::SUBTYPE_FILE_PATH,
+      0x8, //length[0]
+      0x0, //length[1]
       0x42,
       0x00, //'B' (as CHAR16)
       0x00,
       0x00, //NULL (as CHAR16)
-      4,    // Media::FilePath
-      0x8,  //length[0]
-      0x0,  //length[1]
+      efi::protocols::device_path::Media::SUBTYPE_FILE_PATH,
+      0x8, //length[0]
+      0x0, //length[1]
       0x43,
       0x00, //'C' (as CHAR16)
       0x00,
@@ -1244,7 +1231,7 @@ mod tests {
   //more complex than this.
   const ROOT_DEVICE_PATH_BYTES: [u8; 12] = [
     efi::protocols::device_path::TYPE_MEDIA,
-    4,   // Media::FilePath
+    efi::protocols::device_path::Media::SUBTYPE_FILE_PATH,
     0x8, //length[0]
     0x0, //length[1]
     0x41,
@@ -1261,7 +1248,7 @@ mod tests {
   //potentially have a larger device path e.g. with hardware nodes etc).
   const FULL_DEVICE_PATH_BYTES: [u8; 28] = [
     efi::protocols::device_path::TYPE_MEDIA,
-    4,   // Media::FilePath
+    efi::protocols::device_path::Media::SUBTYPE_FILE_PATH,
     0x8, //length[0]
     0x0, //length[1]
     0x41,
@@ -1269,7 +1256,7 @@ mod tests {
     0x00,
     0x00, //NULL (as CHAR16)
     efi::protocols::device_path::TYPE_MEDIA,
-    4,   // Media::FilePath
+    efi::protocols::device_path::Media::SUBTYPE_FILE_PATH,
     0x8, //length[0]
     0x0, //length[1]
     0x42,
@@ -1277,7 +1264,7 @@ mod tests {
     0x00,
     0x00, //NULL (as CHAR16)
     efi::protocols::device_path::TYPE_MEDIA,
-    4,   // Media::FilePath
+    efi::protocols::device_path::Media::SUBTYPE_FILE_PATH,
     0x8, //length[0]
     0x0, //length[1]
     0x43,
@@ -1363,9 +1350,9 @@ mod tests {
     }
 
     extern "efiapi" fn load_file(
-      _this: *mut LoadFileProtocol,
+      _this: *mut efi::protocols::load_file::Protocol,
       _file_path: *mut efi::protocols::device_path::Protocol,
-      _boot_policy: bool,
+      _boot_policy: efi::Boolean,
       buffer_size: *mut usize,
       buffer: *mut c_void,
     ) -> efi::Status {
@@ -1385,10 +1372,12 @@ mod tests {
       status
     }
 
-    let protocol = LoadFileProtocol { load_file: load_file };
+    let protocol = efi::protocols::load_file::Protocol { load_file };
     //Note: deliberate leak for simplicity.
     let protocol_ptr = Box::into_raw(Box::new(protocol));
-    let handle = core_install_protocol_interface(None, EFI_LOAD_FILE_PROTOCOL, protocol_ptr as *mut c_void).unwrap();
+    let handle =
+      core_install_protocol_interface(None, efi::protocols::load_file::PROTOCOL_GUID, protocol_ptr as *mut c_void)
+        .unwrap();
 
     //deliberate leak
     let root_device_path_ptr =

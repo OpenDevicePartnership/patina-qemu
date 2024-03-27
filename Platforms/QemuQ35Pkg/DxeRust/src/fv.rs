@@ -578,7 +578,7 @@ impl FvPiWgDevicePath {
       fv_dev_path: MediaFwVolDevicePath {
         header: efi::protocols::device_path::Protocol {
           r#type: efi::protocols::device_path::TYPE_MEDIA,
-          sub_type: 0x7, //MEDIA_PIWG_FW_VOL_DP not defined in r_efi.
+          sub_type: efi::protocols::device_path::Media::SUBTYPE_PIWG_FIRMWARE_VOLUME,
           length: [
             (mem::size_of::<MediaFwVolDevicePath>() & 0xff) as u8,
             ((mem::size_of::<MediaFwVolDevicePath>() >> 8) & 0xff) as u8,

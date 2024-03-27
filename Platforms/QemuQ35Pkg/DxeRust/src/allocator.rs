@@ -14,37 +14,6 @@ use uefi_rust_allocator_lib::{uefi_allocator::UefiAllocator, AllocationStrategy}
 
 const UEFI_PAGE_SIZE: usize = 0x1000; //per UEFI spec.
 
-// TODO [BEGIN] - Move to r-efi later
-//
-// Note: UEFI spec 2.8 and following:
-//
-// Specific-purpose memory (SPM). The memory is earmarked for
-// specific purposes such as for specific device drivers or applications.
-// The SPM attribute serves as a hint to the OS to avoid allocating this
-// memory for core OS data or code that can not be relocated.
-//
-#[allow(dead_code)]
-const MEMORY_SP: u64 = 0x0000000000040000;
-
-//
-// If this flag is set, the memory region is capable of being
-// protected with the CPU's memory cryptographic
-// capabilities. If this flag is clear, the memory region is not
-// capable of being protected with the CPU's memory
-// cryptographic capabilities or the CPU does not support CPU
-// memory cryptographic capabilities.
-//
-#[allow(dead_code)]
-const MEMORY_CPU_CRYPTO: u64 = 0x0000000000080000;
-
-#[allow(dead_code)]
-const CACHE_ATTRIBUTE_MASK: u64 =
-  efi::MEMORY_UC | efi::MEMORY_WC | efi::MEMORY_WT | efi::MEMORY_WB | efi::MEMORY_UCE | efi::MEMORY_WP;
-const MEMORY_ACCESS_MASK: u64 = efi::MEMORY_RP | efi::MEMORY_XP | efi::MEMORY_RO;
-#[allow(dead_code)]
-const MEMORY_ATTRIBUTE_MASK: u64 = MEMORY_ACCESS_MASK | MEMORY_SP | MEMORY_CPU_CRYPTO;
-// TODO [END] - Move to r-efi later
-
 // Private tracking guid used to generate new handles for allocator tracking
 // {9D1FA6E9-0C86-4F7F-A99B-DD229C9B3893}
 const PRIVATE_ALLOCATOR_TRACKING_GUID: efi::Guid =
@@ -334,8 +303,7 @@ fn get_memory_map_descriptors() -> Vec<efi::MemoryDescriptor> {
 
           // Unaccepted. Note: this type is not allocatable, but might be created by agents other than the core directly
           // in the GCD.
-          // TODO: r_efi does not define efi::UNACCEPTED_MEMORY yet; so this is a temporary workaround
-          _ if descriptor.memory_type == GcdMemoryType::Unaccepted => Some(efi::PERSISTENT_MEMORY + 1),
+          _ if descriptor.memory_type == GcdMemoryType::Unaccepted => Some(efi::UNACCEPTED_MEMORY_TYPE),
           // Other memory types are ignored for purposes of the memory map
           _ => None,
         }
@@ -405,7 +373,7 @@ extern "efiapi" fn get_memory_map(
   // Rust will try to prevent an unaligned copy, given no one checks whether their points are aligned
   // treat the slice as a u8 slice and copy the bytes.
   for descriptor in efi_descriptors.iter_mut() {
-    descriptor.attribute = descriptor.attribute & !MEMORY_ACCESS_MASK;
+    descriptor.attribute = descriptor.attribute & !efi::MEMORY_ACCESS_MASK;
   }
   let efi_descriptors_ptr = efi_descriptors.as_ptr() as *mut u8;
 
@@ -424,7 +392,7 @@ extern "efiapi" fn get_memory_map(
 pub fn terminate_memory_map(map_key: usize) -> efi::Status {
   let mut mm_desc = get_memory_map_descriptors();
   for descriptor in mm_desc.iter_mut() {
-    descriptor.attribute = descriptor.attribute & !MEMORY_ACCESS_MASK;
+    descriptor.attribute = descriptor.attribute & !efi::MEMORY_ACCESS_MASK;
   }
   let mm_desc_size = mm_desc.len() * mem::size_of::<efi::MemoryDescriptor>();
   let mm_desc_bytes: &[u8] = unsafe { slice::from_raw_parts(mm_desc.as_ptr() as *const u8, mm_desc_size) };
