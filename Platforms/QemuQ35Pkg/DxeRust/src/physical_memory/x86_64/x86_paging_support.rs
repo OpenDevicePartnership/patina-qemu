@@ -67,7 +67,7 @@ impl GlobalPageTable {
     self.do_map(range, flags, false)?;
 
     // now that the table is constructed, write Cr3 to activate it.
-    let level_4_table_ptr = self.mapper.as_mut().unwrap().level_4_table() as *mut PageTable as u64;
+    let level_4_table_ptr = self.mapper.as_mut().unwrap().level_4_table() as *const PageTable as u64;
     let level_4_frame = PhysFrame::containing_address(PhysAddr::new(level_4_table_ptr));
     Cr3::write(level_4_frame, Cr3Flags::empty());
 

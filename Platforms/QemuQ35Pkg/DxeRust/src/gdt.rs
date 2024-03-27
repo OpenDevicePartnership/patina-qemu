@@ -18,7 +18,7 @@ lazy_static! {
       const STACK_SIZE: usize = 4096 * 5;
       static mut STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
-      VirtAddr::from_ptr(unsafe { &STACK }) + STACK_SIZE
+      VirtAddr::from_ptr(unsafe { &STACK }) + STACK_SIZE as u64
     };
     tss
   };
@@ -27,9 +27,9 @@ lazy_static! {
 lazy_static! {
   static ref GDT: (GlobalDescriptorTable, Selectors) = {
     let mut gdt = GlobalDescriptorTable::new();
-    let code_selector = gdt.add_entry(Descriptor::kernel_code_segment());
-    let data_selector = gdt.add_entry(Descriptor::kernel_data_segment());
-    let tss_selector = gdt.add_entry(Descriptor::tss_segment(&TSS));
+    let code_selector = gdt.append(Descriptor::kernel_code_segment());
+    let data_selector = gdt.append(Descriptor::kernel_data_segment());
+    let tss_selector = gdt.append(Descriptor::tss_segment(&TSS));
     (gdt, Selectors { code_selector, data_selector, tss_selector })
   };
 }
