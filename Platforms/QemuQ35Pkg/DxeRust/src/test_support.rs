@@ -1,6 +1,6 @@
 use crate::{protocols::PROTOCOL_DB, GCD};
+use mu_pi::dxe_services::GcdMemoryType;
 use r_efi::efi;
-use r_pi::dxe_services::GcdMemoryType;
 
 macro_rules! test_collateral {
   ($fname:expr) => {

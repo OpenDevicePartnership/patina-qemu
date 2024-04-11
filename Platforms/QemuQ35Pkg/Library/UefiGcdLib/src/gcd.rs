@@ -1,8 +1,8 @@
 use core::{mem, ptr};
 
 use alloc::{boxed::Box, slice, vec, vec::Vec};
+use mu_pi::{dxe_services, hob};
 use r_efi::efi;
-use r_pi::{dxe_services, hob};
 
 use crate::{ensure, error};
 

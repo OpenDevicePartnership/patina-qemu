@@ -1,6 +1,6 @@
 #![feature(allocator_api)]
 #![feature(slice_ptr_get)]
-use r_pi::dxe_services;
+use mu_pi::dxe_services;
 use uefi_gcd_lib::gcd::SpinLockedGcd;
 use uefi_rust_allocator_lib::fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator;
 

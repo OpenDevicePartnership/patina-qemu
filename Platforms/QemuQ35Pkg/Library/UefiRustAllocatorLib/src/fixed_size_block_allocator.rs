@@ -20,8 +20,8 @@ use core::{
   ptr::{self, slice_from_raw_parts_mut, NonNull},
 };
 use linked_list_allocator::{align_down_size, align_up_size};
+use mu_pi::dxe_services::GcdMemoryType;
 use r_efi::efi;
-use r_pi::dxe_services::GcdMemoryType;
 use uefi_gcd_lib::gcd::SpinLockedGcd;
 
 /// Type for describing errors that this implementation can produce.
@@ -88,7 +88,7 @@ impl Iterator for AllocatorIterator {
 /// # use core::alloc::Layout;
 /// # use std::alloc::System;
 /// # use std::alloc::GlobalAlloc;
-/// # use r_pi::dxe_services::GcdMemoryType;
+/// # use mu_pi::dxe_services::GcdMemoryType;
 ///
 /// use uefi_gcd_lib::gcd::SpinLockedGcd;
 /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
@@ -211,7 +211,7 @@ impl FixedSizeBlockAllocator {
   /// # use core::alloc::Layout;
   /// # use std::alloc::System;
   /// # use std::alloc::GlobalAlloc;
-  /// # use r_pi::dxe_services::GcdMemoryType;
+  /// # use mu_pi::dxe_services::GcdMemoryType;
   ///
   /// use uefi_gcd_lib::gcd::SpinLockedGcd;
   /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
@@ -281,7 +281,7 @@ impl FixedSizeBlockAllocator {
   /// # use core::alloc::Layout;
   /// # use std::alloc::System;
   /// # use std::alloc::GlobalAlloc;
-  /// # use r_pi::dxe_services::GcdMemoryType;
+  /// # use mu_pi::dxe_services::GcdMemoryType;
   ///
   /// use uefi_gcd_lib::gcd::SpinLockedGcd;
   /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
@@ -344,7 +344,7 @@ impl FixedSizeBlockAllocator {
   /// # use core::alloc::Layout;
   /// # use std::alloc::System;
   /// # use std::alloc::GlobalAlloc;
-  /// # use r_pi::dxe_services::GcdMemoryType;
+  /// # use mu_pi::dxe_services::GcdMemoryType;
   ///
   /// use uefi_gcd_lib::gcd::SpinLockedGcd;
   /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
@@ -410,7 +410,7 @@ impl FixedSizeBlockAllocator {
   /// # use core::alloc::Layout;
   /// # use std::alloc::System;
   /// # use std::alloc::GlobalAlloc;
-  /// # use r_pi::dxe_services::GcdMemoryType;
+  /// # use mu_pi::dxe_services::GcdMemoryType;
   ///
   /// use uefi_gcd_lib::gcd::SpinLockedGcd;
   /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
@@ -459,7 +459,7 @@ impl FixedSizeBlockAllocator {
   /// # use core::alloc::Layout;
   /// # use std::alloc::System;
   /// # use std::alloc::GlobalAlloc;
-  /// # use r_pi::dxe_services::GcdMemoryType;
+  /// # use mu_pi::dxe_services::GcdMemoryType;
   ///
   /// use uefi_gcd_lib::gcd::SpinLockedGcd;
   /// use uefi_rust_allocator_lib::fixed_size_block_allocator::FixedSizeBlockAllocator;
@@ -600,7 +600,7 @@ impl Display for FixedSizeBlockAllocator {
 /// # use core::alloc::Allocator;
 /// # use core::alloc::GlobalAlloc;
 /// # use std::alloc::System;
-/// # use r_pi::dxe_services::GcdMemoryType;
+/// # use mu_pi::dxe_services::GcdMemoryType;
 ///
 /// use uefi_gcd_lib::gcd::SpinLockedGcd;
 /// use uefi_rust_allocator_lib::fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator;
@@ -660,7 +660,7 @@ impl SpinLockedFixedSizeBlockAllocator {
   /// # use core::alloc::Allocator;
   /// # use core::alloc::GlobalAlloc;
   /// # use std::alloc::System;
-  /// # use r_pi::dxe_services::GcdMemoryType;
+  /// # use mu_pi::dxe_services::GcdMemoryType;
   ///
   /// use uefi_gcd_lib::gcd::SpinLockedGcd;
   /// use uefi_rust_allocator_lib::fixed_size_block_allocator::SpinLockedFixedSizeBlockAllocator;

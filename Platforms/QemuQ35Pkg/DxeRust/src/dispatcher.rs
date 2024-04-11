@@ -1,8 +1,11 @@
 use core::ffi::c_void;
 
 use alloc::{collections::BTreeSet, vec::Vec};
+use mu_pi::{
+  fw_fs::{ffs, FfsFileRawType, FfsSectionType, FirmwareVolume},
+  protocols::firmware_volume_block,
+};
 use r_efi::efi;
-use r_pi::fw_fs::{ffs, FfsFileRawType, FfsSectionType, FirmwareVolume, FirmwareVolumeBlockProtocol};
 use serial_print_dxe::println;
 use tpl_lock::TplMutex;
 use uefi_depex_lib::{Depex, Opcode};
@@ -128,11 +131,11 @@ fn add_fv_handles(new_handles: Vec<efi::Handle>) {
   for handle in new_handles {
     if dispatcher.processed_fvs.insert(handle) {
       //process freshly discovered FV
-      let fvb_ptr = match PROTOCOL_DB.get_interface_for_handle(handle, FirmwareVolumeBlockProtocol::GUID) {
+      let fvb_ptr = match PROTOCOL_DB.get_interface_for_handle(handle, firmware_volume_block::PROTOCOL_GUID) {
         Err(_) => {
           panic!("get_interface_for_handle failed to return an interface on a handle where it should have existed")
         }
-        Ok(protocol) => protocol as *mut FirmwareVolumeBlockProtocol::Protocol,
+        Ok(protocol) => protocol as *mut firmware_volume_block::Protocol,
       };
 
       let fvb =
@@ -191,7 +194,7 @@ pub fn init_dispatcher() {
     .expect("Failed to create fv protocol installation callback.");
 
   PROTOCOL_DB
-    .register_protocol_notify(FirmwareVolumeBlockProtocol::GUID, event)
+    .register_protocol_notify(firmware_volume_block::PROTOCOL_GUID, event)
     .expect("Failed to register protocol notify on fv protocol.");
 }
 
@@ -204,7 +207,7 @@ pub fn display_discovered_not_dispatched() {
 
 extern "efiapi" fn core_fw_vol_event_protocol_notify(_event: efi::Event, _context: *mut c_void) {
   //Note: runs at TPL_CALLBACK
-  match PROTOCOL_DB.locate_handles(Some(FirmwareVolumeBlockProtocol::GUID)) {
+  match PROTOCOL_DB.locate_handles(Some(firmware_volume_block::PROTOCOL_GUID)) {
     Ok(fv_handles) => add_fv_handles(fv_handles),
     Err(_) => panic!("could not locate handles in protocol call back"),
   }

@@ -5,19 +5,19 @@ use core::{
 };
 
 use alloc::{boxed::Box, collections::BTreeMap};
-use r_pi::{fw_fs, hob};
+use mu_pi::{fw_fs, hob};
 
 use r_efi::efi;
 
 use crate::{allocator::core_allocate_pool, protocols::core_install_protocol_interface};
 
 struct PrivateFvbData {
-  _interface: Box<fw_fs::FirmwareVolumeBlockProtocol::Protocol>,
+  _interface: Box<mu_pi::protocols::firmware_volume_block::Protocol>,
   physical_address: u64,
 }
 
 struct PrivateFvData {
-  _interface: Box<fw_fs::FirmwareVolumeProtocol::Protocol>,
+  _interface: Box<mu_pi::protocols::firmware_volume::Protocol>,
   physical_address: u64,
 }
 
@@ -39,7 +39,7 @@ static PRIVATE_FV_DATA: tpl_lock::TplMutex<PrivateGlobalData> =
 
 // FVB Protocol Functions
 extern "efiapi" fn fvb_get_attributes(
-  this: *mut fw_fs::FirmwareVolumeBlockProtocol::Protocol,
+  this: *mut mu_pi::protocols::firmware_volume_block::Protocol,
   attributes: *mut fw_fs::EfiFvbAttributes2,
 ) -> efi::Status {
   if attributes.is_null() {
@@ -61,14 +61,14 @@ extern "efiapi" fn fvb_get_attributes(
 }
 
 extern "efiapi" fn fvb_set_attributes(
-  _this: *mut fw_fs::FirmwareVolumeBlockProtocol::Protocol,
+  _this: *mut mu_pi::protocols::firmware_volume_block::Protocol,
   _attributes: *mut fw_fs::EfiFvbAttributes2,
 ) -> efi::Status {
   efi::Status::UNSUPPORTED
 }
 
 extern "efiapi" fn fvb_get_physical_address(
-  this: *mut fw_fs::FirmwareVolumeBlockProtocol::Protocol,
+  this: *mut mu_pi::protocols::firmware_volume_block::Protocol,
   address: *mut efi::PhysicalAddress,
 ) -> efi::Status {
   if address.is_null() {
@@ -88,7 +88,7 @@ extern "efiapi" fn fvb_get_physical_address(
 }
 
 extern "efiapi" fn fvb_get_block_size(
-  this: *mut fw_fs::FirmwareVolumeBlockProtocol::Protocol,
+  this: *mut mu_pi::protocols::firmware_volume_block::Protocol,
   lba: efi::Lba,
   block_size: *mut usize,
   number_of_blocks: *mut usize,
@@ -125,7 +125,7 @@ extern "efiapi" fn fvb_get_block_size(
 }
 
 extern "efiapi" fn fvb_read(
-  this: *mut fw_fs::FirmwareVolumeBlockProtocol::Protocol,
+  this: *mut mu_pi::protocols::firmware_volume_block::Protocol,
   lba: efi::Lba,
   offset: usize,
   num_bytes: *mut usize,
@@ -177,7 +177,7 @@ extern "efiapi" fn fvb_read(
 }
 
 extern "efiapi" fn fvb_write(
-  _this: *mut fw_fs::FirmwareVolumeBlockProtocol::Protocol,
+  _this: *mut mu_pi::protocols::firmware_volume_block::Protocol,
   _lba: efi::Lba,
   _offset: usize,
   _num_bytes: *mut usize,
@@ -187,7 +187,7 @@ extern "efiapi" fn fvb_write(
 }
 
 extern "efiapi" fn fvb_erase_blocks(
-  _this: *mut fw_fs::FirmwareVolumeBlockProtocol::Protocol,
+  _this: *mut mu_pi::protocols::firmware_volume_block::Protocol,
   //... TODO: this should be variadic; however, variadics and eficall don't mix well presently.
 ) -> efi::Status {
   efi::Status::UNSUPPORTED
@@ -198,7 +198,7 @@ fn install_fvb_protocol(
   parent_handle: Option<efi::Handle>,
   base_address: u64,
 ) -> Result<efi::Handle, efi::Status> {
-  let mut fvb_interface = Box::from(fw_fs::FirmwareVolumeBlockProtocol::Protocol {
+  let mut fvb_interface = Box::from(mu_pi::protocols::firmware_volume_block::Protocol {
     get_attributes: fvb_get_attributes,
     set_attributes: fvb_set_attributes,
     get_physical_address: fvb_get_physical_address,
@@ -212,7 +212,7 @@ fn install_fvb_protocol(
     },
   });
 
-  let fvb_ptr = fvb_interface.as_mut() as *mut fw_fs::FirmwareVolumeBlockProtocol::Protocol as *mut c_void;
+  let fvb_ptr = fvb_interface.as_mut() as *mut mu_pi::protocols::firmware_volume_block::Protocol as *mut c_void;
 
   let private_data = PrivateFvbData { _interface: fvb_interface, physical_address: base_address };
 
@@ -220,12 +220,12 @@ fn install_fvb_protocol(
   PRIVATE_FV_DATA.lock().fv_information.insert(fvb_ptr, PrivateDataItem::FvbData(private_data));
 
   // install the protocol and return status
-  core_install_protocol_interface(handle, fw_fs::FirmwareVolumeBlockProtocol::GUID, fvb_ptr)
+  core_install_protocol_interface(handle, mu_pi::protocols::firmware_volume_block::PROTOCOL_GUID, fvb_ptr)
 }
 
 // Firmware Volume protocol functions
 extern "efiapi" fn fv_get_volume_attributes(
-  this: *const fw_fs::FirmwareVolumeProtocol::Protocol,
+  this: *const mu_pi::protocols::firmware_volume::Protocol,
   fv_attributes: *mut fw_fs::EfiFvAttributes,
 ) -> efi::Status {
   if fv_attributes.is_null() {
@@ -247,14 +247,14 @@ extern "efiapi" fn fv_get_volume_attributes(
 }
 
 extern "efiapi" fn fv_set_volume_attributes(
-  _this: *const fw_fs::FirmwareVolumeProtocol::Protocol,
+  _this: *const mu_pi::protocols::firmware_volume::Protocol,
   _fv_attributes: *mut fw_fs::EfiFvAttributes,
 ) -> efi::Status {
   efi::Status::UNSUPPORTED
 }
 
 extern "efiapi" fn fv_read_file(
-  this: *const fw_fs::FirmwareVolumeProtocol::Protocol,
+  this: *const mu_pi::protocols::firmware_volume::Protocol,
   name_guid: *const efi::Guid,
   buffer: *mut *mut c_void,
   buffer_size: *mut usize,
@@ -337,7 +337,7 @@ extern "efiapi" fn fv_read_file(
 }
 
 extern "efiapi" fn fv_read_section(
-  this: *const fw_fs::FirmwareVolumeProtocol::Protocol,
+  this: *const mu_pi::protocols::firmware_volume::Protocol,
   name_guid: *const efi::Guid,
   section_type: fw_fs::EfiSectionType,
   section_instance: usize,
@@ -420,16 +420,16 @@ extern "efiapi" fn fv_read_section(
 }
 
 extern "efiapi" fn fv_write_file(
-  _this: *const fw_fs::FirmwareVolumeProtocol::Protocol,
+  _this: *const mu_pi::protocols::firmware_volume::Protocol,
   _number_of_files: u32,
-  _write_policy: fw_fs::FirmwareVolumeProtocol::EfiFvWritePolicy,
-  _file_data: *mut fw_fs::FirmwareVolumeProtocol::EfiFvWriteFileData,
+  _write_policy: mu_pi::protocols::firmware_volume::EfiFvWritePolicy,
+  _file_data: *mut mu_pi::protocols::firmware_volume::EfiFvWriteFileData,
 ) -> efi::Status {
   efi::Status::UNSUPPORTED
 }
 
 extern "efiapi" fn fv_get_next_file(
-  this: *const fw_fs::FirmwareVolumeProtocol::Protocol,
+  this: *const mu_pi::protocols::firmware_volume::Protocol,
   key: *mut c_void,
   file_type: *mut fw_fs::EfiFvFileType,
   name_guid: *mut efi::Guid,
@@ -496,7 +496,7 @@ extern "efiapi" fn fv_get_next_file(
 }
 
 extern "efiapi" fn fv_get_info(
-  _this: *const fw_fs::FirmwareVolumeProtocol::Protocol,
+  _this: *const mu_pi::protocols::firmware_volume::Protocol,
   _information_type: *const efi::Guid,
   _buffer_size: *mut usize,
   _buffer: *mut c_void,
@@ -505,7 +505,7 @@ extern "efiapi" fn fv_get_info(
 }
 
 extern "efiapi" fn fv_set_info(
-  _this: *const fw_fs::FirmwareVolumeProtocol::Protocol,
+  _this: *const mu_pi::protocols::firmware_volume::Protocol,
   _information_type: *const efi::Guid,
   _buffer_size: usize,
   _buffer: *const c_void,
@@ -518,7 +518,7 @@ fn install_fv_protocol(
   parent_handle: Option<efi::Handle>,
   base_address: u64,
 ) -> Result<efi::Handle, efi::Status> {
-  let mut fv_interface = Box::from(fw_fs::FirmwareVolumeProtocol::Protocol {
+  let mut fv_interface = Box::from(mu_pi::protocols::firmware_volume::Protocol {
     get_volume_attributes: fv_get_volume_attributes,
     set_volume_attributes: fv_set_volume_attributes,
     read_file: fv_read_file,
@@ -534,7 +534,7 @@ fn install_fv_protocol(
     set_info: fv_set_info,
   });
 
-  let fv_ptr = fv_interface.as_mut() as *mut fw_fs::FirmwareVolumeProtocol::Protocol as *mut c_void;
+  let fv_ptr = fv_interface.as_mut() as *mut mu_pi::protocols::firmware_volume::Protocol as *mut c_void;
 
   let private_data = PrivateFvData { _interface: fv_interface, physical_address: base_address };
 
@@ -542,7 +542,7 @@ fn install_fv_protocol(
   PRIVATE_FV_DATA.lock().fv_information.insert(fv_ptr, PrivateDataItem::FvData(private_data));
 
   // install the protocol and return status
-  core_install_protocol_interface(handle, fw_fs::FirmwareVolumeProtocol::GUID, fv_ptr)
+  core_install_protocol_interface(handle, mu_pi::protocols::firmware_volume::PROTOCOL_GUID, fv_ptr)
 }
 
 //Firmware Volume device path structures and functions

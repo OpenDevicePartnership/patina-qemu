@@ -3,8 +3,8 @@ use core::{
   mem, ptr,
   sync::atomic::{AtomicBool, Ordering},
 };
+use mu_pi::{list_entry, protocols::runtime};
 use r_efi::efi;
-use r_pi::list_entry;
 use spin::Mutex;
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
 };
 
 struct RuntimeData {
-  runtime_arch_ptr: *mut r_pi::runtime::Protocol,
+  runtime_arch_ptr: *mut runtime::Protocol,
   virtual_map: *mut efi::MemoryDescriptor,
   virtual_map_desc_size: usize,
   virtual_map_index: usize,
@@ -208,10 +208,10 @@ pub fn init_runtime_support(rt: &mut efi::RuntimeServices) {
   rt.convert_pointer = convert_pointer;
   rt.set_virtual_address_map = set_virtual_address_map;
 
-  match core_allocate_pool(efi::RUNTIME_SERVICES_DATA, mem::size_of::<r_pi::runtime::Protocol>()) {
+  match core_allocate_pool(efi::RUNTIME_SERVICES_DATA, mem::size_of::<runtime::Protocol>()) {
     Err(err) => panic!("Failed to allocate the Runtime Architecture Protocol: {:?}", err),
     Ok(allocation) => unsafe {
-      (allocation as *mut r_pi::runtime::Protocol).write(r_pi::runtime::Protocol {
+      (allocation as *mut runtime::Protocol).write(runtime::Protocol {
         // The Rust usage of the protocol won't actually use image_head or event_head
         image_head: list_entry::Entry { forward_link: ptr::null_mut(), back_link: ptr::null_mut() },
         event_head: list_entry::Entry { forward_link: ptr::null_mut(), back_link: ptr::null_mut() },
@@ -223,9 +223,9 @@ pub fn init_runtime_support(rt: &mut efi::RuntimeServices) {
         virtual_mode: AtomicBool::new(false),
         at_runtime: AtomicBool::new(false),
       });
-      RUNTIME_DATA.lock().runtime_arch_ptr = allocation as *mut r_pi::runtime::Protocol;
+      RUNTIME_DATA.lock().runtime_arch_ptr = allocation as *mut runtime::Protocol;
       // Install the protocol on a new handle
-      core_install_protocol_interface(None, r_pi::runtime::PROTOCOL, allocation)
+      core_install_protocol_interface(None, runtime::PROTOCOL_GUID, allocation)
         .expect("Failed to install the Runtime Architecture protocol");
     },
   }

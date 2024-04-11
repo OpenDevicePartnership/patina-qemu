@@ -43,7 +43,7 @@ memoffset = "0.9"
 num-traits = { version = "0.2", default-features = false}
 num-derive = { version = "0.4", default-features = false}
 r-efi = "4.4.0"
-r-pi = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/r-pi", branch = "main"}
+mu_pi = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/r-pi", branch = "main"}
 rustversion = "1.0.14"
 scroll = { version = "0.11", default-features = false, features = ["derive"]}
 spin = "0.9.8"

@@ -7,8 +7,8 @@ use core::{
 use alloc::{collections::BTreeMap, vec::Vec};
 
 use crate::{protocols::PROTOCOL_DB, GCD};
+use mu_pi::dxe_services::{GcdMemoryType, MemorySpaceDescriptor};
 use r_efi::{efi, system::TPL_HIGH_LEVEL};
-use r_pi::dxe_services::{GcdMemoryType, MemorySpaceDescriptor};
 use uefi_protocol_db_lib;
 use uefi_rust_allocator_lib::{uefi_allocator::UefiAllocator, AllocationStrategy};
 

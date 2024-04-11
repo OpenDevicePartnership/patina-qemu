@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
+use mu_pi::dxe_services;
 use r_efi::efi;
-use r_pi::dxe_services;
 
 use crate::error;
 

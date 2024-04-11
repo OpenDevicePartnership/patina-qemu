@@ -1,9 +1,9 @@
 use core::{ffi::c_void, ops::Range};
-use r_efi::efi;
-use r_pi::{
+use mu_pi::{
   dxe_services::{self, GcdIoType, GcdMemoryType},
   hob::{self, Hob, HobList, PhaseHandoffInformationTable},
 };
+use r_efi::efi;
 use uefi_gcd_lib::gcd;
 
 #[cfg(not(test))]
@@ -288,11 +288,11 @@ fn remove_range_overlap<T: PartialOrd + Copy>(a: &Range<T>, b: &Range<T>) -> [Op
 mod tests {
   use core::ffi::c_void;
 
-  use r_efi::efi;
-  use r_pi::{
+  use mu_pi::{
     dxe_services::{GcdIoType, GcdMemoryType, IoSpaceDescriptor, MemorySpaceDescriptor},
     hob::{self, header, HobList},
   };
+  use r_efi::efi;
 
   use crate::{gcd::init_gcd, test_support, GCD};
 

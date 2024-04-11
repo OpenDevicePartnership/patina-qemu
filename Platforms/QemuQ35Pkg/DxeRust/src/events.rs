@@ -8,7 +8,7 @@ use alloc::vec;
 
 use r_efi::efi;
 
-use r_pi::{cpu_arch, timer};
+use mu_pi::protocols::{cpu_arch, timer};
 use uefi_event_lib::{SpinLockedEventDb, TimerDelay};
 use uefi_gcd_lib::gcd;
 
@@ -286,9 +286,9 @@ fn set_interrupt_state(enable: bool) {
 }
 
 extern "efiapi" fn timer_available_callback(event: efi::Event, _context: *mut c_void) {
-  match PROTOCOL_DB.locate_protocol(timer::TIMER_ARCH_PROTOCOL_GUID) {
+  match PROTOCOL_DB.locate_protocol(timer::PROTOCOL_GUID) {
     Ok(timer_arch_ptr) => {
-      let timer_arch_ptr = timer_arch_ptr as *mut timer::TimerArchProtocol;
+      let timer_arch_ptr = timer_arch_ptr as *mut timer::Protocol;
       let timer_arch = unsafe { &*(timer_arch_ptr) };
       (timer_arch.register_handler)(timer_arch_ptr, timer_tick);
       EVENT_DB.close_event(event).unwrap();
@@ -298,7 +298,7 @@ extern "efiapi" fn timer_available_callback(event: efi::Event, _context: *mut c_
 }
 
 extern "efiapi" fn cpu_arch_available(event: efi::Event, _context: *mut c_void) {
-  match PROTOCOL_DB.locate_protocol(cpu_arch::PROTOCOL) {
+  match PROTOCOL_DB.locate_protocol(cpu_arch::PROTOCOL_GUID) {
     Ok(cpu_arch_ptr) => {
       CPU_ARCH_PTR.store(cpu_arch_ptr as *mut cpu_arch::Protocol, Ordering::SeqCst);
       EVENT_DB.close_event(event).unwrap();
@@ -340,7 +340,7 @@ pub fn init_events_support(bs: &mut efi::BootServices) {
     .expect("Failed to create timer available callback.");
 
   PROTOCOL_DB
-    .register_protocol_notify(cpu_arch::PROTOCOL, event)
+    .register_protocol_notify(cpu_arch::PROTOCOL_GUID, event)
     .expect("Failed to register protocol notify on timer arch callback.");
 
   //set up call back for timer arch protocol installation.
@@ -349,7 +349,7 @@ pub fn init_events_support(bs: &mut efi::BootServices) {
     .expect("Failed to create timer available callback.");
 
   PROTOCOL_DB
-    .register_protocol_notify(timer::TIMER_ARCH_PROTOCOL_GUID, event)
+    .register_protocol_notify(timer::PROTOCOL_GUID, event)
     .expect("Failed to register protocol notify on timer arch callback.");
 
   //Indicate eventing is initialized

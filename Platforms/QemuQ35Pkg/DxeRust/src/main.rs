@@ -5,7 +5,7 @@
 
 extern crate alloc;
 
-use r_pi::{bds, hob::HobList};
+use mu_pi::{hob::HobList, protocols::bds};
 use uuid::uuid;
 
 use core::{ffi::c_void, panic::PanicInfo, str::FromStr};
@@ -125,7 +125,7 @@ fn core_display_missing_arch_protocols() {
 }
 
 fn call_bds() {
-  if let Ok(protocol) = PROTOCOL_DB.locate_protocol(bds::PROTOCOL) {
+  if let Ok(protocol) = PROTOCOL_DB.locate_protocol(bds::PROTOCOL_GUID) {
     let bds = protocol as *mut bds::Protocol;
     unsafe {
       ((*bds).entry)(bds);

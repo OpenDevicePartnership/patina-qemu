@@ -39,7 +39,7 @@
 //! # use core::ffi::c_void;
 //! # use r_efi::efi;
 //! # use std::alloc::{GlobalAlloc, System};
-//! # use r_pi::dxe_services;
+//! # use mu_pi::dxe_services;
 //!
 //! use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 //! use uefi_gcd_lib::gcd::SpinLockedGcd;
@@ -76,7 +76,7 @@
 //! # use core::alloc::Layout;
 //! # use core::ffi::c_void;
 //! # use std::alloc::{GlobalAlloc, System};
-//! # use r_pi::dxe_services;
+//! # use mu_pi::dxe_services;
 //!
 //! use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
 //! use uefi_gcd_lib::gcd::SpinLockedGcd;

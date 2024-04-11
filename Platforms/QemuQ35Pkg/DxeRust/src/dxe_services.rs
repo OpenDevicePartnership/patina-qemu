@@ -7,8 +7,8 @@ use core::{
 };
 use uefi_gcd_lib::gcd;
 
+use mu_pi::{dxe_services, protocols::cpu_arch};
 use r_efi::efi;
-use r_pi::{cpu_arch, dxe_services};
 
 use serial_print_dxe::println;
 
@@ -415,7 +415,7 @@ fn cpu_set_memory_space_attributes(
 //This call back is invoked when the CPU Architectural protocol is installed. It updates the global atomic CPU_ARCH_PTR
 //to point to the CPU architectural protocol interface.
 extern "efiapi" fn cpu_arch_available(event: efi::Event, _context: *mut c_void) {
-  match PROTOCOL_DB.locate_protocol(cpu_arch::PROTOCOL) {
+  match PROTOCOL_DB.locate_protocol(cpu_arch::PROTOCOL_GUID) {
     Ok(cpu_arch_ptr) => {
       CPU_ARCH_PTR.store(cpu_arch_ptr as *mut cpu_arch::Protocol, Ordering::SeqCst);
       EVENT_DB.close_event(event).unwrap();
@@ -461,7 +461,7 @@ pub fn init_dxe_services(system_table: &mut EfiSystemTable) {
   let dxe_system_table = Box::new_in(dxe_system_table, &EFI_RUNTIME_SERVICES_DATA_ALLOCATOR);
 
   let _ = misc_boot_services::core_install_configuration_table(
-    dxe_services::DEX_SERVICES_TABLE_GUID,
+    dxe_services::DXE_SERVICES_TABLE_GUID,
     unsafe { (Box::into_raw(dxe_system_table) as *mut c_void).as_mut() },
     system_table,
   );
@@ -472,6 +472,6 @@ pub fn init_dxe_services(system_table: &mut EfiSystemTable) {
     .expect("Failed to create timer available callback.");
 
   PROTOCOL_DB
-    .register_protocol_notify(cpu_arch::PROTOCOL, event)
+    .register_protocol_notify(cpu_arch::PROTOCOL_GUID, event)
     .expect("Failed to register protocol notify on timer arch callback.");
 }

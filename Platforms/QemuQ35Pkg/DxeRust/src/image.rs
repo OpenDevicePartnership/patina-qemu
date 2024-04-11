@@ -7,8 +7,8 @@ use core::{
 };
 
 use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, string::String, vec, vec::Vec};
+use mu_pi::hob::{Hob, HobList};
 use r_efi::efi;
-use r_pi::hob::{Hob, HobList};
 use uefi_device_path_lib::{copy_device_path_to_boxed_slice, device_path_node_count, DevicePathWalker};
 use uefi_protocol_db_lib::DXE_CORE_HANDLE;
 use uefi_rust_allocator_lib::uefi_allocator::UefiAllocator;
@@ -853,8 +853,8 @@ mod tests {
     test_support,
   };
   use core::{ffi::c_void, sync::atomic::AtomicBool};
+  use mu_pi::hob;
   use r_efi::efi;
-  use r_pi::hob;
   use std::{fs::File, io::Read};
 
   unsafe fn init_test_image_support() {

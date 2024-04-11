@@ -13,7 +13,7 @@
 //!```
 //! # extern crate std;
 //! # extern crate alloc;
-//! use r_pi::dxe_services;
+//! use mu_pi::dxe_services;
 //! use uefi_gcd_lib::gcd::{AllocateType, SpinLockedGcd};
 //! # const MEMORY_BLOCK_SLICE_SIZE:usize = 4096*4096;
 //! # unsafe fn get_memory(size: usize) -> &'static mut [u8] {
