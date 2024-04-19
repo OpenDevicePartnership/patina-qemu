@@ -2,8 +2,8 @@
 
 ## Important Notes
 
-1. This repository is targeted to transition to Open Source Software (OSS) but is currently private while the initial
-   content and direction materialize.
+1. Portions of this repository are targeted to transition to Open Source Software (OSS) but is currently private while
+   the initial content and direction materialize.
 2. This project is experimental and the code within is not recommended to be used in production workloads at this time.
 3. Assume that this is an open-source repo. This will make transitioning the repo with useful source history to
    open-source much easier.
@@ -110,29 +110,10 @@ The following instructions set up the UEFI Rust code repository.
 
 ## Rust DXE Core Details
 
-One of the current work items in this repository is a Rust DXE Core, ideally a bare-metal "kernel" that can be
-dispatched from DXE IPL.
-
-If QEMU and the Q35 platform build are set up successfully, this should start QEMU and boot the UEFI firmware you
-built; log should be displayed in your terminal and the QEMU instance should boot to UEFI shell.
-
-### DXE Core Goals
-
-1. Construction of a bare-metal "kernel" to dispatch from `DxeIpl`.
-   1. Built in a basic build environment for no-std
-   2. Uses a basic output subsystem (likely legacy UART, but maybe VGA if it works in QEMU before GOP starts it)
-   3. Integrated into the Q35 UEFI build as replacement for `DxeMain` with observable debug output
-   4. No direct dependencies on PEI except PI abstracted structures
-
-2. Integration of Rust component builds into UEFI build system - i.e. not building in two separate enlistments and
-   copying around outputs.
-
-3. Support for CPU interrupts/exception handlers.
-
-4. Support for rudimentary paging and heap allocation.
-   1. Investigate `DxeIpl` handoff implementation
-   2. Explore how to handle dynamic allocation of different memory types (e.g. RuntimeCode/Data vs.
-      BootServicesCode/Data)
+This repository pulls in a Pure Rust DXE Core binary through an external dependency. See
+`Platforms\QemuQ35Pkg\Binaries\dxe_core_ext_dep.yaml` for more details. The binary can be overridden locally by
+passing `BLD_*_DXE_CORE_BINARY_PATH` with the path to the directory containing the DXE Core .efi binary to the Stuart
+build command.
 
 ## Rust Build Details
 
@@ -214,9 +195,9 @@ argument to the build command.
   Examples:
 
   ```cmd
-   cargo make build DxeRust
-   cargo make -p release build DxeRust
-   cargo make -e ARCH=IA32 build UefiEventLib
+   cargo make build RustDriverDxe
+   cargo make -p release build RustDriverDxe
+   cargo make -e ARCH=IA32 build RustDriverDxe
   ```
 
   A package must be specified.
@@ -234,7 +215,7 @@ argument to the build command.
   Examples:
 
   ```cmd
-   cargo make test DxeRust
+   cargo make test RustDriverDxe
    cargo make test
   ```
 
@@ -263,7 +244,7 @@ argument to the build command.
   Examples:
 
   ```cmd
-   cargo make cov DxeRust
+   cargo make cov RustDriverDxe
    cargo make cov
   ```
 

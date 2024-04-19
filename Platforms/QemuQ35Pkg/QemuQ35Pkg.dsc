@@ -1032,16 +1032,6 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   # Produces FORM DISPLAY ENGINE protocol. Handles input, displays strings.
   MsGraphicsPkg/DisplayEngineDxe/DisplayEngineDxe.inf
 
-
-  # MdeModulePkg/Core/Dxe/DxeMain.inf {
-  #   <LibraryClasses>
-  #     NULL|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
-  #     DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
-  # }
-
-  # We use Rust now
-  QemuQ35Pkg/DxeRust/DxeRust.inf
-
   # Our first Rust driver to load
   QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
 

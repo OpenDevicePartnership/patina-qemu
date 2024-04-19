@@ -89,7 +89,10 @@ jobs:
       steps:
       # Potential Extra steps from specific build targets
       - ${{ item.Value.BuildExtraStep }}
-
+      - task: NuGetAuthenticate@1
+        displayName: 'NuGet Authenticate'
+        inputs:
+          nuGetServiceConnections: 'MsUEFI_NuGet_Connection'
       - template: Steps/BuildPlatform.yml@mu_devops
         parameters:
           tool_chain_tag: $(tool_chain_tag)

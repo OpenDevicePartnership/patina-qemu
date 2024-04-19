@@ -1,0 +1,15 @@
+## @file
+# Download the DXE Core Rust binary.
+#
+# Copyright (c) Microsoft Corporation
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+{
+  "scope": "qemuq35",
+  "type": "nuget",
+  "name": "DXECORE.X64.DEBUG",
+  "source": "https://pkgs.dev.azure.com/microsoft/MsUEFI/_packaging/dxe_rust/nuget/v3/index.json",
+  "version": "0.0.1",
+  "flags": ["set_build_var"],
+  "var_name": "BLD_*_DXE_CORE_BINARY_PATH"
+}

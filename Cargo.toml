@@ -5,7 +5,6 @@ resolver = "2"
 
 # Add packages that generate binaries here
 members = [
-    "Platforms/QemuQ35Pkg/DxeRust",
     "Platforms/QemuQ35Pkg/RustDriverDxe",
     "Platforms/QemuQ35Pkg/RustImageTestDxe",
     "Common/MU/HidPkg/UefiHidDxe",
@@ -20,36 +19,16 @@ RustAdvancedLoggerDxe = {path = "Common/MU/AdvLoggerPkg/Crates/RustAdvancedLogge
 RustBootServicesAllocatorDxe = {path = "Common/MU/MsCorePkg/Crates/RustBootServicesAllocatorDxe"}
 
 SerialPrintDxe = {path = "QemuPkg/Library/SerialPrintDxe"}
-TplLock = {path = "QemuPkg/Library/TplLock"}
-
-DxeRust = {path = "Platforms/QemuQ35Pkg/DxeRust"}
-UefiDepexLib = {path = "Platforms/QemuQ35Pkg/Library/UefiDepexLib"}
-UefiDevicePathLib = {path = "Platforms/QemuQ35Pkg/Library/UefiDevicePathLib"}
-UefiEventLib = {path = "Platforms/QemuQ35Pkg/Library/UefiEventLib"}
-UefiPe32Lib = {path = "Platforms/QemuQ35Pkg/Library/UefiPe32Lib"}
-UefiProtocolDbLib = {path = "Platforms/QemuQ35Pkg/Library/UefiProtocolDbLib"}
-UefiRustAllocatorLib = {path = "Platforms/QemuQ35Pkg/Library/UefiRustAllocatorLib"}
-UefiGcdLib = {path = "Platforms/QemuQ35Pkg/Library/UefiGcdLib"}
-
-ahash = {version = "0.8", default-features = false, features = ["compile-time-rng"]}
-corosensei = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/corosensei_fork", rev = "1cc3d2ad42f10b1aaf2bdc21d950a0fed1951a19", default-features = false }
-crc32fast = { version = "1.4", default-features = false }
-goblin = { git="https://github.com/m4b/goblin.git", rev = "6d664c07abe492e2e56790eac260c567b9807994", default-features = false, features = ["pe32", "pe64"] }
 hidparser = {git = "https://github.com/microsoft/mu_rust_hid.git", branch = "main"}
-indoc = "2.0"
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-linked_list_allocator = "0.10.5"
 memoffset = "0.9"
 num-traits = { version = "0.2", default-features = false}
 num-derive = { version = "0.4", default-features = false}
 r-efi = "4.4.0"
-mu_pi = {git = "https://dev.azure.com/microsoft/MsUEFI/_git/r-pi", branch = "main"}
 rustversion = "1.0.14"
 scroll = { version = "0.11", default-features = false, features = ["derive"]}
 spin = "0.9.8"
 uart_16550 = "0.3.0"
-uuid = { version = "1", default-features = false }
-volatile = "0.5.2"
 x86_64 = "0.15.1"
 
 # By default, the dev profile is used. The default build settings for the dev profile are documented here:

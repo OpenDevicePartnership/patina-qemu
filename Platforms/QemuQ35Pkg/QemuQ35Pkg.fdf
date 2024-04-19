@@ -305,12 +305,12 @@ APRIORI DXE {
 }
 
 #
-# DXE Phase modules
+# Use externally built Rust DXE core binary
 #
-#INF  MdeModulePkg/Core/Dxe/DxeMain.inf
-
-# We use Rust now
-INF  QemuQ35Pkg/DxeRust/DxeRust.inf
+FILE DXE_CORE = D6A2CB7F-6A18-4e2f-B43B-9920A733700A {
+  SECTION PE32 = $(DXE_CORE_BINARY_PATH)/dxe_core_x64.efi
+  SECTION UI = "DxeCore"
+}
 
 # Simple pure Rust DXE driver that is loaded by Rust DXE Core
 # INF  QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf

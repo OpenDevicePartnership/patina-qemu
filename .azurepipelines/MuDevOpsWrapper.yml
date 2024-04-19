@@ -103,6 +103,11 @@ jobs:
     vm_image: $(vm_image)
     container_build: ${{ parameters.container_build }}
     rust_build: ${{ parameters.rust_build }}
+    extra_steps:
+      - task: NuGetAuthenticate@1
+        displayName: 'NuGet Authenticate'
+        inputs:
+          nuGetServiceConnections: 'MsUEFI_NuGet_Connection'
 
 - ${{ if eq(parameters.rust_build, true) }}:
   - job: CargoCmds
