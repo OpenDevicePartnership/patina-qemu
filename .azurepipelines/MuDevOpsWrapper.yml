@@ -106,8 +106,6 @@ jobs:
     extra_steps:
       - task: NuGetAuthenticate@1
         displayName: 'NuGet Authenticate'
-        inputs:
-          nuGetServiceConnections: 'MsUEFI_NuGet_Connection'
 
 - ${{ if eq(parameters.rust_build, true) }}:
   - job: CargoCmds
