@@ -19,7 +19,7 @@ resources:
       type: github
       endpoint: microsoft
       name: microsoft/mu_devops
-      ref: refs/tags/v9.1.8
+      ref: refs/tags/v9.1.9
 
 parameters:
 - name: build_file
@@ -87,7 +87,7 @@ jobs:
 - template: Jobs/PrGate.yml@mu_devops
   parameters:
     build_file: ${{ parameters.build_file }}
-    linux_container_image: ghcr.io/microsoft/mu_devops/ubuntu-22-build:16d82ba
+    linux_container_image: ghcr.io/microsoft/mu_devops/ubuntu-22-build:0e124c1
     ${{ if eq(parameters.rust_build, true) }}:
       linux_container_options: --security-opt seccomp=unconfined
     do_ci_build: ${{ parameters.do_ci_build }}
@@ -128,4 +128,3 @@ jobs:
         container_build: true
 
 - ${{ parameters.extra_jobs }}
-
