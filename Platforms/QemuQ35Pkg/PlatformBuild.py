@@ -87,6 +87,15 @@ class CommonPlatform():
 
         return active_scopes
 
+    @staticmethod
+    def get_dxe_core_config(self):
+        return {
+            "debug_nuget_name": "DXECORE.X64.DEBUG",
+            "debug_nuget_path": self.env.GetValue("DXE_CORE_DEBUG_BINARY_PATH"),
+            "release_nuget_name": "DXECORE.X64.RELEASE",
+            "release_nuget_path": self.env.GetValue("DXE_CORE_RELEASE_BINARY_PATH"),
+        }
+
     # ####################################################################################### #
     #                         Configuration for Update & Setup                                #
     # ####################################################################################### #
@@ -319,6 +328,15 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
 
     def SetPlatformEnvAfterTarget(self):
         logging.debug("PlatformBuilder SetPlatformEnvAfterTarget")
+
+        dxe_core_config = CommonPlatform.get_dxe_core_config(self)
+        if self.env.GetValue("TARGET") == "DEBUG":
+            dxe_core_bin_dir = dxe_core_config["debug_nuget_path"]
+        else:
+            dxe_core_bin_dir = dxe_core_config["release_nuget_path"]
+
+        self.env.SetValue("BLD_*_DXE_CORE_BINARY_PATH", dxe_core_bin_dir, "Set in SetPlatformEnv")
+
         if os.name == 'nt':
             self.env.SetValue("VIRTUAL_DRIVE_PATH", Path(self.env.GetValue("BUILD_OUTPUT_BASE"), "VirtualDrive.vhd"), "Platform Hardcoded.")
         else:
