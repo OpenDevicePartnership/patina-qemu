@@ -115,7 +115,7 @@ jobs:
 
     container:
 
-      image: ghcr.io/microsoft/mu_devops/ubuntu-22-build:16d82ba
+      image: ghcr.io/microsoft/mu_devops/ubuntu-22-build:0e124c1
       options: --user root --name mu_devops_build_container --security-opt seccomp=unconfined
 
     steps:
