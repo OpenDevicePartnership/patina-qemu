@@ -55,6 +55,15 @@ class CommonPlatform():
         "Features/CONFIG"
     )
 
+    @staticmethod
+    def get_dxe_core_config(self):
+        return {
+            "debug_nuget_name": "DXECORE.AARCH64.DEBUG",
+            "debug_nuget_path": self.env.GetValue("DXE_CORE_DEBUG_BINARY_PATH"),
+            "release_nuget_name": "DXECORE.AARCH64.RELEASE",
+            "release_nuget_path": self.env.GetValue("DXE_CORE_RELEASE_BINARY_PATH"),
+        }
+
 
     # ####################################################################################### #
     #                         Configuration for Update & Setup                                #
@@ -247,12 +256,15 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         self.env.SetValue("BUILDREPORT_TYPES", "PCD DEPEX FLASH BUILD_FLAGS LIBRARY FIXED_ADDRESS HASH", "Setting build report types")
         self.env.SetValue("ARM_TFA_PATH", os.path.join (self.GetWorkspaceRoot (), "Silicon/Arm/TFA"), "Platform hardcoded")
         self.env.SetValue("BLD_*_QEMU_CORE_NUM", "4", "Default")
-        self.env.SetValue("BLD_*_MEMORY_PROTECTION", "TRUE", "Default")
+        self.env.SetValue("BLD_*_MEMORY_PROTECTION", "FALSE", "Default")
         # Include the MFCI test cert by default, override on the commandline with "BLD_*_SHIP_MODE=TRUE" if you want the retail MFCI cert
         self.env.SetValue("BLD_*_SHIP_MODE", "FALSE", "Default")
         self.env.SetValue("CONF_AUTOGEN_INCLUDE_PATH", self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuSbsaPkg", "Include"), "Platform Defined")
         self.env.SetValue("MU_SCHEMA_DIR", self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuSbsaPkg", "CfgData"), "Platform Defined")
         self.env.SetValue("MU_SCHEMA_FILE_NAME", "QemuSbsaPkgCfgData.xml", "Platform Hardcoded")
+
+        # Needed until Advanced Logger support is added to DxeRust
+        self.env.SetValue("BLD_*_DEBUG_ON_SERIAL_PORT", "TRUE", "Advanced Logger Workaround")
 
         if self.Helper.generate_secureboot_pcds(self) != 0:
             logging.error("Failed to generate include PCDs")
@@ -266,6 +278,13 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
             self.env.SetValue("VIRTUAL_DRIVE_PATH", Path(self.env.GetValue("BUILD_OUTPUT_BASE"), "VirtualDrive.vhd"), "Platform Hardcoded.")
         else:
             self.env.SetValue("VIRTUAL_DRIVE_PATH", Path(self.env.GetValue("BUILD_OUTPUT_BASE"), "VirtualDrive.img"), "Platform Hardcoded.")
+
+        dxe_core_config = CommonPlatform.get_dxe_core_config(self)
+        if self.env.GetValue("TARGET") == "DEBUG":
+            dxe_core_bin_dir = dxe_core_config["debug_nuget_path"]
+        else:
+            dxe_core_bin_dir = dxe_core_config["release_nuget_path"]
+        self.env.SetValue("BLD_*_DXE_CORE_BINARY_PATH", dxe_core_bin_dir, "Set in SetPlatformEnv")
 
         return 0
 

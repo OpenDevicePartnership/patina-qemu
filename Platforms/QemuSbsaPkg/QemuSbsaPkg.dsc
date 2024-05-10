@@ -517,7 +517,11 @@
 # Advanced Logger Libraries
 #########################################
 [LibraryClasses]
+!ifndef $(DEBUG_ON_SERIAL_PORT)
   DebugLib|AdvLoggerPkg/Library/BaseDebugLibAdvancedLogger/BaseDebugLibAdvancedLogger.inf
+!else
+  DebugLib|MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
+!endif
   AssertLib|AdvLoggerPkg/Library/AssertLib/AssertLib.inf
   AdvancedLoggerHdwPortLib|AdvLoggerPkg/Library/AdvancedLoggerHdwPortLib/AdvancedLoggerHdwPortLib.inf
   AdvancedLoggerAccessLib|AdvLoggerPkg/Library/AdvancedLoggerAccessLib/AdvancedLoggerAccessLib.inf

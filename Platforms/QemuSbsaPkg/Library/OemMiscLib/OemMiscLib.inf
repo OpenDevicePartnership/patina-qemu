@@ -13,7 +13,7 @@
   INF_VERSION                    = 1.29
   BASE_NAME                      = OemMiscLib
   FILE_GUID                      = 958caf90-9e55-4e2a-86e0-71da21485e2c
-  MODULE_TYPE                    = BASE
+  MODULE_TYPE                    = DXE_DRIVER
   VERSION_STRING                 = 1.0
   LIBRARY_CLASS                  = OemMiscLib
 
@@ -57,3 +57,6 @@
   gQemuSbsaPkgTokenSpaceGuid.PcdChassisManufacturer
   gQemuSbsaPkgTokenSpaceGuid.PcdChassisAssetTag
   gQemuSbsaPkgTokenSpaceGuid.PcdChassisSKU
+
+[Depex]
+  gEfiVariableArchProtocolGuid

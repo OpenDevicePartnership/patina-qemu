@@ -1,0 +1,15 @@
+## @file
+# Download the DXE Core Debug Rust binary.
+#
+# Copyright (c) Microsoft Corporation
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+{
+  "scope": "qemusbsa",
+  "type": "nuget",
+  "name": "DXECORE.AARCH64.DEBUG",
+  "source": "https://pkgs.dev.azure.com/microsoft/MsUEFI/_packaging/DxeRust/nuget/v3/index.json",
+  "version": "0.1.3",
+  "flags": ["set_build_var"],
+  "var_name": "DXE_CORE_DEBUG_BINARY_PATH"
+}

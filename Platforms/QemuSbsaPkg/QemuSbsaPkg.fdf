@@ -200,7 +200,14 @@ READ_STATUS        = TRUE
 READ_LOCK_CAP      = TRUE
 READ_LOCK_STATUS   = TRUE
 
-  INF MdeModulePkg/Core/Dxe/DxeMain.inf
+#
+# Use externally built Rust DXE core binary
+#
+FILE DXE_CORE = D6A2CB7F-6A18-4e2f-B43B-9920A733700A {
+  SECTION PE32 = $(DXE_CORE_BINARY_PATH)/dxe_core_aarch64.efi
+  SECTION UI = "DxeCore"
+}
+
   INF MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
   INF EmbeddedPkg/Drivers/FdtClientDxe/FdtClientDxe.inf
 
