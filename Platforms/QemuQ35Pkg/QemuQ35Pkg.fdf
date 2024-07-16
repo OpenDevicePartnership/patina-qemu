@@ -615,6 +615,14 @@ FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
     SECTION RAW = $(POLICY_BIN_PATH)
   }
 
+  FILE DRIVER = A14E35E2-BB32-4446-8622-C1874B8284E4 {
+    SECTION GUIDED 3D532050-5CDA-4FD0-879E-0F7F630D5AFB PROCESSING_REQUIRED = TRUE {
+      SECTION DXE_DEPEX=$(OUTPUT_DIRECTORY)/$(TARGET)_$(TOOL_CHAIN_TAG)/X64/MsCorePkg/HelloWorldRustDxe/HelloWorldRustDxe/OUTPUT/HelloWorldRustDxe.depex
+      SECTION PE32=$(OUTPUT_DIRECTORY)/$(TARGET)_$(TOOL_CHAIN_TAG)/X64/HelloWorldRustDxe.efi
+      SECTION UI= "HelloWorldRustDxe"
+    }
+  }
+
 ################################################################################
 
 [FV.FVMAIN_COMPACT]
