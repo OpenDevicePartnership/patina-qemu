@@ -20,14 +20,14 @@ pub use {std::print, std::println};
 
 #[cfg(not(feature = "std"))]
 mod no_std_debug {
-  #[macro_export]
-  macro_rules! print {
+    #[macro_export]
+    macro_rules! print {
     ($fmt:expr) => ($crate::serial_print!($fmt));
     ($fmt:expr, $($arg:tt)*) => ($crate::serial_print!($fmt, $($arg)*));
   }
 
-  #[macro_export]
-  macro_rules! println {
+    #[macro_export]
+    macro_rules! println {
     ($fmt:expr) => ($crate::serial_println!($fmt));
     ($fmt:expr, $($arg:tt)*) => ($crate::serial_println!($fmt, $($arg)*));
   }
@@ -36,10 +36,10 @@ mod no_std_debug {
 #[cfg(test)]
 mod tests {
 
-  use crate::print;
+    use crate::print;
 
-  #[test]
-  fn test_print() {
-    print!("This is a test");
-  }
+    #[test]
+    fn test_print() {
+        print!("This is a test");
+    }
 }

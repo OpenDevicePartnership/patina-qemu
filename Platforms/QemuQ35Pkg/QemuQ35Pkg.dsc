@@ -419,7 +419,7 @@
 # Non DXE Core but everything else
 [LibraryClasses.common.DXE_RUNTIME_DRIVER, LibraryClasses.common.UEFI_DRIVER, LibraryClasses.common.DXE_DRIVER, LibraryClasses.common.UEFI_APPLICATION]
   TimerLib |QemuQ35Pkg/Library/AcpiTimerLib/DxeAcpiTimerLib.inf
-  RngLib   |MdePkg/Library/BaseRngLibTimerLib/BaseRngLibTimerLib.inf # MU_CHANGE use timer lib as the source of random
+  RngLib   |MdeModulePkg/Library/BaseRngLibTimerLib/BaseRngLibTimerLib.inf
   PciLib   |QemuQ35Pkg/Library/DxePciLibI440FxQ35/DxePciLibI440FxQ35.inf
 
   OemMfciLib |OemPkg/Library/OemMfciLib/OemMfciLibDxe.inf
@@ -1481,6 +1481,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
       NULL|PrmPkg/Samples/PrmSampleAcpiParameterBufferModule/Library/DxeAcpiParameterBufferModuleConfigLib/DxeAcpiParameterBufferModuleConfigLib.inf
       NULL|PrmPkg/Samples/PrmSampleContextBufferModule/Library/DxeContextBufferModuleConfigLib/DxeContextBufferModuleConfigLib.inf
       # NULL|PrmPkg/Samples/PrmSampleHardwareAccessModule/Library/DxeHardwareAccessModuleConfigLib/DxeHardwareAccessModuleConfigLib.inf
+      # NULL|AdvLoggerPkg/AdvLoggerOsConnectorPrm/Library/AdvLoggerOsConnectorPrmConfigLib/AdvLoggerOsConnectorPrmConfigLib.inf
   }
 
   #
@@ -1497,6 +1498,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   PrmPkg/Samples/PrmSampleAcpiParameterBufferModule/PrmSampleAcpiParameterBufferModule.inf
   PrmPkg/Samples/PrmSampleHardwareAccessModule/PrmSampleHardwareAccessModule.inf
   PrmPkg/Samples/PrmSampleContextBufferModule/PrmSampleContextBufferModule.inf
+  #AdvLoggerPkg/AdvLoggerOsConnectorPrm/AdvLoggerOsConnectorPrm.inf
 
   # PRM Information UEFI Application
   PrmPkg/Application/PrmInfo/PrmInfo.inf
@@ -1541,4 +1543,5 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
 # protection of DXE_SMM_DRIVER/SMM_CORE modules
 [BuildOptions.common.EDKII.DXE_SMM_DRIVER, BuildOptions.common.EDKII.DXE_RUNTIME_DRIVER, BuildOptions.common.EDKII.SMM_CORE, BuildOptions.common.EDKII.DXE_DRIVER, BuildOptions.common.EDKII.DXE_CORE, BuildOptions.common.EDKII.UEFI_DRIVER, BuildOptions.common.EDKII.UEFI_APPLICATION, BuildOptions.common.EDKII.MM_CORE_STANDALONE, BuildOptions.common.EDKII.MM_STANDALONE]
   MSFT:*_*_*_DLINK_FLAGS = /ALIGN:4096
-  GCC:*_*_*_DLINK_FLAGS = -z common-page-size=0x1000
+  GCC:*_GCC5_*_DLINK_FLAGS = -z common-page-size=0x1000
+  GCC:*_CLANGPDB_*_DLINK_FLAGS = /ALIGN:4096

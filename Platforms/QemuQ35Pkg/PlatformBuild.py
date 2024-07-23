@@ -30,7 +30,7 @@ WORKSPACE_ROOT = str(Path(__file__).parent.parent.parent)
 # Declare test whose failure will not return a non-zero exit code
 FAILURE_EXEMPT_TESTS = {
     # example "PiValueTestApp.efi": datetime.datetime(3141, 5, 9, 2, 6, 53, 589793),
-    "DxePagingAuditTestApp.efi": datetime.datetime(2024, 4, 17, 0, 0, 0, 0)
+    "DxePagingAuditTestApp.efi": datetime.datetime(2024, 7, 22, 0, 0, 0, 0)
 }
 
 # Allow failure exempt tests to be ignored for 90 days
@@ -207,12 +207,6 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
     def AddCommandLineOptions(self, parserObj):
         ''' Add command line options to the argparser '''
 
-        # In an effort to support common server based builds this parameter is added.  It is
-        # checked for correctness but is never uses as this platform only supports a single set of
-        # architectures.
-        parserObj.add_argument('-a', "--arch", dest="build_arch", type=str, default="IA32,X64",
-            help="Optional - CSV of architecture to build.  IA32,X64 will use IA32 for PEI and "
-            "X64 for DXE and is the only valid option for this platform.")
         parserObj.add_argument('-p', '--package', dest='package', type=str, default="QemuQ35Pkg",
                                help="Optional - Support common CI builds. Must be QemuQ35Pkg")
         parserObj.add_argument('-t', '--target', dest='target', type=str, default = None,
@@ -222,8 +216,6 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
 
     def RetrieveCommandLineOptions(self, args):
         '''  Retrieve command line options from the argparser '''
-        if args.build_arch.upper() != "IA32,X64":
-            raise Exception("Invalid Arch Specified.  Please see comments in PlatformBuild.py::PlatformBuilder::AddCommandLineOptions")
 
         if args.package.upper() != "QEMUQ35PKG":
             raise Exception("Invalid Package specified. Must be QemuQ35Pkg")

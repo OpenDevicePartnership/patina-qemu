@@ -125,7 +125,6 @@ jobs:
       matrix:
         build_file: ${{ fromJson(needs.gather_build_files.outputs.platform_build_files) }}
         include:
-          - archs: IA32,X64
           - tool_chain_tag: VS2022
 
     steps:
@@ -157,11 +156,21 @@ jobs:
         import os
         import requests
         import sys
+        import time
+
+        def get_response_with_retries(url, retries=5, wait_time=10):
+          for attempt in range(retries):
+            response = requests.get(url)
+            if response.status_code == 200:
+              return response
+            print(f"::warning title=GitHub API Access Error!::Attempt {attempt + 1} failed. Retrying in {wait_time} seconds...")
+            time.sleep(wait_time)
+          return response
 
         GITHUB_REPO = "sagiegurari/cargo-make"
         api_url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/tags/0.37.9"
 
-        response = requests.get(api_url)
+        response = get_response_with_retries(api_url)
         if response.status_code == 200:
           build_release_id = response.json()["id"]
         else:
@@ -170,7 +179,7 @@ jobs:
 
         api_url = f"https://api.github.com/repos/{GITHUB_REPO}/releases/{build_release_id}"
 
-        response = requests.get(api_url)
+        response = get_response_with_retries(api_url)
         if response.status_code == 200:
           latest_cargo_make_version = response.json()["tag_name"]
         else:
@@ -194,7 +203,7 @@ jobs:
 
     - name: Download cargo-make
       if: steps.cargo_make_cache.outputs.cache-hit != 'true'
-      uses: robinraju/release-downloader@v1.10
+      uses: robinraju/release-downloader@v1.11
       with:
         repository: 'sagiegurari/cargo-make'
         tag: '${{ steps.get_cargo_tool_details.outputs.cargo_make_version }}'
@@ -288,7 +297,7 @@ jobs:
       if: steps.get_platform_info.outputs.setup_supported == 'true'
       shell: pwsh
       working-directory: "Z:"
-      run: stuart_setup -c ${{ matrix.build_file }} -t DEBUG -a ${{ matrix.archs }} TOOL_CHAIN_TAG=${{ matrix.tool_chain_tag }}
+      run: stuart_setup -c ${{ matrix.build_file }} -t DEBUG TOOL_CHAIN_TAG=${{ matrix.tool_chain_tag }}
 
     - name: Upload Setup Log As An Artifact
       uses: actions/upload-artifact@v4
@@ -304,7 +313,7 @@ jobs:
       if: steps.get_platform_info.outputs.ci_setup_supported == 'true'
       shell: pwsh
       working-directory: "Z:"
-      run: stuart_ci_setup -c ${{ matrix.build_file }} -t DEBUG -a ${{ matrix.archs }} TOOL_CHAIN_TAG=${{ matrix.tool_chain_tag }}
+      run: stuart_ci_setup -c ${{ matrix.build_file }} -t DEBUG TOOL_CHAIN_TAG=${{ matrix.tool_chain_tag }}
 
     - name: Upload CI Setup Log As An Artifact
       uses: actions/upload-artifact@v4
@@ -319,7 +328,7 @@ jobs:
     - name: Update
       shell: pwsh
       working-directory: "Z:"
-      run: stuart_update -c ${{ matrix.build_file }} -t DEBUG -a ${{ matrix.archs }} TOOL_CHAIN_TAG=${{ matrix.tool_chain_tag }}
+      run: stuart_update -c ${{ matrix.build_file }} -t DEBUG TOOL_CHAIN_TAG=${{ matrix.tool_chain_tag }}
 
     - name: Upload Update Log As An Artifact
       uses: actions/upload-artifact@v4
@@ -397,7 +406,7 @@ jobs:
       if: steps.codeqlcli_cache.outputs.cache-hit != 'true'
       shell: pwsh
       working-directory: "Z:"
-      run: stuart_update -c ${{ matrix.build_file }} -t DEBUG -a ${{ matrix.archs }} TOOL_CHAIN_TAG=${{ matrix.tool_chain_tag }} --codeql
+      run: stuart_update -c ${{ matrix.build_file }} -t DEBUG TOOL_CHAIN_TAG=${{ matrix.tool_chain_tag }} --codeql
 
     - name: Find pytool Plugin Directory
       id: find_pytool_dir

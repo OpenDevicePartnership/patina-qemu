@@ -121,7 +121,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         logging.log(logging.INFO, "CPU model: " + cpu_model)
 
         #args += " -cpu qemu64,+rdrand,umip,+smep,+popcnt" # most compatible x64 CPU model + RDRAND + UMIP + SMEP +POPCNT support (not included by default)
-        cpu_arg = " -cpu " + cpu_model + ",rdrand=on,umip=on,smep=on,pdpe1gb=on,popcnt=on,+sse4.2,+sse4.1"
+        cpu_arg = " -cpu " + cpu_model + ",rdrand=on,umip=on,smep=on,pdpe1gb=on,popcnt=on,+sse,+sse2,+sse3,+ssse3,+sse4.2,+sse4.1"
         args += cpu_arg
 
         if env.GetBuildValue ("QEMU_CORE_NUM") is not None:
@@ -169,11 +169,9 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             if alt_boot_enable.upper() == "TRUE":
                 boot_selection += ",version=Vol-"
 
-        # If DFCI_VAR_STORE is enabled, don't enable the Virtual Drive, and enable the network
+        # If DFCI_VAR_STORE is enabled, don't enable the Virtual Drive
         dfci_var_store = env.GetValue("DFCI_VAR_STORE")
         if dfci_var_store is None:
-            # turn off network
-            args += " -net none"
             # Mount disk with startup.nsh
             if os.path.isfile(VirtualDrive):
                 args += f" -drive file={VirtualDrive},if=virtio"
@@ -181,16 +179,22 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
                 args += f" -drive file=fat:rw:{VirtualDrive},format=raw,media=disk"
             else:
                 logging.critical("Virtual Drive Path Invalid")
-        else:
+
+        if env.GetValue("ENABLE_NETWORK") or dfci_var_store:
+            args += " -netdev user,id=net0"
+
+            if dfci_var_store:
+                # forward ports for robotframework 8270 and 8271
+                args += ",hostfwd=tcp::8270-:8270,hostfwd=tcp::8271-:8271"
+
             if boot_to_front_page is None:
                 # Booting to Windows, use a PCI nic
                 args += " -device e1000,netdev=net0"
             else:
                 # Booting to UEFI, use virtio-net-pci
                 args += " -device virtio-net-pci,netdev=net0"
-
-            # forward ports for robotframework 8270 and 8271
-            args += " -netdev user,id=net0,hostfwd=tcp::8270-:8270,hostfwd=tcp::8271-:8271"
+        else:
+            args += " -net none"
 
         creation_time = Path(code_fd).stat().st_ctime
         creation_datetime = datetime.datetime.fromtimestamp(creation_time)
@@ -236,7 +240,10 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         if os.name == 'nt' and qemu_version[0] >= '8':
             import win32console
             std_handle = win32console.GetStdHandle(win32console.STD_INPUT_HANDLE)
-            console_mode = std_handle.GetConsoleMode()
+            try:
+                console_mode = std_handle.GetConsoleMode()
+            except Exception:
+                std_handle = None
 
         # Run QEMU
         ret = utility_functions.RunCmd(executable, args)
@@ -251,7 +258,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             # Tested same FDs on QEMU 6 and 7, not observing the same.
             ret = 0
 
-        if os.name == 'nt' and qemu_version[0] >= '8':
+        if os.name == 'nt' and qemu_version[0] >= '8' and std_handle is not None:
             # Restore the console mode for Windows on QEMU v8+.
             std_handle.SetConsoleMode(console_mode)
         elif os.name != 'nt':

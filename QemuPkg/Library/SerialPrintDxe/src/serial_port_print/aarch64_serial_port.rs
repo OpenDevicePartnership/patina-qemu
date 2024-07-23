@@ -15,39 +15,39 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 
 pub struct SerialPortHandle {
-  port: *mut u8,
+    port: *mut u8,
 }
 unsafe impl Send for SerialPortHandle {}
 unsafe impl Sync for SerialPortHandle {}
 
 impl SerialPortHandle {
-  pub const fn new(port: *mut u8) -> Self {
-    Self { port }
-  }
-
-  /// Writes to the port.
-  ///
-  /// ## Safety
-  ///
-  /// This function is unsafe because the I/O port could have side effects that violate memory
-  /// safety.
-  #[inline]
-  pub unsafe fn write(&mut self, byte: u8) {
-    unsafe {
-      ptr::write_volatile(self.port, byte);
+    pub const fn new(port: *mut u8) -> Self {
+        Self { port }
     }
-  }
+
+    /// Writes to the port.
+    ///
+    /// ## Safety
+    ///
+    /// This function is unsafe because the I/O port could have side effects that violate memory
+    /// safety.
+    #[inline]
+    pub unsafe fn write(&mut self, byte: u8) {
+        unsafe {
+            ptr::write_volatile(self.port, byte);
+        }
+    }
 }
 
 impl fmt::Write for SerialPortHandle {
-  fn write_str(&mut self, s: &str) -> fmt::Result {
-    for byte in s.bytes() {
-      unsafe {
-        self.write(byte);
-      }
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        for byte in s.bytes() {
+            unsafe {
+                self.write(byte);
+            }
+        }
+        Ok(())
     }
-    Ok(())
-  }
 }
 
 lazy_static! {
@@ -61,17 +61,17 @@ lazy_static! {
 #[cfg(not(test))]
 #[doc(hidden)]
 pub fn _print(args: ::core::fmt::Arguments) {
-  use core::fmt::Write;
+    use core::fmt::Write;
 
-  UART0.lock().write_fmt(args).expect("Printing to serial failed");
+    UART0.lock().write_fmt(args).expect("Printing to serial failed");
 }
 
 #[cfg(test)]
 pub fn _print(args: ::core::fmt::Arguments) {
-  extern crate alloc;
-  use alloc::vec::Vec;
+    extern crate alloc;
+    use alloc::vec::Vec;
 
-  let mut vec = Vec::new();
-  vec.push(args.as_str());
-  assert_eq!(vec[0], args.as_str())
+    let mut vec = Vec::new();
+    vec.push(args.as_str());
+    assert_eq!(vec[0], args.as_str())
 }
