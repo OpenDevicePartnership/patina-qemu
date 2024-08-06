@@ -109,7 +109,7 @@ checksum = "b048fb63fd8b5923fc5aa7b340d8e156aec7ec02f0c78fa8a6ddc2613f6f71de"
 [[package]]
 name = "hidparser"
 version = "0.2.0"
-source = "git+https://github.com/microsoft/mu_rust_hid.git?branch=main#d279594e576aa83371b4f50e852e25915ea51347"
+source = "git+https://github.com/microsoft/mu_rust_hid.git?branch=main#d8f0b8a9866092a31c76d5f17b3054d5825ba986"
 
 [[package]]
 name = "lazy_static"
