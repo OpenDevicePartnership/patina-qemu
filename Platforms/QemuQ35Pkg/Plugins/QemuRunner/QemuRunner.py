@@ -51,7 +51,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         ''' Runs QEMU '''
         VirtualDrive = env.GetValue("VIRTUAL_DRIVE_PATH")
         OutputPath_FV = os.path.join(env.GetValue("BUILD_OUTPUT_BASE"), "FV")
-        shutdown_after_run = (env.GetValue("SHUTDOWN_AFTER_RUN", "TRUE")=="TRUE")
+        shutdown_after_run = (env.GetValue("SHUTDOWN_AFTER_RUN", "FALSE")=="TRUE")
         repo_version = env.GetValue("VERSION", "Unknown")
 
         # Use a provided QEMU path. Otherwise use what is provided through the extdep
