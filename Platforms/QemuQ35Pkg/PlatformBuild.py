@@ -165,10 +165,6 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
         ''' Filter other cases that this package should be built
         based on changed files. This should cover things that can't
         be detected as dependencies. '''
-        # If the DXE Core binary path is set on the command line, build all packages
-        if shell_environment.GetBuildVars().GetValue("BLD_*_DXE_CORE_BINARY_PATH"):
-            return potentialPackagesList
-
         build_these_packages = []
         possible_packages = potentialPackagesList.copy()
         for f in changedFilesList:
