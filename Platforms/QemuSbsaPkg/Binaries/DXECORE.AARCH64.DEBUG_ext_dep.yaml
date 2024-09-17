@@ -9,7 +9,7 @@
   "type": "nuget",
   "name": "DXECORE.AARCH64.DEBUG",
   "source": "https://pkgs.dev.azure.com/microsoft/MsUEFI/_packaging/DxeRust/nuget/v3/index.json",
-  "version": "0.1.4",
+  "version": "0.1.8",
   "flags": ["set_build_var"],
   "var_name": "DXE_CORE_DEBUG_BINARY_PATH"
 }

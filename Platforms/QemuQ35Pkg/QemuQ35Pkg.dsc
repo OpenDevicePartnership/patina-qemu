@@ -610,6 +610,8 @@
 [PcdsPatchableInModule]
 !if $(DEBUGGER_ENABLED) == TRUE
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x17
+!elseif $(TARGET) == RELEASE
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x02
 !else
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x2F
 !endif
@@ -682,6 +684,10 @@
 
   # Use profile index 1
   gOemPkgTokenSpaceGuid.PcdActiveProfileIndex|0x1
+
+  !if $(TARGET) == RELEASE
+    gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerHdwPortDebugPrintErrorLevel|0x0
+  !endif
 
 [PcdsFixedAtBuild.common]
   # a PCD that controls the enumeration and connection of ConIn's. When true, ConIn is only connected once a console input is requests
@@ -1518,9 +1524,6 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
 #
 ################################################################################
 [BuildOptions]
-  GCC:RELEASE_*_*_CC_FLAGS             = -DMDEPKG_NDEBUG
-  MSFT:RELEASE_*_*_CC_FLAGS            = /D MDEPKG_NDEBUG
-
   # Exception tables are required for stack walks in the debugger.
   MSFT:*_*_X64_GENFW_FLAGS  = --keepexceptiontable
   GCC:*_*_X64_GENFW_FLAGS   = --keepexceptiontable

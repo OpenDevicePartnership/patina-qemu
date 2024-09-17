@@ -306,9 +306,6 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         self.env.SetValue("MU_SCHEMA_DIR", self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuSbsaPkg", "CfgData"), "Platform Defined")
         self.env.SetValue("MU_SCHEMA_FILE_NAME", "QemuSbsaPkgCfgData.xml", "Platform Hardcoded")
 
-        # Needed until Advanced Logger support is added to DxeRust
-        self.env.SetValue("BLD_*_DEBUG_ON_SERIAL_PORT", "TRUE", "Advanced Logger Workaround")
-
         if self.Helper.generate_secureboot_pcds(self) != 0:
             logging.error("Failed to generate include PCDs")
             return -1

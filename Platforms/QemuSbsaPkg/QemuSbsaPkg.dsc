@@ -595,7 +595,7 @@
   # ASSERT_BREAKPOINT_ENABLED  0x10
   # ASSERT_DEADLOOP_ENABLED    0x20
 !if $(TARGET) == RELEASE
-  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x21
+  gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x23
 !else
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0xff
 !endif
@@ -805,6 +805,10 @@
 
   # Set this to be gOemConfigPolicyGuid
   gSetupDataPkgTokenSpaceGuid.PcdConfigurationPolicyGuid|{GUID("ba320ade-e132-4c99-a3df-74d673ea6f76")}
+
+  !if $(TARGET) == RELEASE
+    gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerHdwPortDebugPrintErrorLevel|0x0
+  !endif
 
 [PcdsFixedAtBuild.common]
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiDefaultOemId|"Palindrome"
@@ -1396,10 +1400,6 @@
 #
 ###################################################################################################
 [BuildOptions]
-  RVCT:RELEASE_*_*_CC_FLAGS  = -DMDEPKG_NDEBUG
-
-  GCC:RELEASE_*_*_CC_FLAGS  = -DMDEPKG_NDEBUG
-
   # Exception tables are required for stack walks in the debugger.
   MSFT:*_*_AARCH64_GENFW_FLAGS  = --keepexceptiontable
   GCC:*_*_AARCH64_GENFW_FLAGS   = --keepexceptiontable

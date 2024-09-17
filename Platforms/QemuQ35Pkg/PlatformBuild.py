@@ -312,9 +312,6 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         # Enabled all of the SMM modules
         self.env.SetValue("BLD_*_SMM_ENABLED", "TRUE", "Default")
 
-        # Needed until Advanced Logger support is added to DxeRust
-        self.env.SetValue("BLD_*_DEBUG_ON_SERIAL_PORT", "TRUE", "Advanced Logger Workaround")
-
         if self.Helper.generate_secureboot_pcds(self) != 0:
             logging.error("Failed to generate include PCDs")
             return -1
