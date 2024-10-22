@@ -310,7 +310,11 @@ APRIORI DXE {
 # Use externally built Rust DXE core binary
 #
 FILE DXE_CORE = D6A2CB7F-6A18-4e2f-B43B-9920A733700A {
-  SECTION PE32 = $(DXE_CORE_BINARY_PATH)/dxe_core_x64.efi
+!if $(TARGET) == RELEASE
+  SECTION PE32 = $(DXE_CORE_BINARY_PATH)/release/qemu_q35_dxe_core.efi
+!else
+  SECTION PE32 = $(DXE_CORE_BINARY_PATH)/debug/qemu_q35_dxe_core.efi
+!endif
   SECTION UI = "DxeCore"
 }
 
