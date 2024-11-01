@@ -25,8 +25,8 @@ memoffset = "0.9"
 num-traits = { version = "0.2", default-features = false}
 num-derive = { version = "0.4", default-features = false}
 r-efi = "4.5.0"
-rustversion = "1.0.17"
 scroll = { version = "0.11", default-features = false, features = ["derive"]}
+rustversion = "1.0.18"
 spin = "0.9.8"
 uart_16550 = "0.3.0"
 x86_64 = "0.15.1"
