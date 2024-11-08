@@ -1057,6 +1057,8 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   MdeModulePkg/Universal/PCD/Dxe/Pcd.inf  {
    <LibraryClasses>
       PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
+      RngLib|MdePkg/Library/BaseRngLib/BaseRngLib.inf
+      DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
   }
 
   MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
@@ -1128,6 +1130,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   SecurityPkg/RandomNumberGenerator/RngDxe/RngDxe.inf {
     <LibraryClasses>
       RngLib|MdeModulePkg/Library/BaseRngLibTimerLib/BaseRngLibTimerLib.inf
+      DevicePathLib|MdePkg/Library/UefiDevicePathLib/UefiDevicePathLib.inf
   }
 
   MdeModulePkg/Universal/WatchdogTimerDxe/WatchdogTimer.inf
