@@ -306,7 +306,7 @@ APRIORI DXE {
 #
 # Use externally built Rust DXE core binary
 #
-FILE DXE_CORE = D6A2CB7F-6A18-4e2f-B43B-9920A733700A {
+FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
 !if $(TARGET) == RELEASE
   SECTION PE32 = $(DXE_CORE_BINARY_PATH)/release/qemu_q35_dxe_core.efi
 !else
