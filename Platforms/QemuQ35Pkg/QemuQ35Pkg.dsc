@@ -324,11 +324,13 @@
 [LibraryClasses.IA32, LibraryClasses.X64]
   XenHypercallLib|QemuQ35Pkg/Library/XenHypercallLib/XenHypercallLib.inf
 
-[LibraryClasses.common.PEI_CORE]
+[LibraryClasses.common.PEI_CORE] 
   NULL|MdePkg/Library/StackCheckLibNull/StackCheckLibNull.inf
+  PerformanceLib|MdeModulePkg/Library/PeiPerformanceLib/PeiPerformanceLib.inf
 
 [LibraryClasses.common.PEIM]
   NULL|MdePkg/Library/StackCheckLib/StackCheckLibStaticInit.inf
+  PerformanceLib|MdeModulePkg/Library/PeiPerformanceLib/PeiPerformanceLib.inf
 
 [LibraryClasses.common.DXE_CORE, LibraryClasses.common.SMM_CORE, LibraryClasses.common.DXE_SMM_DRIVER, LibraryClasses.common.DXE_DRIVER, LibraryClasses.common.DXE_RUNTIME_DRIVER, LibraryClasses.common.DXE_SAL_DRIVER, LibraryClasses.common.UEFI_DRIVER, LibraryClasses.common.UEFI_APPLICATION, LibraryClasses.common.MM_CORE_STANDALONE, LibraryClasses.common.MM_STANDALONE]
   NULL|MdePkg/Library/StackCheckLib/StackCheckLibDynamicInit.inf
@@ -352,6 +354,15 @@
 !endif
 
   MemEncryptSevLib|QemuQ35Pkg/Library/BaseMemEncryptSevLib/SecMemEncryptSevLib.inf
+
+[LibraryClasses.common.DXE_DRIVER]
+PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
+
+[LibraryClasses.common.UEFI_DRIVER]
+PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
+
+[LibraryClasses.common.UEFI_APPLICATION]
+PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
 
 [LibraryClasses.common.DXE_DRIVER, LibraryClasses.common.DXE_CORE, LibraryClasses.common.UEFI_APPLICATION]
   DxeMemoryProtectionHobLib|MdeModulePkg/Library/MemoryProtectionHobLib/DxeMemoryProtectionHobLib.inf
@@ -624,6 +635,7 @@
   gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedFileLoggerFlush|3
   gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerPreMemPages|3
   gEfiSecurityPkgTokenSpaceGuid.PcdUserPhysicalPresence|FALSE
+  gEfiMdePkgTokenSpaceGuid.PcdPerformanceLibraryPropertyMask|1
 
 !if $(NETWORK_TLS_ENABLE) == FALSE
   # match PcdFlashNvStorageVariableSize purely for convenience

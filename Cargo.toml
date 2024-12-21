@@ -29,7 +29,7 @@ scroll = { version = "0.11", default-features = false, features = ["derive"]}
 rustversion = "1.0.18"
 spin = "0.9.8"
 uart_16550 = "0.3.0"
-x86_64 = "0.15.1"
+x86_64 = "=0.15.1"
 
 # By default, the dev profile is used. The default build settings for the dev profile are documented here:
 # https://doc.rust-lang.org/cargo/reference/profiles.html#dev
