@@ -54,12 +54,12 @@
   DXE_CRYPTO_SERVICES = STANDARD
   RUNTIMEDXE_CRYPTO_SERVICES = STANDARD
   SMM_CRYPTO_SERVICES = NONE
-  STANDALONEMM_CRYPTO_SERVICES = STANDARD
+  STANDALONEMM_MMSUPV_CRYPTO_SERVICES = STANDARD
   PEI_CRYPTO_ARCH = IA32
   DXE_CRYPTO_ARCH = X64
   RUNTIMEDXE_CRYPTO_ARCH = X64
   SMM_CRYPTO_ARCH = NONE
-  STANDALONEMM_CRYPTO_ARCH = X64
+  STANDALONEMM_MMSUPV_CRYPTO_ARCH = X64
 
 ################################################################################
 #
@@ -527,6 +527,7 @@ PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   MmSaveStateLib|UefiCpuPkg/Library/MmSaveStateLib/AmdMmSaveStateLib.inf
   SmmCpuSyncLib|MmSupervisorPkg/Library/StandaloneMmCpuSyncLib/StandaloneMmCpuSyncLib.inf
   RngLib|MdeModulePkg/Library/BaseRngLibTimerLib/BaseRngLibTimerLib.inf
+  SecurePolicyLib|MmSupervisorPkg/Library/SecurePolicyLib/SecurePolicyLib.inf
 
 [LibraryClasses.common.MM_STANDALONE]
   TimerLib|QemuQ35Pkg/Library/AcpiTimerLib/DxeAcpiTimerLib.inf
@@ -779,10 +780,10 @@ PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiReservedMemoryType|0x510
 !if $(SMM_ENABLED) == FALSE
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesCode|0x200
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesData|0x200
+  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesData|0x700
 !else
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesCode|0x100
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesData|0x1C0
+  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesData|0x700
 !endif
 
 [PcdsFixedAtBuild.X64]

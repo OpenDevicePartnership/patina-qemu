@@ -756,7 +756,7 @@ QemuInitializeRamBelow1gb (
   )
 {
   if (FeaturePcdGet (PcdSmmSmramRequire) && mQ35SmramAtDefaultSmbase) {
-    AddMemoryRangeHob (0, SMM_DEFAULT_SMBASE);
+    AddReservedMemoryBaseSizeHob (0, SMM_DEFAULT_SMBASE, TRUE);
     AddReservedMemoryBaseSizeHob (
       SMM_DEFAULT_SMBASE,
       MCH_DEFAULT_SMBASE_SIZE,
@@ -771,7 +771,8 @@ QemuInitializeRamBelow1gb (
       BASE_512KB + BASE_128KB
       );
   } else {
-    AddMemoryRangeHob (0, BASE_512KB + BASE_128KB);
+    AddReservedMemoryBaseSizeHob (0, SMM_DEFAULT_SMBASE, TRUE);
+    AddMemoryRangeHob (SMM_DEFAULT_SMBASE, BASE_512KB + BASE_128KB);
   }
 }
 

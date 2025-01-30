@@ -9,6 +9,7 @@
 
 #include <PiPei.h>
 #include <Base.h>
+#include <Uefi/UefiSpec.h>
 #include <Library/ArmLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Library/DebugLib.h>
@@ -21,6 +22,15 @@
 
 // Number of Virtual Memory Map Descriptors
 #define MAX_VIRTUAL_MEMORY_MAP_DESCRIPTORS  5
+
+#define RESOURCE_CAP  (EFI_RESOURCE_ATTRIBUTE_PRESENT | \
+                      EFI_RESOURCE_ATTRIBUTE_INITIALIZED | \
+                      EFI_RESOURCE_ATTRIBUTE_UNCACHEABLE | \
+                      EFI_RESOURCE_ATTRIBUTE_WRITE_COMBINEABLE | \
+                      EFI_RESOURCE_ATTRIBUTE_WRITE_THROUGH_CACHEABLE | \
+                      EFI_RESOURCE_ATTRIBUTE_WRITE_BACK_CACHEABLE | \
+                      EFI_RESOURCE_ATTRIBUTE_TESTED \
+                      )
 
 // MU_CHANGE START
 
@@ -221,6 +231,116 @@ ArmPlatformGetVirtualMemoryMap (
   VirtualMemoryTable[1].VirtualBase  = 0x0;
   VirtualMemoryTable[1].Length       = VirtualMemoryTable[0].PhysicalBase;
   VirtualMemoryTable[1].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
+
+  // Flash
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_FIRMWARE_DEVICE,
+    RESOURCE_CAP,
+    0,
+    0x20000000,
+    EFI_MEMORY_WB,
+    NULL
+    );
+
+  // CPUPERIPHS
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    RESOURCE_CAP,
+    0x40000000,
+    0x00040000,
+    EFI_MEMORY_UC,
+    NULL
+    );
+
+  // GIC_D
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    RESOURCE_CAP,
+    0x40060000,
+    0x00010000,
+    EFI_MEMORY_UC,
+    NULL
+    );
+
+  // GIC_R
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    RESOURCE_CAP,
+    0x40080000,
+    0x04000000,
+    EFI_MEMORY_UC,
+    NULL
+    );
+
+  // UART
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    RESOURCE_CAP,
+    0x60000000,
+    0x1000,
+    EFI_MEMORY_UC,
+    NULL
+    );
+
+  // SMMU
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    RESOURCE_CAP,
+    0x60050000,
+    0x00020000,
+    EFI_MEMORY_UC,
+    NULL
+    );
+
+  // AHCI
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    RESOURCE_CAP,
+    0x60100000,
+    0x00010000,
+    EFI_MEMORY_UC,
+    NULL
+    );
+
+  // XHCI
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    RESOURCE_CAP,
+    0x60110000,
+    0x00010000,
+    EFI_MEMORY_UC,
+    NULL
+    );
+
+  // PCIE_PIO
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    RESOURCE_CAP,
+    0x7fff0000,
+    0x00010000,
+    EFI_MEMORY_UC,
+    NULL
+    );
+
+  // PCIE_MMIO
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    RESOURCE_CAP,
+    0x80000000,
+    0x70000000,
+    EFI_MEMORY_UC,
+    NULL
+    );
+
+  // PCIE_ECAM
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    RESOURCE_CAP,
+    0xf0000000,
+    0x10000000,
+    EFI_MEMORY_UC,
+    NULL
+    );
 
   // Remap the FD region as normal executable memory
   VirtualMemoryTable[2].PhysicalBase = PcdGet64 (PcdFdBaseAddress);

@@ -326,6 +326,8 @@
   SvdXmlSettingSchemaSupportLib |SetupDataPkg/Library/SvdXmlSettingSchemaSupportLib/SvdXmlSettingSchemaSupportLib.inf
   ActiveProfileIndexSelectorLib |OemPkg/Library/ActiveProfileIndexSelectorPcdLib/ActiveProfileIndexSelectorPcdLib.inf
 
+  MemoryBinOverrideLib          |MdeModulePkg/Library/MemoryBinOverrideLibNull/MemoryBinOverrideLibNull.inf
+
   # DFCI / XML / JSON Libraries
   DfciUiSupportLib                  |DfciPkg/Library/DfciUiSupportLibNull/DfciUiSupportLibNull.inf # Supports DFCI Groups.
   DfciV1SupportLib                  |DfciPkg/Library/DfciV1SupportLibNull/DfciV1SupportLibNull.inf # Backwards compatibility with DFCI V1 functions.
@@ -625,11 +627,11 @@
   # (the memory used, and the free memory that was prereserved
   # but not used).
   #
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIReclaimMemory|0x40
+  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIReclaimMemory|0x143
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIMemoryNVS|0x0
 !if $(TOOL_CHAIN_TAG) == GCC5     # This is really odd on why CLANGPDB has runtime memory consumption differences
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiReservedMemoryType|0x505
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesData|0x258
+  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesData|0x642
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesCode|0x260
 !else
 !if $(TARGET) == RELEASE
@@ -727,8 +729,8 @@
   gArmTokenSpaceGuid.PcdPciMmio32Size|0x70000000
   gQemuSbsaPkgTokenSpaceGuid.PcdPciMmio32Limit|0xEFFFFFFF
   gArmTokenSpaceGuid.PcdPciMmio64Base|0x100000000
-  gArmTokenSpaceGuid.PcdPciMmio64Size|0xFF00000000
-  gQemuSbsaPkgTokenSpaceGuid.PcdPciMmio64Limit|0xFFFFFFFFFF
+  gArmTokenSpaceGuid.PcdPciMmio64Size|0xFF000000
+  gQemuSbsaPkgTokenSpaceGuid.PcdPciMmio64Limit|0x1FEFFFFFF
 
   # set PcdPciExpressBaseAddress to MAX_UINT64, which signifies that this
   # PCD and PcdPciDisableBusEnumeration have not been assigned yet
@@ -1013,8 +1015,8 @@
   #
   # Architectural Protocols
   #
-  ArmPkg/Drivers/CpuDxe/CpuDxe.inf
-  MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
+  # ArmPkg/Drivers/CpuDxe/CpuDxe.inf
+  # MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
   MdeModulePkg/Universal/Variable/RuntimeDxe/VariableSmmRuntimeDxe.inf
   MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf {
     <LibraryClasses>

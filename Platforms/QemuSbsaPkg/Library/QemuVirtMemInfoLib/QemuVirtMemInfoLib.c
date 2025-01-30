@@ -93,6 +93,13 @@ ArmVirtGetMemoryMap (
   VirtualMemoryTable[0].Length       = *(UINT64 *)GET_GUID_HOB_DATA (MemorySizeHob);
   VirtualMemoryTable[0].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
 
+  BuildResourceDescriptorHob (
+    EFI_RESOURCE_SYSTEM_MEMORY,
+    EfiConventionalMemory,
+    VirtualMemoryTable[0].PhysicalBase,
+    VirtualMemoryTable[0].Length
+    );
+
   DEBUG ((
     DEBUG_INFO,
     "%a: Dumping System DRAM Memory Map:\n"
@@ -111,11 +118,25 @@ ArmVirtGetMemoryMap (
   VirtualMemoryTable[1].Length       = MACH_VIRT_PERIPH_SIZE;
   VirtualMemoryTable[1].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
 
+  BuildResourceDescriptorHob (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    EfiMemoryMappedIO,
+    VirtualMemoryTable[1].PhysicalBase,
+    VirtualMemoryTable[1].Length
+    );
+
   // Map the FV region as normal executable memory
   VirtualMemoryTable[2].PhysicalBase = PcdGet64 (PcdFvBaseAddress);
   VirtualMemoryTable[2].VirtualBase  = VirtualMemoryTable[2].PhysicalBase;
   VirtualMemoryTable[2].Length       = FixedPcdGet32 (PcdFvSize);
   VirtualMemoryTable[2].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK_RO;
+
+  BuildResourceDescriptorHob (
+    EFI_RESOURCE_SYSTEM_MEMORY,
+    EfiBootServicesCode,
+    VirtualMemoryTable[2].PhysicalBase,
+    VirtualMemoryTable[2].Length
+    );
 
   // End of Table
   ZeroMem (&VirtualMemoryTable[3], sizeof (ARM_MEMORY_REGION_DESCRIPTOR));

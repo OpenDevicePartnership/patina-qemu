@@ -332,7 +332,7 @@ INF  MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
 
 INF  QemuQ35Pkg/8259InterruptControllerDxe/8259.inf
 INF  UefiCpuPkg/CpuIo2Dxe/CpuIo2Dxe.inf
-INF  UefiCpuPkg/CpuDxe/CpuDxe.inf
+# INF  UefiCpuPkg/CpuDxe/CpuDxe.inf
 INF  QemuQ35Pkg/8254TimerDxe/8254Timer.inf
 INF  QemuQ35Pkg/IncompatiblePciDeviceSupportDxe/IncompatiblePciDeviceSupport.inf
 INF  QemuPkg/PciHotPlugInitDxe/PciHotPlugInit.inf
@@ -530,7 +530,7 @@ INF  MsCorePkg/AcpiRGRT/AcpiRgrt.inf
 
 !if $(SMM_ENABLED) == TRUE
   !include $(SHARED_CRYPTO_PATH)/Driver/Bin/CryptoDriver.DXE.inc.fdf
-  !include $(SHARED_CRYPTO_PATH)/Driver/Bin/CryptoDriver.STANDALONEMM.inc.fdf
+  !include $(SHARED_CRYPTO_PATH)/Driver/Bin/CryptoDriver.STANDALONEMM_MMSUPV.inc.fdf
 !else
   !include $(SHARED_CRYPTO_PATH)/Driver/Bin/CryptoDriver.RUNTIMEDXE.inc.fdf
 !endif
