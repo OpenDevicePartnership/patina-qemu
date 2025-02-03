@@ -848,7 +848,7 @@ FILE FV_IMAGE = FB5947AF-7CB5-413E-8C1A-38167FCBE3EA {
     RAW ASL                |.aml
   }
 
-[Rule.Common.SEC.RESET_VECTOR]
+[Rule.Common.USER_DEFINED.RESET_VECTOR]
   FILE RAW = $(NAMED_GUID) {
     RAW BIN   Align = 16   |.bin
   }
