@@ -26,7 +26,7 @@ extends:
     do_ci_setup: false
     do_non_ci_build: false
     do_non_ci_setup: true
-    do_pr_eval: true
+    do_pr_eval: false
     container_build: true
     os_type: Linux
     rust_build: true

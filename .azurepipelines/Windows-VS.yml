@@ -26,7 +26,7 @@ extends:
     do_ci_setup: true
     do_non_ci_build: false
     do_non_ci_setup: true
-    do_pr_eval: true
+    do_pr_eval: false
     os_type: Windows_NT
     rust_build: true
     extra_cargo_steps:
