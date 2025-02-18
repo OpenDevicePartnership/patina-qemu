@@ -14,7 +14,7 @@ resources:
       ref: refs/tags/v12.2.0
   containers:
     - container: linux-gcc
-      image: ghcr.io/microsoft/mu_devops/ubuntu-22-test:4bebc96
+      image: ghcr.io/microsoft/mu_devops/ubuntu-24-test:latest
       options: --name mu_devops_build_container
 
 variables:

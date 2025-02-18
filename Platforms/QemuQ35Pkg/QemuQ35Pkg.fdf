@@ -315,12 +315,14 @@ FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
   SECTION UI = "DxeCore"
 }
 
+!if $(BUILD_RUST_CODE) == TRUE
 # Simple pure Rust DXE driver that is loaded by Rust DXE Core
-# INF  QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
+INF  QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
 
 # Simple C Test DXE driver used to test Rust DXE Core FFI interfaces.
-# INF  QemuQ35Pkg/RustFfiTestDxe/RustFfiTestDxe.inf
-# INF  QemuQ35Pkg/RustFfiImageTestDxe/RustFfiImageTestDxe.inf
+INF  QemuQ35Pkg/RustFfiTestDxe/RustFfiTestDxe.inf
+INF  QemuQ35Pkg/RustFfiImageTestDxe/RustFfiImageTestDxe.inf
+!endif
 
 INF  MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
 INF  MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf
@@ -514,18 +516,25 @@ INF MsCorePkg/LoadOptionVariablePolicyDxe/LoadOptionVariablePolicyDxe.inf
 !if $(SMM_ENABLED) == TRUE
 INF  MmSupervisorPkg/Drivers/MmSupervisorRing3Broker/MmSupervisorRing3Broker.inf
 INF  MmSupervisorPkg/Drivers/StandaloneMmUnblockMem/StandaloneMmUnblockMem.inf
+!if $(PERF_TRACE_ENABLE) == TRUE
+INF  MmSupervisorPkg/Drivers/MmSupervisorRing3Performance/MmSupervisorRing3Performance.inf
+!endif
 !endif
 # INF RuleOverride = DRIVER_ACPITABLE SecurityPkg/Tcg/Tcg2Smm/Tcg2Smm.inf
 # COMMENTED OUT DUE TO LACK OF TPM
 # INF  SecurityPkg/Tcg/MemoryOverwriteControl/TcgMor.inf
 INF  MdeModulePkg/Universal/EsrtFmpDxe/EsrtFmpDxe.inf
+!if $(BUILD_RUST_CODE) == TRUE
 INF  HidPkg/UsbHidDxe/UsbHidDxe.inf
 INF  HidPkg/UefiHidDxe/UefiHidDxe.inf
+# Remove for space and functionality considerations
+#INF  MsCorePkg/HelloWorldRustDxe/HelloWorldRustDxe.inf
+!else
+INF  MdeModulePkg/Bus/Usb/UsbMouseAbsolutePointerDxe/UsbMouseAbsolutePointerDxe.inf
+!endif
 INF  DfciPkg/Application/DfciMenu/DfciMenu.inf
 INF  MsGraphicsPkg/PrintScreenLogger/PrintScreenLogger.inf
 INF  SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
-# Remove for space and functionality considerations
-#INF  MsCorePkg/HelloWorldRustDxe/HelloWorldRustDxe.inf
 INF  MsCorePkg/AcpiRGRT/AcpiRgrt.inf
 
 !if $(SMM_ENABLED) == TRUE
@@ -613,6 +622,7 @@ FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
     SECTION RAW = $(POLICY_BIN_PATH)
   }
 
+!if $(BUILD_RUST_CODE) == TRUE
   FILE DRIVER = A14E35E2-BB32-4446-8622-C1874B8284E4 {
     SECTION GUIDED 3D532050-5CDA-4FD0-879E-0F7F630D5AFB PROCESSING_REQUIRED = TRUE {
       SECTION DXE_DEPEX=$(OUTPUT_DIRECTORY)/$(TARGET)_$(TOOL_CHAIN_TAG)/X64/MsCorePkg/HelloWorldRustDxe/HelloWorldRustDxe/OUTPUT/HelloWorldRustDxe.depex
@@ -620,6 +630,7 @@ FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
       SECTION UI= "HelloWorldRustDxe"
     }
   }
+!endif
 
 ################################################################################
 

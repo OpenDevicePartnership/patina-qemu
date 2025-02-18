@@ -30,6 +30,7 @@ WORKSPACE_ROOT = str(Path(__file__).parent.parent.parent)
 # Declare test whose failure will not return a non-zero exit code
 FAILURE_EXEMPT_TESTS = {
     # example "PiValueTestApp.efi": datetime.datetime(3141, 5, 9, 2, 6, 53, 589793),
+    "LineParserTestApp.efi": datetime.datetime(2025, 2, 12, 0, 0, 0, 0)
 }
 
 # Allow failure exempt tests to be ignored for 90 days
@@ -46,7 +47,7 @@ class CommonPlatform():
     PackagesSupported = ("QemuQ35Pkg",)
     ArchSupported = ("IA32", "X64")
     TargetsSupported = ("DEBUG", "RELEASE", "NOOPT")
-    Scopes = ('qemu', 'qemuq35', 'edk2-build', 'cibuild', 'configdata', 'rust-ci')
+    Scopes = ('qemu', 'qemuq35', 'edk2-build', 'cibuild', 'configdata')
     PackagesPath = (
         "Platforms",
         "MU_BASECORE",

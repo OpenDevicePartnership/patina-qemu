@@ -56,6 +56,7 @@
             "PolicyServicePkg/PolicyServicePkg.dec",
             "OemPkg/OemPkg.dec",
             "SetupDataPkg/SetupDataPkg.dec",
+            "StandaloneMmPkg/StandaloneMmPkg.dec",
             ""
         ],
         # For host based unit tests
@@ -140,7 +141,8 @@
             "dmaivrs",
             "nxcompat",
             "standalonemm",
-            "runtimedxe"
+            "runtimedxe",
+            "mmsupv",
         ],           # words to extend to the dictionary for this package
         "IgnoreStandardPaths": [],   # Standard Plugin defined paths that should be ignore
         "AdditionalIncludePaths": [] # Additional paths to spell check (wildcards supported)

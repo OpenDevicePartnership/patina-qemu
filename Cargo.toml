@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 
 # Use the 2021 edition resolver
 resolver = "2"
@@ -19,14 +20,14 @@ RustAdvancedLoggerDxe = {path = "Common/MU/AdvLoggerPkg/Crates/RustAdvancedLogge
 RustBootServicesAllocatorDxe = {path = "Common/MU/MsCorePkg/Crates/RustBootServicesAllocatorDxe"}
 
 SerialPrintDxe = {path = "QemuPkg/Library/SerialPrintDxe"}
-hidparser = {git = "https://github.com/microsoft/mu_rust_hid.git", branch = "main"}
+hidparser = {version = "1.0"}
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-memoffset = "0.9"
+memoffset = "0.9.1"
 num-traits = { version = "0.2", default-features = false}
 num-derive = { version = "0.4", default-features = false}
 r-efi = "4.5.0"
 scroll = { version = "0.11", default-features = false, features = ["derive"]}
-rustversion = "1.0.18"
+rustversion = "1.0.19"
 spin = "0.9.8"
 uart_16550 = "0.3.0"
 x86_64 = "=0.15.1"

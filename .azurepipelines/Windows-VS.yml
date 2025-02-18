@@ -28,7 +28,6 @@ extends:
     do_non_ci_setup: true
     do_pr_eval: false
     os_type: Windows_NT
-    rust_build: true
     extra_cargo_steps:
       - template: templates/git-config-auth.yml
       - script: pip install -r pip-requirements.txt --upgrade

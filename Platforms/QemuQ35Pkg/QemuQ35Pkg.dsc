@@ -54,11 +54,13 @@
   DXE_CRYPTO_SERVICES = STANDARD
   RUNTIMEDXE_CRYPTO_SERVICES = STANDARD
   SMM_CRYPTO_SERVICES = NONE
+  STANDALONEMM_CRYPTO_SERVICES = NONE
   STANDALONEMM_MMSUPV_CRYPTO_SERVICES = STANDARD
   PEI_CRYPTO_ARCH = IA32
   DXE_CRYPTO_ARCH = X64
   RUNTIMEDXE_CRYPTO_ARCH = X64
   SMM_CRYPTO_ARCH = NONE
+  STANDALONEMM_CRYPTO_ARCH = NONE
   STANDALONEMM_MMSUPV_CRYPTO_ARCH = X64
 
 ################################################################################
@@ -321,10 +323,12 @@
 
   HobPrintLib|MdeModulePkg/Library/HobPrintLib/HobPrintLib.inf
 
+  MemoryBinOverrideLib|MdeModulePkg/Library/MemoryBinOverrideLibNull/MemoryBinOverrideLibNull.inf
+
 [LibraryClasses.IA32, LibraryClasses.X64]
   XenHypercallLib|QemuQ35Pkg/Library/XenHypercallLib/XenHypercallLib.inf
 
-[LibraryClasses.common.PEI_CORE] 
+[LibraryClasses.common.PEI_CORE]
   NULL|MdePkg/Library/StackCheckLibNull/StackCheckLibNull.inf
   PerformanceLib|MdeModulePkg/Library/PeiPerformanceLib/PeiPerformanceLib.inf
 
@@ -372,6 +376,8 @@ PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
 
 [LibraryClasses.common.MM_CORE_STANDALONE, LibraryClasses.common.MM_STANDALONE]
   MmMemoryProtectionHobLib|MdeModulePkg/Library/MemoryProtectionHobLib/StandaloneMmMemoryProtectionHobLib.inf
+  PeCoffLibNegative|SeaPkg/Library/BasePeCoffLibNegative/BasePeCoffLibNegative.inf
+  SecurePolicyLib|MmSupervisorPkg/Library/SecurePolicyLib/SecurePolicyLib.inf
 
 #########################################
 # PEI Libraries
@@ -385,6 +391,9 @@ PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   MemEncryptSevLib           |QemuQ35Pkg/Library/BaseMemEncryptSevLib/PeiMemEncryptSevLib.inf
   FrameBufferMemDrawLib      |MsGraphicsPkg/Library/FrameBufferMemDrawLib/FrameBufferMemDrawLibPei.inf
   MmUnblockMemoryLib         |MmSupervisorPkg/Library/MmSupervisorUnblockMemoryLib/MmSupervisorUnblockMemoryLibPei.inf
+!if $(PERF_TRACE_ENABLE) == TRUE
+  PerformanceLib             |MdeModulePkg/Library/PeiPerformanceLib/PeiPerformanceLib.inf
+!endif
 
 [LibraryClasses.common.PEI_CORE]
   PeiCoreEntryPoint |MdePkg/Library/PeiCoreEntryPoint/PeiCoreEntryPoint.inf
@@ -433,6 +442,9 @@ PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   CpuExceptionHandlerLib        |UefiCpuPkg/Library/CpuExceptionHandlerLib/DxeCpuExceptionHandlerLib.inf
   ReportStatusCodeLib           |MdeModulePkg/Library/DxeReportStatusCodeLib/DxeReportStatusCodeLib.inf
   MmUnblockMemoryLib            |MmSupervisorPkg/Library/MmSupervisorUnblockMemoryLib/MmSupervisorUnblockMemoryLibDxe.inf
+!if $(PERF_TRACE_ENABLE) == TRUE
+  PerformanceLib                |MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
+!endif
 
 # Non DXE Core but everything else
 [LibraryClasses.common.DXE_RUNTIME_DRIVER, LibraryClasses.common.UEFI_DRIVER, LibraryClasses.common.DXE_DRIVER, LibraryClasses.common.UEFI_APPLICATION]
@@ -448,7 +460,9 @@ PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   ExtractGuidedSectionLib |MdePkg/Library/DxeExtractGuidedSectionLib/DxeExtractGuidedSectionLib.inf
   DebugAgentLib           |DebuggerFeaturePkg/Library/DebugAgent/DebugAgentDxe.inf
   RngLib                  |MdeModulePkg/Library/BaseRngLibTimerLib/BaseRngLibTimerLib.inf
-
+!if $(PERF_TRACE_ENABLE) == TRUE
+  PerformanceLib          |MdeModulePkg/Library/DxeCorePerformanceLib/DxeCorePerformanceLib.inf
+!endif
 
 [LibraryClasses.common.DXE_RUNTIME_DRIVER]
   ReportStatusCodeLib|MdeModulePkg/Library/RuntimeDxeReportStatusCodeLib/RuntimeDxeReportStatusCodeLib.inf
@@ -549,6 +563,10 @@ PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   SysCallLib|MmSupervisorPkg/Library/SysCallLib/SysCallLib.inf
   CpuLib|MmSupervisorPkg/Library/BaseCpuLibSysCall/BaseCpuLib.inf
 
+!if $(PERF_TRACE_ENABLE) == TRUE
+  PerformanceLib|MdeModulePkg/Library/SmmPerformanceLib/StandaloneMmPerformanceLib.inf
+!endif
+
 #########################################
 # Advanced Logger Libraries
 #########################################
@@ -646,6 +664,27 @@ PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
 !if $(NETWORK_TLS_ENABLE) == TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdVariableStoreSize|0x80000
   gEfiMdeModulePkgTokenSpaceGuid.PcdMaxVolatileVariableSize|0x40000
+!endif
+
+!if $(PERF_TRACE_ENABLE) == TRUE
+  gEfiMdeModulePkgTokenSpaceGuid.PcdExtFpdtBootRecordPadSize          |0x100000   # 1MB padding for records after Ready to Boot.
+  gEfiMdePkgTokenSpaceGuid.PcdPerformanceLibraryPropertyMask          |0x9        # Enable perf measurements.
+                                                                                  # Disable binding support logging.
+  gEfiMdeModulePkgTokenSpaceGuid.PcdEdkiiFpdtStringRecordEnableOnly   |FALSE
+
+  # This value directly affects HOB space consumption regardless of the actual
+  # number of performance records. Keep this close to the actual number needed
+  # to avoid unnecessary consumption of Temporary RAM.
+  #
+  # The current number of PEI records last checked was approximately 80.
+  #
+  gEfiMdeModulePkgTokenSpaceGuid.PcdMaxPeiPerformanceLogEntries       |140
+
+  !if $(TARGET) == DEBUG
+    gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiReservedMemoryType        |0xF0E
+  !else
+    gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiReservedMemoryType        |0x510
+  !endif
 !endif
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdVpdBaseAddress|0x0
@@ -1053,6 +1092,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   # Produces FORM DISPLAY ENGINE protocol. Handles input, displays strings.
   MsGraphicsPkg/DisplayEngineDxe/DisplayEngineDxe.inf
 
+!if $(BUILD_RUST_CODE) == TRUE
   # Our first Rust driver to load
   QemuQ35Pkg/RustDriverDxe/RustDriverDxe.inf
 
@@ -1064,6 +1104,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
 
   QemuQ35Pkg/RustFfiImageTestDxe/RustFfiImageTestDxe.inf
   QemuQ35Pkg/RustImageTestDxe/RustImageTestDxe.inf
+!endif
 
   MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
   MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf
@@ -1098,7 +1139,16 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
 !endif
   }
 
-  MmSupervisorPkg/Drivers/MmSupervisorRing3Broker/MmSupervisorRing3Broker.inf
+  MmSupervisorPkg/Drivers/MmSupervisorRing3Broker/MmSupervisorRing3Broker.inf {
+    <LibraryClasses>
+      PerformanceLib|MdePkg/Library/BasePerformanceLibNull/BasePerformanceLibNull.inf
+  }
+!if $(PERF_TRACE_ENABLE) == TRUE
+  MmSupervisorPkg/Drivers/MmSupervisorRing3Performance/MmSupervisorRing3Performance.inf {
+    <LibraryClasses>
+      PerformanceLib|MdeModulePkg/Library/SmmCorePerformanceLib/StandaloneMmCorePerformanceLib.inf
+  }
+!endif
   MmSupervisorPkg/Drivers/StandaloneMmUnblockMem/StandaloneMmUnblockMem.inf
 
   QemuQ35Pkg/8259InterruptControllerDxe/8259.inf
@@ -1249,7 +1299,9 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   #
   # HID Support
   #
+!if $(BUILD_RUST_CODE) == TRUE
   HidPkg/UefiHidDxe/UefiHidDxe.inf
+!endif
 
   #
   # Usb Support
@@ -1260,10 +1312,14 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   MdeModulePkg/Bus/Usb/UsbBusDxe/UsbBusDxe.inf
   MdeModulePkg/Bus/Usb/UsbKbDxe/UsbKbDxe.inf
   MdeModulePkg/Bus/Usb/UsbMassStorageDxe/UsbMassStorageDxe.inf
+!if $(BUILD_RUST_CODE) == TRUE
   HidPkg/UsbHidDxe/UsbHidDxe.inf {
     <LibraryClasses>
       UefiUsbLib|MdePkg/Library/UefiUsbLib/UefiUsbLib.inf
   }
+!else
+  MdeModulePkg/Bus/Usb/UsbMouseAbsolutePointerDxe/UsbMouseAbsolutePointerDxe.inf
+!endif
 
   ShellPkg/DynamicCommand/TftpDynamicCommand/TftpDynamicCommand.inf {
     <PcdsFixedAtBuild>
@@ -1350,7 +1406,9 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   }
   MdeModulePkg/Universal/EsrtFmpDxe/EsrtFmpDxe.inf
   MsCorePkg/AcpiRGRT/AcpiRgrt.inf
+!if $(BUILD_RUST_CODE) == TRUE
   MsCorePkg/HelloWorldRustDxe/HelloWorldRustDxe.inf
+!endif
   DfciPkg/Application/DfciMenu/DfciMenu.inf
 
   MsGraphicsPkg/PrintScreenLogger/PrintScreenLogger.inf
