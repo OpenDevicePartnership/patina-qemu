@@ -2,21 +2,17 @@
 
 ## Important Notes
 
-1. Portions of this repository are targeted to transition to Open Source Software (OSS) but is currently private while
-   the initial content and direction materialize.
-2. This project is experimental and the code within is not recommended to be used in production workloads at this time.
-3. Assume that this is an open-source repo. This will make transitioning the repo with useful source history to
-   open-source much easier.
-   - Do not include internal:
-     - Code names
-     - Links
-     - Road maps
-   - In addition to moving the tree to open-source, not all internal engineers may have access to your links or be
-     familiar with organization-specific projects and plans.
-   - Sweeping changes needed to move the code public like copyrights and patching PR numbers in commit message
-     subjects can be updated in batch when the code goes open so those details don't matter as much and are not likely
-     to be missed.
-4. Run `cargo fmt` before creating pull requests.
+This fork of [mu_tiano_platforms](https://github.com/microsoft/mu_tiano_platforms) is used to test UEFI Rust firmware
+changes. Originally, this repo contained the Rust DXE Core implementation, however, we've transitioned to a different
+delivery model where the Rust DXE Core is built as a .efi file in a pure Rust repository and the .efi binary is
+integrated into the platform firmware build process.
+
+Since this is a fork that is solely intended for Rust firmware development, primarily the Rust DXE Core, a script
+is available to reduce dev & test time when making Rust DXE Core changes. Currently, the script is called
+`build-and-run-rust-dxe-core.bat` and given paths to a couple repos on your local system, it can build the QEMU
+Rust DXE Core, patch it into your local QEMU firmware image, and run QEMU with the patched firmware.
+
+The script only support Windows and Q35 right now, Linux and SBSA support is coming soon.
 
 ## Background
 
