@@ -74,6 +74,8 @@
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvSize|0x0|UINT32|1
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvBase|0x0|UINT32|0x15
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvSize|0x0|UINT32|0x16
+  gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvBase|0x0|UINT32|0x30
+  gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvSize|0x0|UINT32|0x31
 
   ## This flag is used to control the destination port for PlatformDebugLibIoPort
   gUefiQemuQ35PkgTokenSpaceGuid.PcdDebugIoPort|0x402|UINT16|4

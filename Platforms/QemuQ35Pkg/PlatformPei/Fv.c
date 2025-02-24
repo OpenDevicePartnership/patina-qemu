@@ -51,12 +51,37 @@ PeiFvInitialization (
     );
 
   //
-  // Let PEI know about the DXE FV so it can find the DXE Core
+  // Let PEI know about the DXE FV so it can find DXE drivers
   //
   PeiServicesInstallFvInfoPpi (
     NULL,
     (VOID *)(UINTN)PcdGet32 (PcdOvmfDxeMemFvBase),
     PcdGet32 (PcdOvmfDxeMemFvSize),
+    NULL,
+    NULL
+    );
+
+  //
+  // Let DXE know about the Rust DXE FV
+  //
+  BuildFvHob (PcdGet32 (PcdOvmfRustDxeMemFvBase), PcdGet32 (PcdOvmfRustDxeMemFvSize));
+
+  //
+  // Create a memory allocation HOB for the Rust DXE FV.
+  //
+  BuildMemoryAllocationHob (
+    PcdGet32 (PcdOvmfRustDxeMemFvBase),
+    PcdGet32 (PcdOvmfRustDxeMemFvSize),
+    EfiBootServicesData
+    );
+
+  //
+  // Let PEI know about the Rust DXE FV so it can find the Rust DXE Core
+  //
+  PeiServicesInstallFvInfoPpi (
+    NULL,
+    (VOID *)(UINTN)PcdGet32 (PcdOvmfRustDxeMemFvBase),
+    PcdGet32 (PcdOvmfRustDxeMemFvSize),
     NULL,
     NULL
     );

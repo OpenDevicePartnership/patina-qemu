@@ -64,6 +64,8 @@
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvBase
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvSize
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvBase
+  gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvBase
+  gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvSize
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvSize
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfSecGhcbBase
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfSecGhcbSize

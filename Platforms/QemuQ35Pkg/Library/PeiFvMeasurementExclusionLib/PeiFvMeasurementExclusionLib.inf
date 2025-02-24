@@ -34,6 +34,8 @@
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvSize             ## CONSUMES
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvBase             ## CONSUMES
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvSize             ## CONSUMES
+  gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvBase         ## CONSUMES
+  gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvSize         ## CONSUMES
 
 [Ppis]
   gEfiPeiFirmwareVolumeInfoMeasurementExcludedPpiGuid           ## PRODUCES

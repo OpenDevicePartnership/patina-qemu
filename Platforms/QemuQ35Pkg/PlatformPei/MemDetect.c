@@ -683,7 +683,7 @@ PublishPeiMemory (
   //
   // Determine the range of memory to use during PEI
   //
-  MemoryBase = PcdGet32 (PcdOvmfDxeMemFvBase) + PcdGet32 (PcdOvmfDxeMemFvSize);
+  MemoryBase = PcdGet32 (PcdOvmfDxeMemFvBase) + PcdGet32 (PcdOvmfDxeMemFvSize) + PcdGet32 (PcdOvmfRustDxeMemFvSize);
   MemorySize = LowerMemorySize - MemoryBase;
   if (MemorySize > PeiMemoryCap) {
     MemoryBase = LowerMemorySize - PeiMemoryCap;

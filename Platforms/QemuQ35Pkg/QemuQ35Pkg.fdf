@@ -162,9 +162,13 @@ gUefiQemuQ35PkgTokenSpaceGuid.PcdSecPeiTemporaryRamBase|gUefiQemuQ35PkgTokenSpac
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvSize
 FV = PEIFV
 
-0x100000|0xC00000
+0x100000|0xA00000
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvSize
 FV = DXEFV
+
+0xB00000|0x200000
+gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvSize
+FV = RUST_DXE_CORE
 
 ################################################################################
 
@@ -306,14 +310,6 @@ APRIORI DXE {
 #
 # Use externally built Rust DXE core binary
 #
-FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
-!if $(TARGET) == RELEASE
-  SECTION PE32 = $(DXE_CORE_BINARY_PATH)/release/qemu_q35_dxe_core.efi
-!else
-  SECTION PE32 = $(DXE_CORE_BINARY_PATH)/debug/qemu_q35_dxe_core.efi
-!endif
-  SECTION UI = "DxeCore"
-}
 
 !if $(BUILD_RUST_CODE) == TRUE
 # Simple pure Rust DXE driver that is loaded by Rust DXE Core
@@ -632,6 +628,34 @@ FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
   }
 !endif
 
+[FV.RUST_DXE_CORE]
+FvForceRebase       = FALSE
+FvAlignment         = 16
+ERASE_POLARITY      = 1
+MEMORY_MAPPED       = TRUE
+STICKY_WRITE        = TRUE
+LOCK_CAP            = TRUE
+LOCK_STATUS         = TRUE
+WRITE_DISABLED_CAP  = TRUE
+WRITE_ENABLED_CAP   = TRUE
+WRITE_STATUS        = TRUE
+WRITE_LOCK_CAP      = TRUE
+WRITE_LOCK_STATUS   = TRUE
+READ_DISABLED_CAP   = TRUE
+READ_ENABLED_CAP    = TRUE
+READ_STATUS         = TRUE
+READ_LOCK_CAP       = TRUE
+READ_LOCK_STATUS    = TRUE
+
+FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
+!if $(TARGET) == RELEASE
+  SECTION PE32 = $(DXE_CORE_BINARY_PATH)/release/qemu_q35_dxe_core.efi
+!else
+  SECTION PE32 = $(DXE_CORE_BINARY_PATH)/debug/qemu_q35_dxe_core.efi
+!endif
+  SECTION UI = "DxeCore"
+}
+
 ################################################################################
 
 [FV.FVMAIN_COMPACT]
@@ -654,16 +678,24 @@ READ_LOCK_CAP      = TRUE
 READ_LOCK_STATUS   = TRUE
 
 FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
-   SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {
-     #
-     # These firmware volumes will have files placed in them uncompressed,
-     # and then both firmware volumes will be compressed in a single
-     # compression operation in order to achieve better overall compression.
-     #
-     SECTION FV_IMAGE = PEIFV
-     SECTION FV_IMAGE = DXEFV
-   }
- }
+  SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {
+    #
+    # These firmware volumes will have files placed in them uncompressed,
+    # and then both firmware volumes will be compressed in a single
+    # compression operation in order to achieve better overall compression.
+    #
+    SECTION FV_IMAGE = PEIFV
+    SECTION FV_IMAGE = DXEFV
+  }
+}
+
+# Use externally built Rust DXE core binary.
+# Keep in a separate FV with the compressed DXE Core to make the FV easy to patch.
+FILE FV_IMAGE = FB5947AF-7CB5-413E-8C1A-38167FCBE3EA {
+  SECTION GUIDED EE4E5898-3914-4259-9D6E-DC7BD79403CF PROCESSING_REQUIRED = TRUE {
+    SECTION FV_IMAGE = RUST_DXE_CORE
+  }
+}
 
 !include FvmainCompactScratchEnd.inc.fdf
 

@@ -13,8 +13,9 @@
 #include <Ppi/FirmwareVolumeInfoMeasurementExcluded.h>
 
 EFI_PEI_FIRMWARE_VOLUME_INFO_MEASUREMENT_EXCLUDED_FV  mFvMeasurementExclusionsTable[] = {
-  { (EFI_PHYSICAL_ADDRESS)FixedPcdGet32 (PcdOvmfPeiMemFvBase), (UINT64)FixedPcdGet32 (PcdOvmfPeiMemFvSize) },
-  { (EFI_PHYSICAL_ADDRESS)FixedPcdGet32 (PcdOvmfDxeMemFvBase), (UINT64)FixedPcdGet32 (PcdOvmfDxeMemFvSize) }
+  { (EFI_PHYSICAL_ADDRESS)FixedPcdGet32 (PcdOvmfPeiMemFvBase),     (UINT64)FixedPcdGet32 (PcdOvmfPeiMemFvSize)     },
+  { (EFI_PHYSICAL_ADDRESS)FixedPcdGet32 (PcdOvmfDxeMemFvBase),     (UINT64)FixedPcdGet32 (PcdOvmfDxeMemFvSize)     },
+  { (EFI_PHYSICAL_ADDRESS)FixedPcdGet32 (PcdOvmfRustDxeMemFvBase), (UINT64)FixedPcdGet32 (PcdOvmfRustDxeMemFvSize) }
 };
 
 EFI_STATUS

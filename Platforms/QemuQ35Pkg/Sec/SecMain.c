@@ -237,6 +237,7 @@ FindFfsSectionInSections (
   @param[in]   Fv            The firmware volume to search
   @param[in]   FileType      The file type to locate
   @param[in]   SectionType   The section type to locate
+  @param[in]   SectionType   The instance of the section to locate
   @param[out]  FoundSection  The FFS section if found
 
   @retval EFI_SUCCESS           The file and section was found
@@ -249,6 +250,7 @@ FindFfsFileAndSection (
   IN  EFI_FIRMWARE_VOLUME_HEADER  *Fv,
   IN  EFI_FV_FILETYPE             FileType,
   IN  EFI_SECTION_TYPE            SectionType,
+  IN  UINTN                       Instance,
   OUT EFI_COMMON_SECTION_HEADER   **FoundSection
   )
 {
@@ -257,7 +259,10 @@ FindFfsFileAndSection (
   EFI_PHYSICAL_ADDRESS  EndOfFirmwareVolume;
   EFI_FFS_FILE_HEADER   *File;
   UINT32                Size;
+  UINTN                 CurrentInstance;
   EFI_PHYSICAL_ADDRESS  EndOfFile;
+
+  CurrentInstance = 0;
 
   if (Fv->Signature != EFI_FVH_SIGNATURE) {
     DEBUG ((DEBUG_ERROR, "FV at %p does not have FV header signature\n", Fv));
@@ -301,7 +306,11 @@ FindFfsFileAndSection (
                FoundSection
                );
     if (!EFI_ERROR (Status) || (Status == EFI_VOLUME_CORRUPTED)) {
-      return Status;
+      if (CurrentInstance == Instance) {
+        return Status;
+      }
+
+      CurrentInstance++;
     }
   }
 }
@@ -333,6 +342,7 @@ DecompressMemFvs (
   EFI_COMMON_SECTION_HEADER   *FvSection;
   EFI_FIRMWARE_VOLUME_HEADER  *PeiMemFv;
   EFI_FIRMWARE_VOLUME_HEADER  *DxeMemFv;
+  EFI_FIRMWARE_VOLUME_HEADER  *RustDxeMemFv;
   UINT32                      FvHeaderSize;
   UINT32                      FvSectionSize;
 
@@ -342,6 +352,7 @@ DecompressMemFvs (
              *Fv,
              EFI_FV_FILETYPE_FIRMWARE_VOLUME_IMAGE,
              EFI_SECTION_GUID_DEFINED,
+             0,
              (EFI_COMMON_SECTION_HEADER **)&Section
              );
   if (EFI_ERROR (Status)) {
@@ -450,8 +461,89 @@ DecompressMemFvs (
     return EFI_VOLUME_CORRUPTED;
   }
 
+  FvSection = (EFI_COMMON_SECTION_HEADER *)NULL;
+
+  Status = FindFfsFileAndSection (
+             *Fv,
+             EFI_FV_FILETYPE_FIRMWARE_VOLUME_IMAGE,
+             EFI_SECTION_GUID_DEFINED,
+             1,
+             (EFI_COMMON_SECTION_HEADER **)&Section
+             );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Unable to find Rust DXE GUID defined section\n"));
+    goto SetPreMemFvAndReturn;
+  }
+
+  Status = ExtractGuidedSectionGetInfo (
+             Section,
+             &OutputBufferSize,
+             &ScratchBufferSize,
+             &SectionAttribute
+             );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Unable to GetInfo for Rust DXE GUIDed section\n"));
+    goto SetPreMemFvAndReturn;
+  }
+
+  OutputBuffer  = (VOID *)((UINT8 *)(UINTN)PcdGet32 (PcdOvmfRustDxeMemFvBase) + SIZE_1MB);
+  ScratchBuffer = ALIGN_POINTER ((UINT8 *)OutputBuffer + OutputBufferSize, SIZE_1MB);
+
+  DEBUG ((
+    DEBUG_VERBOSE,
+    "%a: Rust DXE FV OutputBuffer@%p+0x%x ScratchBuffer@%p+0x%x\n",
+    __FUNCTION__,
+    OutputBuffer,
+    OutputBufferSize,
+    ScratchBuffer,
+    ScratchBufferSize
+    ));
+
+  Status = ExtractGuidedSectionDecode (
+             Section,
+             &OutputBuffer,
+             ScratchBuffer,
+             &AuthenticationStatus
+             );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Error during Rust DXE GUID section decode\n"));
+    goto SetPreMemFvAndReturn;
+  }
+
+  Status = FindFfsSectionInstance (
+             OutputBuffer,
+             OutputBufferSize,
+             EFI_SECTION_FIRMWARE_VOLUME_IMAGE,
+             0,
+             &FvSection
+             );
+  if (EFI_ERROR (Status)) {
+    DEBUG ((DEBUG_ERROR, "Unable to find Rust DXE FV section\n"));
+    goto SetPreMemFvAndReturn;
+  }
+
+  ASSERT (
+    SECTION_SIZE (FvSection) ==
+    (PcdGet32 (PcdOvmfRustDxeMemFvSize) + sizeof (*FvSection))
+    );
+  ASSERT (FvSection->Type == EFI_SECTION_FIRMWARE_VOLUME_IMAGE);
+
+  RustDxeMemFv = (EFI_FIRMWARE_VOLUME_HEADER *)(UINTN)PcdGet32 (PcdOvmfRustDxeMemFvBase);
+  CopyMem (RustDxeMemFv, (VOID *)(FvSection + 1), PcdGet32 (PcdOvmfRustDxeMemFvSize));
+
+  if (RustDxeMemFv->Signature != EFI_FVH_SIGNATURE) {
+    DEBUG ((DEBUG_ERROR, "Extracted FV at %p does not have FV header signature\n", RustDxeMemFv));
+    CpuDeadLoop ();
+    Status = EFI_VOLUME_CORRUPTED;
+    goto SetPreMemFvAndReturn;
+  }
+
+  Status = EFI_SUCCESS;
+
+SetPreMemFvAndReturn:
   *Fv = PeiMemFv;
-  return EFI_SUCCESS;
+
+  return Status;
 }
 
 /**
@@ -478,6 +570,7 @@ FindPeiCoreImageBaseInFv (
              Fv,
              EFI_FV_FILETYPE_PEI_CORE,
              EFI_SECTION_PE32,
+             0,
              &Section
              );
   if (EFI_ERROR (Status)) {
@@ -485,6 +578,7 @@ FindPeiCoreImageBaseInFv (
                Fv,
                EFI_FV_FILETYPE_PEI_CORE,
                EFI_SECTION_TE,
+               0,
                &Section
                );
     if (EFI_ERROR (Status)) {
