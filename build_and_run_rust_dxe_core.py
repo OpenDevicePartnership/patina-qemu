@@ -47,20 +47,30 @@ def _parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--build-target",
+        "-b",
         choices=["DEBUG", "RELEASE"],
         default="DEBUG",
         help="Build target, either DEBUG or RELEASE.",
     )
     parser.add_argument(
         "--platform",
-        choices=["Q35"],
+        "-p",
+        choices=["Q35", "SBSA"],
         default="Q35",
         help="QEMU platform such as Q35 or SBSA.",
     )
     parser.add_argument(
-        "--toolchain", type=str, default="VS2022", help="Toolchain to use for building."
+        "--toolchain",
+        "-t",
+        type=str,
+        default="VS2022",
+        help="Toolchain to use for building. "
+        "Q35 default: VS2022. SBSA default: CLANGPDB.",
     )
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.platform == "SBSA" and args.toolchain == "VS2022":
+        args.toolchain = "CLANGPDB"
+    return args
 
 
 def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
@@ -156,6 +166,85 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "cirrus",
             "-serial",
             "tcp:127.0.0.1:50001,server,nowait",
+        ]
+        patch_cmd = [
+            "python",
+            "patch.py",
+            "-c",
+            str(config_file),
+            "-i",
+            str(dxe_core),
+            "-r",
+            str(ref_fd),
+            "-o",
+            str(code_fd),
+        ]
+    elif args.platform == "SBSA":
+        code_fd = (
+            uefi_rust_dir
+            / "Build"
+            / "QemuSbsaPkg"
+            / f"{args.build_target.upper()}_{args.toolchain.upper()}"
+            / "FV"
+            / "QEMU_EFI.fd"
+        )
+        ref_fd = code_fd.with_suffix(".ref.fd")
+        config_file = args.fw_patch_repo / "Configs" / "QemuSbsa.json"
+        dxe_core = (
+            args.qemu_rust_bin_repo
+            / "target"
+            / "aarch64-unknown-uefi"
+            / ("release" if args.build_target.lower() == "release" else "debug")
+            / "qemu_sbsa_dxe_core.efi"
+        )
+
+        build_cmd = [
+            "cargo",
+            "-Zunstable-options",
+            "-C",
+            str(args.qemu_rust_bin_repo),
+            "build_sbsa",
+        ]
+        qemu_cmd = [
+            str(
+                uefi_rust_dir
+                / "QemuPkg"
+                / "Binaries"
+                / "qemu-win_extdep"
+                / "qemu-system-aarch64"
+            ),
+            "-net",
+            "none",
+            "-L",
+            str(uefi_rust_dir / "QemuPkg" / "Binaries" / "qemu-win_extdep" / "share"),
+            "-m",
+            "2048",
+            "-machine",
+            "sbsa-ref",
+            "-cpu",
+            "max,sve=off,sme=off",
+            "-smp",
+            "4",
+            "-global",
+            "driver=cfi.pflash01,property=secure,value=on",
+            "-drive",
+            f"if=pflash,format=raw,unit=0,file={str(code_fd.parent / 'SECURE_FLASH0.fd')}",
+            "-drive",
+            f"if=pflash,format=raw,unit=1,file={str(code_fd)},readonly=on",
+            "-device",
+            "qemu-xhci,id=usb",
+            "-device",
+            "usb-tablet,id=input0,bus=usb.0,port=1",
+            "-device",
+            "usb-kbd,id=input1,bus=usb.0,port=2",
+            "-smbios",
+            f"type=0,vendor='Project Mu',version='mu_tiano_platforms-v9.0.0',date={datetime.now().strftime('%m/%d/%Y')},uefi=on",
+            "-smbios",
+            "type=1,manufacturer=Palindrome,product='QEMU SBSA',family=QEMU,version='9.0.0',serial=42-42-42-42",
+            "-smbios",
+            "type=3,manufacturer=Palindrome,serial=42-42-42-42,asset=SBSA,sku=SBSA",
+            "-serial",
+            "stdio",
         ]
         patch_cmd = [
             "python",
