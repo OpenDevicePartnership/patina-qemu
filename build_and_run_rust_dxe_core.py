@@ -68,9 +68,55 @@ def _parse_arguments() -> argparse.Namespace:
         help="Toolchain to use for building. "
         "Q35 default: VS2022. SBSA default: CLANGPDB.",
     )
+    parser.add_argument(
+        "--os",
+        type=Path,
+        default=None,
+        help="Path to OS image to boot in QEMU.",
+    )
+    parser.add_argument(
+        "--serial-port",
+        "-s",
+        type=int,
+        default=50001,
+        help="Port to use for serial communication.",
+    )
+    parser.add_argument(
+        "--gdb-port",
+        "-g",
+        type=int,
+        default=None,
+        help="Port to use for GDB communication.",
+    )
+
     args = parser.parse_args()
     if args.platform == "SBSA" and args.toolchain == "VS2022":
         args.toolchain = "CLANGPDB"
+
+    if args.os:
+        file_extension = args.os.suffix.lower().replace('"', '')
+
+        storage_format = {
+            ".vhd": "raw",
+            ".qcow2": "qcow2",
+            ".iso": "iso",
+        }.get(file_extension, None)
+
+        if storage_format is None:
+            raise Exception(f"Unknown OS file type: {args.os}")
+
+        os_arg = []
+
+        if storage_format == "iso":
+            os_arg = ["-cdrom", f" {args.os}"]
+        else:
+            os_arg = [
+                "-drive",
+                f"file={args.os},format={storage_format},if=none,id=os_nvme",
+                "-device",
+                "nvme,serial=nvme-1,drive=os_nvme"
+            ]
+        args.os = os_arg
     return args
 
 
@@ -138,8 +184,6 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "ICH9-LPC.disable_s3=1",
             "-machine",
             "q35,smm=on",
-            "-m",
-            "2048",
             "-cpu",
             "qemu64,rdrand=on,umip=on,smep=on,pdpe1gb=on,popcnt=on,+sse,+sse2,+sse3,+ssse3,+sse4.2,+sse4.1,invtsc",
             "-smp",
@@ -166,8 +210,17 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "-vga",
             "cirrus",
             "-serial",
-            "tcp:127.0.0.1:50001,server,nowait",
+            f"tcp:127.0.0.1:{args.serial_port},server,nowait",
         ]
+        if args.gdb_port:
+            qemu_cmd += ["-gdb", f"tcp::{args.gdb_port}"]
+
+        if args.os:
+            qemu_cmd += args.os
+            qemu_cmd += ["-m", "8096"]
+        else:
+            qemu_cmd += ["-m", "2048"]
+
         patch_cmd = [
             "python",
             "patch.py",
@@ -244,9 +297,20 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "type=1,manufacturer=Palindrome,product='QEMU SBSA',family=QEMU,version='9.0.0',serial=42-42-42-42",
             "-smbios",
             "type=3,manufacturer=Palindrome,serial=42-42-42-42,asset=SBSA,sku=SBSA",
-            "-serial",
-            "stdio",
         ]
+        if args.serial_port:
+            qemu_cmd += ["-serial", f"tcp:127.0.0.1:{args.serial_port},server,nowait"]
+        else:
+            qemu_cmd += ["-serial", "stdio"]
+
+        if args.gdb_port:
+            qemu_cmd += ["-gdb", f"tcp::{args.gdb_port}"]
+
+        if args.os:
+            qemu_cmd += args.os
+            qemu_cmd += ["-m", "8096"]
+        else:
+            qemu_cmd += ["-m", "2048"]
         patch_cmd = [
             "python",
             "patch.py",
