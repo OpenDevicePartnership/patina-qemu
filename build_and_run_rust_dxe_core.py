@@ -10,6 +10,7 @@
 ##
 
 import argparse
+import os
 import shutil
 import subprocess
 import timeit
@@ -337,7 +338,19 @@ def _run_qemu(settings: Dict[str, Path]) -> None:
 
     """
     print("[3]. Running QEMU with Rust DXE Core Build...\n")
-    subprocess.run(settings["qemu_cmd"], check=True)
+    if os.name == 'nt':
+        import win32console
+        std_handle = win32console.GetStdHandle(win32console.STD_INPUT_HANDLE)
+        try:
+            console_mode = std_handle.GetConsoleMode()
+        except Exception:
+            std_handle = None
+    try:
+        subprocess.run(settings["qemu_cmd"], check=True)
+    finally:
+        if os.name == 'nt' and std_handle is not None:
+            # Restore the console mode for Windows as QEMU garbles it
+            std_handle.SetConsoleMode(console_mode)
 
 
 def main() -> None:
