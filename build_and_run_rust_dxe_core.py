@@ -33,7 +33,8 @@ def _parse_arguments() -> argparse.Namespace:
     Returns:
         argparse.Namespace: Parsed command-line arguments.
     """
-    parser = argparse.ArgumentParser(description="Build and run Rust DXE Core.")
+    parser = argparse.ArgumentParser(description="Build and run Rust DXE Core.",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         "--qemu-rust-bin-repo",
         type=Path,
@@ -371,7 +372,9 @@ def _print_configuration(settings: Dict[str, Path]) -> None:
     print(f" - Code FD File: {settings['code_fd']}")
     print(f" - FW Patch Repo: {settings['fw_patch_repo']}")
     print(f" - Build Target: {settings['build_target']}")
-    print(f" - Toolchain: {settings['toolchain']}\n")
+    print(f" - Toolchain: {settings['toolchain']}")
+    print(f" - QEMU Command Line: {settings['qemu_cmd']}")
+    print()
 
 
 def _build_rust_dxe_core(settings: Dict[str, Path]) -> None:
@@ -384,10 +387,15 @@ def _build_rust_dxe_core(settings: Dict[str, Path]) -> None:
             - 'build_cmd' (Path): The command to execute for building the Rust DXE Core.
     """
     print("[1]. Building Rust DXE Core...\n")
+
+    env = os.environ.copy()
+    if "-Zunstable-options" in settings["build_cmd"]:
+        env["RUSTC_BOOTSTRAP"] = "1"
+
     if settings["build_target"] == "RELEASE":
-        subprocess.run(settings["build_cmd"] + ["--profile", "release"], check=True)
+        subprocess.run(settings["build_cmd"] + ["--profile", "release"], check=True, env=env)
     else:
-        subprocess.run(settings["build_cmd"], check=True)
+        subprocess.run(settings["build_cmd"], check=True, env=env)
 
 
 def _patch_rust_dxe_core(settings: Dict[str, Path]) -> None:
