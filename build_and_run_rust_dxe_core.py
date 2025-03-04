@@ -94,7 +94,7 @@ def _parse_arguments() -> argparse.Namespace:
         args.toolchain = "CLANGPDB"
 
     if args.os:
-        file_extension = args.os.suffix.lower().replace('"', '')
+        file_extension = args.os.suffix.lower().replace('"', "")
 
         storage_format = {
             ".vhd": "raw",
@@ -114,7 +114,7 @@ def _parse_arguments() -> argparse.Namespace:
                 "-drive",
                 f"file={args.os},format={storage_format},if=none,id=os_nvme",
                 "-device",
-                "nvme,serial=nvme-1,drive=os_nvme"
+                "nvme,serial=nvme-1,drive=os_nvme",
             ]
         args.os = os_arg
     return args
@@ -352,12 +352,13 @@ def _print_configuration(settings: Dict[str, Path]) -> None:
             - 'build_target': The build target.
             - 'toolchain': The toolchain being used.
     """
-    print("==Current Configuration==")
-    print(f"QEMU Rust Bin Repo (qemu_rust_bins): {settings['qemu_rust_bin_repo']}")
-    print(f"DXE Core EFI File: {settings['dxe_core']}")
-    print(f"FW Patch Repo: {settings['fw_patch_repo']}")
-    print(f"Build Target: {settings['build_target']}")
-    print(f"Toolchain: {settings['toolchain']}\n")
+    print("== Current Configuration ==")
+    print(f" - QEMU Rust Bin Repo (qemu_rust_bins): {settings['qemu_rust_bin_repo']}")
+    print(f" - DXE Core EFI File: {settings['dxe_core']}")
+    print(f" - Code FD File: {settings['code_fd']}")
+    print(f" - FW Patch Repo: {settings['fw_patch_repo']}")
+    print(f" - Build Target: {settings['build_target']}")
+    print(f" - Toolchain: {settings['toolchain']}\n")
 
 
 def _build_rust_dxe_core(settings: Dict[str, Path]) -> None:
@@ -390,10 +391,10 @@ def _patch_rust_dxe_core(settings: Dict[str, Path]) -> None:
     """
     print("[2]. Patching Rust DXE Core...\n")
 
-    if not settings["ref_fd"].exists():
-        shutil.copy(settings["code_fd"], settings["ref_fd"])
+    shutil.copy(settings["code_fd"], settings["ref_fd"])
 
     subprocess.run(settings["patch_cmd"], cwd=settings["fw_patch_repo"], check=True)
+    settings["ref_fd"].unlink()
 
 
 def _run_qemu(settings: Dict[str, Path]) -> None:
@@ -402,8 +403,9 @@ def _run_qemu(settings: Dict[str, Path]) -> None:
 
     """
     print("[3]. Running QEMU with Rust DXE Core Build...\n")
-    if os.name == 'nt':
+    if os.name == "nt":
         import win32console
+
         std_handle = win32console.GetStdHandle(win32console.STD_INPUT_HANDLE)
         try:
             console_mode = std_handle.GetConsoleMode()
@@ -412,7 +414,7 @@ def _run_qemu(settings: Dict[str, Path]) -> None:
     try:
         subprocess.run(settings["qemu_cmd"], check=True)
     finally:
-        if os.name == 'nt' and std_handle is not None:
+        if os.name == "nt" and std_handle is not None:
             # Restore the console mode for Windows as QEMU garbles it
             std_handle.SetConsoleMode(console_mode)
 
