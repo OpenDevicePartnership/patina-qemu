@@ -78,7 +78,7 @@ def _parse_arguments() -> argparse.Namespace:
         "--serial-port",
         "-s",
         type=int,
-        default=50001,
+        default=None,
         help="Port to use for serial communication.",
     )
     parser.add_argument(
@@ -168,6 +168,9 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             str(args.qemu_rust_bin_repo),
             "build_q35",
         ]
+        # if a serial port wasn't specified, use the default port so a debugger can be retroactively attached
+        if args.serial_port is None:
+            args.serial_port = 50001
         qemu_cmd = [
             uefi_rust_dir
             / "QemuPkg"
