@@ -220,7 +220,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         if args.os:
             qemu_cmd += args.os
-            qemu_cmd += ["-m", "8096"]
+            qemu_cmd += ["-m", "8192"]
         else:
             qemu_cmd += ["-m", "2048"]
 
@@ -274,8 +274,6 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "none",
             "-L",
             str(uefi_rust_dir / "QemuPkg" / "Binaries" / "qemu-win_extdep" / "share"),
-            "-m",
-            "2048",
             "-machine",
             "sbsa-ref",
             "-cpu",
@@ -311,7 +309,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         if args.os:
             qemu_cmd += args.os
-            qemu_cmd += ["-m", "8096"]
+            qemu_cmd += ["-m", "8192"]
         else:
             qemu_cmd += ["-m", "2048"]
         patch_cmd = [
