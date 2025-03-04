@@ -110,12 +110,24 @@ def _parse_arguments() -> argparse.Namespace:
         if storage_format == "iso":
             os_arg = ["-cdrom", f" {args.os}"]
         else:
-            os_arg = [
-                "-drive",
-                f"file={args.os},format={storage_format},if=none,id=os_nvme",
-                "-device",
-                "nvme,serial=nvme-1,drive=os_nvme",
-            ]
+            if args.platform == "Q35":
+                # Q35 uses NVMe
+                os_arg = [
+                    "-drive",
+                    f"file={args.os},format={storage_format},if=none,id=os_nvme",
+                    "-device",
+                    "nvme,serial=nvme-1,drive=os_nvme",
+                ]
+            else:
+                # There is a bug in Windows for NVMe on AARCH64, so use AHCI instead
+                os_arg = [
+                    "-drive",
+                    f"file={args.os},format={storage_format},if=none,id=os_disk",
+                    "-device",
+                    "ahci,id=ahci",
+                    "-device",
+                    "ide-hd,drive=os_disk,bus=ahci.0",
+                ]
         args.os = os_arg
     return args
 
