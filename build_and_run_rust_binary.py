@@ -1,9 +1,9 @@
-# @file build_and_run_rust_dxe_core.py
+# @file build_and_run_rust_binary.py
 #
-# Builds the Rust DXE Core binary, patches it into a QEMU platform firmware,
-# and runs QEMU. This script is meant to be focused and fast for patching
-# specific reference firmware images with a new Rust DXE Core. It is not meant
-# to be a general purpose firmware patching tool.
+# Builds the Rust DXE Core (if it is selected), patches a EFI into QEMU
+# platform firmware, and runs QEMU. This script is meant to be focused and fast
+# for patching specific reference firmware images with a new Rust DXE Core. It
+# is not meant to be a general purpose firmware patching tool.
 #
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -33,13 +33,21 @@ def _parse_arguments() -> argparse.Namespace:
     Returns:
         argparse.Namespace: Parsed command-line arguments.
     """
-    parser = argparse.ArgumentParser(description="Build and run Rust DXE Core.",
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description="Build and run Rust DXE Core.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument(
         "--qemu-rust-bin-repo",
         type=Path,
         default=Path("C:/src/qemu_rust_bins"),
         help="Path to the QEMU Rust bin repository.",
+    )
+    parser.add_argument(
+        "--custom-efi",
+        "-c",
+        type=Path,
+        help="Path to a custom EFI to patch (instead of the Rust DXE Core).",
     )
     parser.add_argument(
         "--fw-patch-repo",
@@ -145,7 +153,8 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             - build_cmd: The command to build the Rust DXE core.
             - build_target: The build target (e.g., RELEASE or DEBUG).
             - code_fd: The path to the QEMU platform code FD file to patch.
-            - dxe_core: The path to the DXE core .efi binary.
+            - custom_efi: Whether a custom EFI file was provided.
+            - efi_file: The path to the EFI file to patch.
             - fw_patch_repo: The path to the fw_rust_patcher repo.
             - patch_cmd: The command to patch the firmware.
             - qemu_cmd: The command to run QEMU with the specified settings.
@@ -166,13 +175,16 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         )
         ref_fd = code_fd.with_suffix(".ref.fd")
         config_file = args.fw_patch_repo / "Configs" / "QemuQ35.json"
-        dxe_core = (
-            args.qemu_rust_bin_repo
-            / "target"
-            / "x86_64-unknown-uefi"
-            / ("release" if args.build_target.lower() == "release" else "debug")
-            / "qemu_q35_dxe_core.efi"
-        )
+        if args.custom_efi:
+            efi_file = args.custom_efi
+        else:
+            efi_file = (
+                args.qemu_rust_bin_repo
+                / "target"
+                / "x86_64-unknown-uefi"
+                / ("release" if args.build_target.lower() == "release" else "debug")
+                / "qemu_q35_dxe_core.efi"
+            )
 
         build_cmd = [
             "cargo",
@@ -243,7 +255,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "-c",
             str(config_file),
             "-i",
-            str(dxe_core),
+            str(efi_file),
             "-r",
             str(ref_fd),
             "-o",
@@ -260,13 +272,16 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         )
         ref_fd = code_fd.with_suffix(".ref.fd")
         config_file = args.fw_patch_repo / "Configs" / "QemuSbsa.json"
-        dxe_core = (
-            args.qemu_rust_bin_repo
-            / "target"
-            / "aarch64-unknown-uefi"
-            / ("release" if args.build_target.lower() == "release" else "debug")
-            / "qemu_sbsa_dxe_core.efi"
-        )
+        if args.custom_efi:
+            efi_file = args.custom_efi
+        else:
+            efi_file = (
+                args.qemu_rust_bin_repo
+                / "target"
+                / "aarch64-unknown-uefi"
+                / ("release" if args.build_target.lower() == "release" else "debug")
+                / "qemu_sbsa_dxe_core.efi"
+            )
 
         build_cmd = [
             "cargo",
@@ -331,7 +346,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "-c",
             str(config_file),
             "-i",
-            str(dxe_core),
+            str(efi_file),
             "-r",
             str(ref_fd),
             "-o",
@@ -344,7 +359,8 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         "build_cmd": build_cmd,
         "build_target": args.build_target,
         "code_fd": code_fd,
-        "dxe_core": dxe_core,
+        "custom_efi": args.custom_efi is not None,
+        "efi_file": efi_file,
         "fw_patch_repo": args.fw_patch_repo,
         "patch_cmd": patch_cmd,
         "qemu_cmd": qemu_cmd,
@@ -360,15 +376,19 @@ def _print_configuration(settings: Dict[str, Path]) -> None:
 
     Args:
         settings (Dict[str, Path]): A dictionary containing configuration settings.
-            - 'qemu_rust_bin_repo': Path to the qemu_rust_bins repo.
-            - 'dxe_core': Path to the DXE Core .efi file.
-            - 'fw_patch_repo': Path to the fw_rust_patcher repo.
             - 'build_target': The build target.
+            - 'custom_efi': Path to a custom EFI file to patch (instead of the Rust DXE Core).
+            - 'efi_file': Path to the .efi file to patch.
+            - 'fw_patch_repo': Path to the fw_rust_patcher repo.
+            - 'qemu_cmd': The command to run QEMU with the specified settings.
+            - 'qemu_rust_bin_repo': Path to the qemu_rust_bins repo.
             - 'toolchain': The toolchain being used.
     """
     print("== Current Configuration ==")
     print(f" - QEMU Rust Bin Repo (qemu_rust_bins): {settings['qemu_rust_bin_repo']}")
-    print(f" - DXE Core EFI File: {settings['dxe_core']}")
+    print(
+        f" - {'Custom EFI' if settings['custom_efi'] else 'DXE Core'}: {settings['efi_file']}"
+    )
     print(f" - Code FD File: {settings['code_fd']}")
     print(f" - FW Patch Repo: {settings['fw_patch_repo']}")
     print(f" - Build Target: {settings['build_target']}")
@@ -383,8 +403,8 @@ def _build_rust_dxe_core(settings: Dict[str, Path]) -> None:
 
     Args:
         settings (Dict[str, Path]): A dictionary containing the build settings.
-            - 'build_target' (str): The target build type.
             - 'build_cmd' (Path): The command to execute for building the Rust DXE Core.
+            - 'build_target' (str): The target build type.
     """
     print("[1]. Building Rust DXE Core...\n")
 
@@ -393,24 +413,29 @@ def _build_rust_dxe_core(settings: Dict[str, Path]) -> None:
         env["RUSTC_BOOTSTRAP"] = "1"
 
     if settings["build_target"] == "RELEASE":
-        subprocess.run(settings["build_cmd"] + ["--profile", "release"], check=True, env=env)
+        subprocess.run(
+            settings["build_cmd"] + ["--profile", "release"], check=True, env=env
+        )
     else:
         subprocess.run(settings["build_cmd"], check=True, env=env)
 
 
-def _patch_rust_dxe_core(settings: Dict[str, Path]) -> None:
+def _patch_rust_binary(settings: Dict[str, Path]) -> None:
     """
-    Patches the Rust DXE Core by copying the reference firmware directory if it does not exist
+    Patches the binary by copying the reference firmware directory if it does not exist
     and running the specified patch command.
 
     Args:
         settings (Dict[str, Path]): A dictionary containing the following keys:
-            - 'ref_fd': Path to patch input (reference) FD file.
             - 'code_fd': Path to patch output FD file.
-            - 'patch_cmd': Command to run for patching.
+            - 'custom_efi': Whether a custom EFI file was provided.
             - 'fw_patch_repo': Path to the fw_rust_patcher repo.
+            - 'patch_cmd': Command to run for patching.
+            - 'ref_fd': Path to patch input (reference) FD file.
     """
-    print("[2]. Patching Rust DXE Core...\n")
+    print(
+        f"[2]. Patching {'Custom EFI' if settings['custom_efi'] else 'Rust DXE Core'}...\n"
+    )
 
     shutil.copy(settings["code_fd"], settings["ref_fd"])
 
@@ -423,7 +448,7 @@ def _run_qemu(settings: Dict[str, Path]) -> None:
     Runs QEMU with the specified settings.
 
     """
-    print("[3]. Running QEMU with Rust DXE Core Build...\n")
+    print("[3]. Running QEMU with Patched Binary...\n")
     if os.name == "nt":
         import win32console
 
@@ -447,7 +472,7 @@ def main() -> None:
     """
     start_time = timeit.default_timer()
 
-    print("Rust DXE Core Build and Runner\n")
+    print("Rust Binary Build and Runner\n")
 
     args = _parse_arguments()
 
@@ -460,13 +485,15 @@ def main() -> None:
     _print_configuration(settings)
 
     try:
-        build_start_time = timeit.default_timer()
-        _build_rust_dxe_core(settings)
-        build_end_time = timeit.default_timer()
-        print(
-            f"Rust DXE Core Build Time: {build_end_time - build_start_time:.2f} seconds.\n"
-        )
-        _patch_rust_dxe_core(settings)
+        if not settings["custom_efi"]:
+            build_start_time = timeit.default_timer()
+            _build_rust_dxe_core(settings)
+            build_end_time = timeit.default_timer()
+            print(
+                f"Rust DXE Core Build Time: {build_end_time - build_start_time:.2f} seconds.\n"
+            )
+
+        _patch_rust_binary(settings)
         end_time = timeit.default_timer()
         print(
             f"Total time to get to kick off QEMU: {end_time - start_time:.2f} seconds.\n"
