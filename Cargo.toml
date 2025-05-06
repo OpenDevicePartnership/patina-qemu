@@ -25,7 +25,7 @@ num-traits = { version = "0.2", default-features = false}
 num-derive = { version = "0.4", default-features = false}
 r-efi = "5.2.0"
 scroll = { version = "0.11", default-features = false, features = ["derive"]}
-rustversion = "1.0.19"
+rustversion = "1.0.20"
 spin = "0.9.8"
 uart_16550 = "0.3.0"
 x86_64 = "=0.15.1"
