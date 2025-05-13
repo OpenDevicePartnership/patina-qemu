@@ -1,352 +1,233 @@
-# Project Mu Rust Repository
+# Patina Platform Repository
 
-## Important Notes
+This repository demonstrates how to integrate [Patina](https://github.com/OpenDevicePartnership/patina/blob/main/docs/src/patina.md)
+into a UEFI platform build.
 
-This fork of [mu_tiano_platforms](https://github.com/microsoft/mu_tiano_platforms) is used to test UEFI Rust firmware
-changes. Originally, this repo contained the Rust DXE Core implementation, however, we've transitioned to a different
-delivery model where the Rust DXE Core is built as a .efi file in a pure Rust repository and the .efi binary is
-integrated into the platform firmware build process.
+## Repository Background
 
-Since this is a fork that is solely intended for Rust firmware development, primarily the Rust DXE Core, a script
-is available to reduce dev & test time when making Rust DXE Core changes. Currently, the script is called
-`build-and-run-rust-dxe-core.bat` and given paths to a couple repos on your local system, it can build the QEMU
-Rust DXE Core, patch it into your local QEMU firmware image, and run QEMU with the patched firmware.
+This repository is a permanent fork of [mu_tiano_platforms](https://github.com/microsoft/mu_tiano_platforms) which is
+itself a permanent fork of the [OvmfPkg in edk2](https://github.com/tianocore/edk2/tree/HEAD/OvmfPkg). The reason for
+a permanent fork is to allow this repository to be independently used within the ownership of the Patina project and,
+in doing so, optimized for Rust UEFI development.
 
-The script only support Windows and Q35 right now, Linux and SBSA support is coming soon.
+## Getting Started
 
-## Background
+This repository is meant to be a "first stop" for developers exploring Patina in practice - how it would be integrated
+in a UEFI platform. Depending on your background, you may find the following entry points to Patina useful:
 
-There have been various [instances of advocacy](https://msrc-blog.microsoft.com/2019/11/07/using-rust-in-windows/) for
-building system level software in [Rust](https://www.rust-lang.org/).
+- All:
+  - [Patina Overview](https://github.com/OpenDevicePartnership/patina/blob/main/docs/src/patina.md)
+- Interested in the Patina DXE Core?
+  - [High-Level Differences of Patina DXE Core vs EDK II DXE Core](https://github.com/OpenDevicePartnership/patina/blob/main/docs/src/integrate/rust_vs_edk2.md)
+- Developers:
+  - [Developer Introduction](https://github.com/OpenDevicePartnership/patina/blob/main/docs/src/introduction.md)
+  - [Patina Code Organization](https://github.com/OpenDevicePartnership/patina/blob/main/docs/src/dev/code_organization.md)
+  - [The Patina Component Model](https://github.com/OpenDevicePartnership/patina/blob/main/docs/src/dxe_core/component_model.md)
+  - [General Rust Resources](https://github.com/OpenDevicePartnership/patina/blob/main/docs/src/dev/other.md)
 
-This repository explores the adoption of Rust for [UEFI](https://uefi.org/) firmware. We plan to enable an incremental
-migration of today's firmware components largely written in C to Rust. The primary objective for this effort is to
-improve the security and stability of system firmware by leveraging the memory safety offered by Rust while
-maintaining similar boot performance.
+## High-Level Overview of Rust Integration Into Platforms
 
-Eventually, this code is planned to become part of [Project Mu](https://microsoft.github.io/mu/). As of now, Rust
-development should mostly take place in this repository to minimize dependencies on the code until it is approved
-to be used in production.
+As Rust is integrated into more production platforms, it is important to understand the options available and where
+this repository fits in. Recognizing that UEFI inherently supports dynamic integration, at the highest level, there are
+two approaches for writing UEFI firmware in Rust:
 
-## First-Time Tool Setup Instructions
+1. Build the code using Rust tools in a Pure Rust workspace against the UEFI target triple and integrate the resulting
+   .efi binary into the platform firmware build process.
+   - This is the primary approach taken in this repository.
+2. Support for building Rust source code in the firmware build process. If using the EDK II build process, this means
+   compiling Rust source code alongside the C source code when building code specified in a DSC file.
+
+We generally recommend **(1)** as the preferred approach for the following reasons:
+
+- It allows for a more natural Rust development experience directly using Rust tools and processes for Rust code.
+- It greatly simplifies the firmware build process as it does not need to be enlightened for building Rust code.
+
+This repository integrates Patina code using **(1)** and demonstrates how **(2)** can be used for Rust code
+external to Patina to provide a complete example of how to integrate Rust into a UEFI platform build.
+
+In the diagram below, **(1)** is ".efi binary" and **(2)** is either of the other blocks in the diagram depending on
+which method is selected.
+
+Ease of integration decreases when not directly using a .efi binary because the EDK II build process must be updated
+to support build rules for Rust code. The coupling of the EDK II build system with the Rust/Cargo build system
+introduces additional complexity alongside EDK II workspace requirements causing friction with Rust workspace
+conventions. EDK II customizations such as PCDs are not natively supported in Rust. Conversely, Rust feature flags
+are not supported in the EDK II build process. This further increases integration complexity as consumers must
+understand multiple types of customization and how they may cooperate with each other. When Pure Rust code is built
+into a .efi binary in **(1)**, that best ensures consumers they are using a "Rust implementation". It is possible that
+Rust build may have had C code linked into the binary with a FFI, but that is not a practice in Patina.
+
+![Rust Integration Options](./docs/images/rust_integration_options.png)
+
+Since **(1)** is the preferred approach, we will focus on that in this document. However, it is important to note that
+**(2)** is also a valid approach and can be used in conjunction with **(1)**. More details on **(2)** are provided in
+the collapsed section below if you are interested in understanding more about that approach.
+
+<details>
+<summary>Click to expand for more details on <b>(2)</b></summary>
+As of today, [tianocore/edk2](https://github.com/tianocore/edk2) does not support **(2)**. The [Project Mu](https://microsoft.github.io/mu/)
+open-source project does.
+
+**(2)** is particularly useful for linking Rust code with C code in a given module. However, several combinations are
+possible with today's support:
+
+- **C source** + **Rust source mixed in INF** (Library or Module)
+  - Rust source code is recognized and supported by an EDK II build rule – Rust-To-Lib-File (.rs => .lib)
+- **Pure Rust Module only**.
+  - A Cargo.toml file is added to INF file as source.
+  - Rust Module build is supported by EDK II build rule – Toml-File.RUST_MODULE (.toml => .efi)
+- **Pure Rust Module** + **Pure Rust Library with Cargo Dependency**.
+  - The cargo dependency means the rust lib dependency declared in Cargo.toml.
+- **Pure Rust Module** + **C Library with EDK II Dependency**.
+  - Rust Module build is supported by EDK II build rule – Toml-File (.toml => .lib)
+  - The EDK II dependency means the EDK II lib dependency declared in INF.
+    - If a rust module is built with C, the cargo must use `staticlib`. Or, `rlib` should be used.
+- **C Module** + **Pure Rust Library with EDK II Dependency**.
+  - Rust Lib build is supported by EDK II build rule – Toml-File. (.toml => .lib)
+- **Pure Rust Module** + **Pure Rust Library with EDK II Dependency**.
+  - Same as combining others from above.
+
+After experimenting with **(2)**, we have found that while it  is how most projects initially consider integrating Rust
+into their codebase but in practice the integration complexity is high due to the ability to cointegrate the Rust/Carg
+build system with the EDK II build system and it naturally leads to Rust source code being maintained in the C codebase
+which is not ideal due to language and tooling differences.
+</details>
+
+## First-Time Tool Setup Instructions For This Repository
+
+There are two platforms currently supported in this repository - `QemuQ35Pkg` and `QemuSbsaPkg`.
+
+- [QemuQ35Pkg](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/QemuQ35Pkg)
+  - Intel Q35 chipset with ICH9 south bridge
+  - This demonstrates x86/x64 UEFI firmware development with Patina.
+  - [QemuQ35Pkg Detailed Info](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/Docs/Q35/QemuQ35_ReadMe.md)
+- [QemuSbsaPkg](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/QemuSbsaPkg)
+  - ARM Server Base System Architecture
+  - This demonstrates AARCH64 UEFI firmware development with Patina.
+  - Note: `QemuSbsaPkg` could build in the past on Windows using the `CLANGPDB` toolchain. However, this is no longer
+    possible due to some code that is part of the build that only builds only Linux at this time.
+  - [QemuSbsaPkg Detailed Info](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/Docs/SBSA/QemuSbsa_ReadMe.md)
 
 The following instructions install Rust.
 
-1. Download and install rust/cargo from [Getting Started - Rust Programming Language (rust-lang.org)](https://www.rust-lang.org/learn/get-started).
-   > rustup-init installs the toolchain and utilities.
+1. Since this repository will be built using the [stuart tools](https://github.com/tianocore/edk2-pytool-extensions?tab=readme-ov-file#tianocore-edk2-pytool-extensions-edk2toolext)
+in the Tianocore project, setup the pre-requisites described in [How to Build with Stuart](https://github.com/tianocore/tianocore.github.io/wiki/How-to-Build-With-Stuart).
+2. With that done, it is recommended you start by following the [instructions to build `QemuQ35Pkg`](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/Docs/Common/building.md).
 
-2. Make sure it's working - restart a shell after install and make sure the tools are in your path:
+Using those instructions, your commands will look like the following to build `QemuQ35Pkg` on Windows:
 
-   \>`cargo --version`
-
-3. Install the 1.68.2 x86_64 rust toolchain.
-
-   Windows:
-
-   \>`rustup toolchain install 1.68.2-x86_64-pc-windows-msvc`
-
-   \>`rustup component add rust-src --toolchain 1.68.2-x86_64-pc-windows-msvc`
-
-   Linux:
-
-   \>`rustup toolchain install 1.68.2-x86_64-unknown-linux-gnu`
-
-   \>`rustup component add rust-src --toolchain 1.68.2-x86_64-unknown-linux-gnu`
-
-4. Install Cargo Make.
-
-   \>`cargo install --force cargo-make`
-
-Did something not work right? Then go to _[Troubleshooting](#troubleshooting)_.
-
-The following instructions set up the UEFI Rust code repository.
-
-1. Download and install QEMU from: [Download QEMU](https://www.qemu.org/download/#windows) - QEMU.
-   > Note, if you install the latest, windows may complain about it being a not-often downloaded file.
-
-2. After installing QEMU, you need to manually add it to your path.
-   > By default, 64-bit installs to `C:\Program Files\qemu`
-
-3. Verify it works by executing `qemu-system-x86_64.exe` in a command prompt.
-   > You should see a window pop up and attempt to boot to PXE.
-
-4. Clone this repo:
+1. Clone this repo:
 
     \>`cd <your source directory>`
 
-    \>`git clone https://microsoft@dev.azure.com/microsoft/MsUEFI/_git/UefiRust`
+    \>`git clone https://github.com/OpenDevicePartnership/patina-qemu.git`
 
-5. Setup and activate a local Python virtual environment.
+2. Setup and activate a local Python virtual environment.
 
-    \>`python -m venv UefiRust.venv`
+    \>`py -3 -m venv patina.venv`
 
-    \>`.\UefiRust.venv\Scripts\Activate.ps1`
+    \>`.\patina.venv\Scripts\Activate.ps1`
     > Use the script that works with your environment (e.g. .ps1 for PowerShell, .bat for "cmd").
 
-6. Switch to the enlistment and install pip modules.
+3. Switch to the enlistment and install pip modules.
 
-    \>`cd UefiRust`
+    \>`cd patina-qemu`
 
     \>`pip install --upgrade -r pip-requirements.txt`
 
-7. Fetch submodules and external dependencies.
+4. Fetch submodules and external dependencies.
 
     `>stuart_setup -c Platforms\QemuQ35Pkg\PlatformBuild.py`
 
     `>stuart_update -c Platforms\QemuQ35Pkg\PlatformBuild.py`
 
-8. Compile the firmware (above steps are only required to configure the enlistment;subsequent builds can just run
+5. Compile the firmware (above steps are only required to configure the enlistment; subsequent builds can just run
    this command).
 
     \>`stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py`
 
-9. Verify that your UEFI build can successfully execute on QEMU by passing the `--FlashRom` argument to the build:
+6. Verify that your UEFI build can successfully execute on QEMU by passing the `--FlashRom` argument to the build:
 
     \>`stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py --FlashRom`
 
-## Rust DXE Core Details
+You can then apply that knowledge to build the platform you're interested in with the `PlatformBuild.py` files located
+in the platform package directory.
 
-This repository pulls in a Pure Rust DXE Core binary through an external dependency. See
-`Platforms\QemuQ35Pkg\Binaries\dxe_core_ext_dep.yaml` for more details. The binary can be overridden locally by
-passing `BLD_*_DXE_CORE_BINARY_PATH` with the path to the directory containing the DXE Core .efi binary to the Stuart
-build command.
+After you run the firmare you've built on QEMU (for example, adding `--flashrom` to the end of the `stuart_build`
+command), you've successfully built and run the Patina DXE Core! No Rust tools are needed since right now, you are
+using the "simpler" model of the Rust code coming into the firmware build through a .efi binary.
 
-## Rust Build Details
+If you are interested in installing the Rust tools, follow the instructions in the [patina repo readme](https://github.com/OpenDevicePartnership/patina?tab=readme-ov-file#first-time-tool-setup-instructions)
+and start by building the code in the [patina repo](https://github.com/OpenDevicePartnership/patina).
 
-Multiple approaches are supported to build Rust UEFI modules.
+## Advanced Usage
 
-### Cargo-make
+If you are using this repository often and to test Rust changes you are developing, you may want to consider the
+following advanced usage options.
 
-  Cargo-make is a CLI tool used to abstract away many of the CLI arguments necessary to build a rust module
-  so that developers can easily check, test, and build individual rust packages without the need to copying
-  and/or memorizing the long list of arguments.
+### Patching the Patina DXE Core Into a QEMU UEFI ROM
 
-  cargo-make should already be installed if you followed the
-  [First-Time Tool Setup Instructions](#first-time-tool-setup-instructions), however if it is not, simply
-  run `cargo-install --force cargo-make`.
+The fastest way to test changes to Rust code on QEMU is to use a Patina tool called "FW Patcher" that automates the
+process of building the Rust code and then patching it directly into an existing QEMU UEFI ROM image. This is
+significantly faster than building the entire platform firmware using the normal Stuart build process and is often
+completed within a few seconds.
 
-  Currently supported:
+The `FW Patcher` tool is located in  the [patina-fw-patcher](https://github.com/OpenDevicePartnership/patina-fw-patcher)
+repository. Review the [readme](https://github.com/OpenDevicePartnership/patina-fw-patcher?tab=readme-ov-file#firmware-rust-patcher)
+in that repository for instructions on how to use it a s standalone script.
 
-  1. [Building](#build-with-cargo-make) i.e. `cargo make build <Rust Package>`
-  2. [Testing](#test-with-cargo-make) i.e. `cargo make test <optional: Rust Package>`
-  3. [Coverage](#coverage-with-cargo-make) i.e. `cargo make cov <optional: Rust Package>`
+To further simplify the process of using the tool in this repository, a script is provided in this repository called
+[build_and_run_rust_binary.py](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/build_and_run_rust_binary.py)
+that can be called to:
 
-### Build QemuQ35Pkg (with Rust Modules)
+1. Build your Rust changes
+2. Patch the resulting Patina DXE Core .efi binary into your local `patina-qemu` UEFI ROM image.
+3. Start QEMU with the patched UEFI ROM image.
 
-  ```cmd
-  stuart_build -c QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=VS2022
-  ```
+For more details about how to run the script, review the script help information locally:
 
-  This will also add the section header, FFS header, and FV header for the .efi image. Different modules types such as
-  PEIM, DXE, and SMM drivers are supported.
+```bash
+>python build_and_run_rust_binary.py --help
+```
 
-  In summary, no special steps are needed, Rust modules will be built and included in the flash image similar to
-  non-Rust modules.
+> Note: Because this is only patching an existing QEMU ROM image, if you make changes to the platform firmware code
+> (e.g. C code), you will need to run the full Stuart build process to build a new ROM image with those changes and
+> then use the `FW Patcher` tool to patch the Patina DXE Core .efi binary into that new ROM image.
 
-#### Build and Run QEMU After Build
+> Note: The `FW Patcher` tool can patch more than just the Patina DXE Core. If you need help patching other binaries,
+> please start a discussion in [patina-fw-patcher Discussions area](https://github.com/OpenDevicePartnership/patina-fw-patcher/discussions/categories/q-a.)
 
-Adding `--flashrom` to the end of the build command will automatically run the generated firmware image on QEMU after
-the build is complete.
+### Substituting a Local DXE Core Into the Stuart Build
 
-  ```cmd
-  stuart_build -c QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=VS2022 --flashrom
-  ```
+The Patina DXE Core binary used in the platform build of this repository is specified as an "external dependency" in
+`Platforms\QemuQ35Pkg\Binaries\dxe_core_ext_dep.yaml` (for `QemuQ35Pkg`). The binary can be overridden locally by
+in your build command by passing `BLD_*_DXE_CORE_BINARY_PATH` with the path to the directory containing the DXE Core
+.efi binary to the Stuart build command.
 
-#### Only Run QEMU on Last Build
+Example:
 
-Adding `--flashonly` to the end of the build command will run QEMU with the last built image (skips building again).
+```bash
+>stuart_setup -c Platforms\QemuQ35Pkg\PlatformBuild.py --flashonly BLD_*_DXE_CORE_BINARY_PATH=C:\src\patina-dxe-core-qemu\target\x86_64-unknown-uefi\debug\patina_q35_dxe_core_.efi
+```
 
-  ```cmd
-  stuart_build -c QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=VS2022 --flashonly
-  ```
+### Using a Custom QEMU Installation
 
-#### Control QEMU Shutdown Behavior
+By default, this repository automates the process of choosing a known working QEMU version and downloading that version
+into the workspace for you. If you want to use a custom QEMU installation, you can do so by passing the path to the
+Stuart build command with the`QEMU_PATH` argument. For example:
 
-By default, QEMU will automatically shutdown after running. QEMU can be kept open, by passing the `SHUTDOWN_AFTER_RUN`
-argument to the build command.
+```bash
+>stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py --flashonly QEMU_PATH=C:\path\to\your\qemu\bin\qemu-system-x86_64.exe
+```
 
-  ```cmd
-  stuart_build -c QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=VS2022 --flashrom SHUTDOWN_AFTER_RUN=FALSE
-  ```
+You can also specify the directory where the QEMU binary is located by passing the `QEMU_DIR` argument. For example:
 
-### Build with cargo-make
-
-  From the root directory, such as C:/src/UefiRust, run the following command:
-
-  ```cmd
-  cargo make build <Module Name>
-  ```
-
-  The following command line options are available:
-
-  1. -p PROFILE [development|release]. DEFAULT = development (debug)
-  2. -e ARCH=[IA32|X64|LOCAL]. DEFAULT = X64
-  3. -e TARGET_TRIPLE=[triple].
-
-  `ARCH=LOCAL` is used to build any locally executable tools associated with a rust library package (e.g. a
-  depex parser executable included with a depex library)
-
-  `TARGET_TRIPLE=<triple>` is used to cross-compile locally executable tools associated with a rust library package.
-
-  Examples:
-
-  ```cmd
-   cargo make build RustDriverDxe
-   cargo make -p release build RustDriverDxe
-   cargo make -e ARCH=IA32 build RustDriverDxe
-  ```
-
-  A package must be specified.
-
-  the output is target/[x86_64-unknown-uefi|i686-unknown-uefi]/[debug|release]/module_name.[efi|rlib]
-
-### Test with cargo-make
-
-   From the root directory, such as C:/src/UefiRust, run the following command:
-
-  ```cmd
-  cargo make test <Optional: Module Name>
-  ```
-
-  Examples:
-
-  ```cmd
-   cargo make test RustDriverDxe
-   cargo make test
-  ```
-
-  If a package is not specified, all packages will be tested.
-
-### Coverage with cargo-make
-
-   Linux - Ubuntu:
-
-   ```cmd
-    sudo apt install libssl-dev
-   ```
-
-   Linux - Fedora:
-
-   ```cmd
-     sudo dnf install openssl-devel
-   ```
-
-   From the root directory, such as C:/src/UefiRust, run the following command:
-
-  ```cmd
-  cargo make cov <Optional: Module Name>
-  ```
-
-  Examples:
-
-  ```cmd
-   cargo make cov RustDriverDxe
-   cargo make cov
-  ```
-
-  If a package is not specified, all packages will be tested and code coverage calculated.
-
-  A code coverage report will be printed to the terminal and an html report can be found at target/tarpaulin-report.html
-
-  **WARNING**: Tarpaulin code coverage is supported on windows, however it has only been verified to work on nightly 1.70+.
-
-## Supported Build Combinations
-
-1. C source + Rust source mixed in INF (Library or Module)
-   - Rust source code is supported by an EDK II build rule – Rust-To-Lib-File (.rs => .lib)
-   - >Limitation: Rust cannot have external dependency.
-2. Pure Rust Module only.
-   - A Cargo.toml file is added to INF file as source.
-   - Rust Module build is supported by EDK II build rule – Toml-File.RUST_MODULE (Toml => .efi)
-   - >Limitation: Runtime might be a problem, not sure about virtual address translation for rust internal global variable.
-3. Pure Rust Module + Pure Rust Library with Cargo Dependency.
-   - The cargo dependency means the rust lib dependency declared in Cargo.toml.
-4. Pure Rust Module + C Library with EDK II Dependency.
-   - Rust Module build is supported by EDK II build rule – Toml-File (Toml => .lib)
-   - The EDK II dependency means the EDK II lib dependency declared in INF.
-     - If a rust module is built with C, the cargo must use staticlib. Or rlib should be used.
-5. C Module + Pure Rust Library with EDK II Dependency.
-   - Rust Lib build is supported by EDK II build rule – Toml-File. (Toml => .lib)
-6. Pure Rust Module + Pure Rust Library with EDK II Dependency.
-   - Same as #4 + #5.
-
-## Testing
-
-Currently, this project only supports host based testing for rust packages that
-contain a library. Note that a package that compiles to an efi binary, such as
-a DXE_DRIVER, can have a library; it only needs to meet one of these
-requirements:
-
-1. A `[[lib]]` section in the cargo.toml file for the Rust package
-2. A lib.rs file
-
-**It is the developer responsibility to ensure that the library remains**
-***target-triple* agnostic, meaning it must be able to compile to the host**
-**machine, along with i386-unknown-uefi and x86_64-unknown-uefi.**
-Here are a few suggestions on how to do this:
-
-1. Move all architecture specific functionality to a library and add the
-   library to the ci.yaml ignore list
-2. Move all architecture specific functionality out of the library and to the
-   binary (generally the main.rs)
-3. Conditionally compile architecture specific functionality using
-   `#[cfg(target_os="uefi")]` or `#[cfg_attr(target_os="uefi", <DECORATOR>)]`.
-
-### Types of Tests
-
-There are multiple types of tests that rust can perform including integration
-tests, unit tests, documentation tests, and performance tests. We currently
-only care about *Integration Tests* and *Unit Tests*.
-[Read More](.pytool\Plugin\CargoTestHostCheck\Readme.md#integration-tests)
-
-### Ways to Test
-
-A CI plugin ([Read More](.pytool\Plugin\CargoTestHostCheck\Readme.md)) exists
-that locates all rust packages and executes the tests, if they exist. Executing
-tests in this manner can be accomplished through the typical *stuart_ci_build*
-process and is automatically executed in the CI pipeline for PRs. The developer
-can additionally execute tests via the the cargo test command from within the
-rust package as seen below:
-
-1. All Tests: `cargo test --target=<TRIPLE> -Z build-std-features -Z build-std`
-2. Unit and Integration Tests: `cargo test --tests --target=<TRIPLE> -Z build-std-features -Z build-std`
-3. Unit Tests: `cargo test --lib --target=<TRIPLE> -Z build-std-features -Z build-std`
-4. Integration Tests: `cargo test --test='*' --target=<TRIPLE> -Z build-std-features -Z build-std`
-
-*Hint: You can determine your host's target system via the `rustc -vV` command.*
+```bash
+>stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py --flashonly QEMU_DIR=C:\path\to\your\qemu\bin
+```
 
 ## Self Certification Tests
 
-Please refer to the document located at docs/SelfCertificationTest.md for documentation on
-how to configure UefiRust to run [Self Certification Tests (SCTs)](https://github.com/tianocore/edk2-pytool-library/pull/505)
+Refer to [`docs/SelfCertificationTest.md`](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/docs/SelfCertifcationTest.md)
+for documentation on how to configure the platform to run [Self Certification Tests (SCTs)](https://github.com/tianocore/tianocore.github.io/wiki/UEFI-SCT)
 and how to run them.
-
-## Notes
-
-1. This project uses `RUSTC_BOOSTRAP=1` environment variable due to internal requirements
-   1. This puts us in parity with the nightly features that exist on the toolchain targeted
-   2. The `nightly` toolchain may be used in place of this
-
-## Troubleshooting
-
-Installing the toolchain via the rust-toolchain.toml on windows may have the following error:
-
-```bash
-INFO - error: the 'cargo.exe' binary, normally provided by the 'cargo' component, is not applicable to the '1.68.2-x86_64-pc-windows-msvc' toolchain
-```
-
-To fix this:
-
-```bash
-# Reinstall the toolchain
-rustup toolchain uninstall 1.68.2-x86_64-pc-windows-msvc
-rustup toolchain install 1.68.2-x86_64-pc-windows-msvc
-
-# Add the rust-src back for the toolchain
-rustup component add rust-src --toolchain 1.68.2-x86_64-pc-windows-msvc
-```
-
-## Contributing
-
-- Review Rust Documentation Conventions at `docs/RustdocConventions.md`
-- Review [Testing](#test-with-cargo-make) on how to test changes
