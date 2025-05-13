@@ -2,8 +2,8 @@
 
 ## About
 
-This abstraction layer sets up devices paths for QEMU SBSA platform console input/output that can be used by Project Mu
-based BDS.
+This abstraction layer sets up devices paths for QEMU SBSA platform console input/output.
+
 QEMU (BOCHS) video controller is configured to preferred graphics output for current implementation.
 
 ## Copyright

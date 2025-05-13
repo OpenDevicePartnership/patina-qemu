@@ -108,8 +108,9 @@ From the root of fs0:
    deselect tests or test groups at any level.
 6. `F9` to run the tests
 
-Unfortunately, you cannot generate a report on UefiRust (not looked into). The
-best solution is to copy your VHD over to mu_tiano_platforms and open it there.
+Unfortunately, you cannot generate a report on Patina (not looked into). The
+best solution is to copy your VHD over to the open-source [mu_tiano_platforms](https://github.com/microsoft/mu_tiano_platforms)
+repo and open it there.
 
 1. `fs0:`
 2. `cd SCT`

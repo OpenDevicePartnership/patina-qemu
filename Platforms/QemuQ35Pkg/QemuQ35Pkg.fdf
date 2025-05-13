@@ -1,5 +1,5 @@
 ## @file
-#  Open Virtual Machine Firmware for Q35 VM using Project Mu: FDF
+#  Open Virtual Machine Firmware for Q35 VM using Patina: FDF
 #
 #  Copyright(c) Microsoft Corporation
 #  Copyright (c) 2006 - 2019, Intel Corporation. All rights reserved.<BR>
@@ -257,9 +257,6 @@ INF  QemuPkg/Tcg/Tcg2Config/Tcg2ConfigPei.inf
 INF  SecurityPkg/Tcg/Tcg2Pei/Tcg2Pei.inf
 !endif
 
-#
-# MU Modules
-#
 INF  MdeModulePkg/Universal/ResetSystemPei/ResetSystemPei.inf
 INF  MsCorePkg/Universal/StatusCodeHandler/Serial/Pei/SerialStatusCodeHandlerPei.inf
 INF  MsCorePkg/Core/GuidedSectionExtractPeim/GuidedSectionExtract.inf
@@ -494,9 +491,6 @@ INF  SecurityPkg/Tcg/Tcg2Config/Tcg2ConfigDxe.inf
 !endif
 !endif
 
-#
-# MU Modules
-#
 INF  AdvLoggerPkg/AdvancedFileLogger/AdvancedFileLogger.inf
 INF  MsCorePkg/Universal/StatusCodeHandler/Serial/Dxe/SerialStatusCodeHandlerDxe.inf
 INF  MsCorePkg/MuCryptoDxe/MuCryptoDxe.inf

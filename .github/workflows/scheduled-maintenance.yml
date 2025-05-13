@@ -1,14 +1,5 @@
 # This workflow performs scheduled maintenance tasks.
 #
-# NOTE: This file is automatically synchronized from Mu DevOps. Update the original file there
-#       instead of the file in this repo.
-#
-# NOTE: This file uses reusable workflows. Do not make changes to the file that should be made
-#       in the common/reusable workflows.
-#
-# - Mu DevOps Repo: https://github.com/microsoft/mu_devops
-# - File Sync Settings: https://github.com/microsoft/mu_devops/blob/main/.sync/Files.yml
-#
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 #

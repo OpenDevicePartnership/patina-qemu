@@ -5,7 +5,7 @@ into a UEFI platform build.
 
 ## Repository Background
 
-This repository is a permanent fork of [mu_tiano_platforms](https://github.com/microsoft/mu_tiano_platforms) which is
+This repository is a permanent fork of [mu_tiano_platforms](https://github.com/OpenDevicePartnership/patina-qemu) which is
 itself a permanent fork of the [OvmfPkg in edk2](https://github.com/tianocore/edk2/tree/HEAD/OvmfPkg). The reason for
 a permanent fork is to allow this repository to be independently used within the ownership of the Patina project and,
 in doing so, optimized for Rust UEFI development.
@@ -65,7 +65,7 @@ the collapsed section below if you are interested in understanding more about th
 
 <details>
 <summary>Click to expand for more details on <b>(2)</b></summary>
-As of today, [tianocore/edk2](https://github.com/tianocore/edk2) does not support **(2)**. The [Project Mu](https://microsoft.github.io/mu/)
+As of today, [tianocore/edk2](https://github.com/tianocore/edk2) does not support **(2)**. The [Patina](https://github.com/OpenDevicePartnership/patina?tab=readme-ov-file#patina)
 open-source project does.
 
 **(2)** is particularly useful for linking Rust code with C code in a given module. However, several combinations are

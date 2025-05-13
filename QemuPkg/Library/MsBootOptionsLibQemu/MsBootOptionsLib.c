@@ -22,7 +22,7 @@ SPDX-License-Identifier: BSD-2-Clause-Patent
 #include <Library/UefiLib.h>
 
 #define INTERNAL_UEFI_SHELL_NAME  L"Internal UEFI Shell 2.0"
-#define INTERNAL_UEFI_FP_NAME     L"MU UEFI UI Front Page"
+#define INTERNAL_UEFI_FP_NAME     L"Patina UEFI UI Front Page"
 
 #define MS_SDD_BOOT       L"Internal Storage"
 #define MS_SDD_BOOT_PARM  "SDD"

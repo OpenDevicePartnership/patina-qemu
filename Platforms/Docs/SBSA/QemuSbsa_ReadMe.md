@@ -2,7 +2,7 @@
 
 **QemuSbsaPkg...**
 
-- Is another derivative of OvmfPkg based on EDK2 QEMU-SBSA ARM machine type.
+- Is another derivative of OvmfPkg based on EDK II QEMU-SBSA ARM machine type.
 - Will not support Legacy BIOS or CSM.
 - WIll not support S3 sleep functionality.
 - Has 64-bit for both PEI and DXE phase.
@@ -23,50 +23,5 @@ better ARM based platform level support (ACPI, etc.) as well as having an integr
 
 ## Compiling and Running QEMU
 
-QemuSbsaPkg uses the Project Mu repositories and Edk2 PyTools for its build operations.
+QemuSbsaPkg uses the Patina repositories and edk2-pytools for its build operations.
 Specific details can be found here [Development/building.md](../Common/building.md)
-
-## Firmware Features
-
-QemuSbsaPkg is a great environment to demonstrate Project Mu features without any restricted or costly physical
-hardware. Current QEMU SBSA platform supports the following features provided by Project Mu:
-
-### Mu Front Page
-
-Enable the Project Mu OEM sample "front page".
-This is a touch friendly, graphical, UEFI HII based UI application that
-allows basic platform and boot device configuration.
-
-[Details](../Common/Features/feature_frontpage.md)
-
-### Device Firmware Configuration Interface
-
-The DFCI feature enables cloud management services (MDM services like Microsoft Intune) to manage some PC
-bios settings **securely**.  DFCI is a foundational feature that provides a shared identity and ownership
-model between the device firmware and the cloud.  Once a device is enrolled this shared identity can be used
-to securely communicate across untrusted mediums (network or usb).
-
-[Details](../Common/Features/feature_dfci.md)
-
-### Mu Telemetry / WHEA / HwErrorRecord
-
-The Mu Telemetry feature is an extension of the PI spec defined report status code.  The feature is
-designed to collect critical (platform defined) status codes, record them into a HwErrRecord,
-and then transfer them through the Microsoft WHEA pipeline.  From there an OEM can use Microsoft
-provided reports to check on in market device health.  *Some work still pending completion.
-
-[Details](../Common/Features/feature_whea.md)
-
-## Mu Customized Components
-
-### Modules
-
-| Modules | Link to Documentation |
-| --- | --- |
-| **QemuVideoDxe** | [QEMU Cirrus Video Controller](../../QemuSbsaPkg/QemuVideoDxe/ReadMe.md) |
-
-### Libraries
-
-| Libraries | Link to Documentation |
-| --- | --- |
-| **MsPlatformDevicesLib** | [MsPlatformDevicesLib](../../QemuSbsaPkg/Library/MsPlatformDevicesLibQemuSbsa/ReadMe.md) |

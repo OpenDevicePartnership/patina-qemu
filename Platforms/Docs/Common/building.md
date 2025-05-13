@@ -4,16 +4,18 @@ Steps to setup your environment, compile, and run QemuQ35Pkg and QemuSbsaPkg.
 
 ## Developer environment
 
-This is a Project Mu platform and thus the default environment requirements can be found
-here at the [Project Mu Prerequisites page.](https://microsoft.github.io/mu/CodeDevelopment/prerequisites/)
+This is a Stuart-based platform and thus the default environment requirements can be found at the
+[How to Build with Stuart](https://github.com/tianocore/tianocore.github.io/wiki/How-to-Build-With-Stuart) instructions.
 
 QEMU is used to run the locally compiled firmware on a virtual platform. If you are on windows,
-no action is needed, we provide an [external dependency](https://www.tianocore.org/edk2-pytool-extensions/features/extdep/) that includes the necessary QEMU binaries.
+no action is needed, we provide an [external dependency](https://www.tianocore.org/edk2-pytool-extensions/features/extdep/)
+that includes the necessary QEMU binaries.
+
 If you are on Linux, [install it](https://www.qemu.org/download/#linux).
 
-This build uses edk2-pytools for functionality.  Documentation can be
-found [here](https://github.com/tianocore/edk2-pytool-extensions/tree/master/docs).
+This build uses edk2-pytools for functionality.  Documentation can be found [here](https://github.com/tianocore/edk2-pytool-extensions/tree/master/docs).
 On most Linux distros this requires an extra step for mono and nuget support.
+
 <https://github.com/tianocore/edk2-pytool-extensions/blob/master/docs/usability/using_extdep.md#a-note-on-nuget-on-linux>
 
 ## Building with Pytools

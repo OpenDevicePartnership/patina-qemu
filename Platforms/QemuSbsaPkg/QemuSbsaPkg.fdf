@@ -389,9 +389,6 @@ READ_LOCK_STATUS   = TRUE
   #
   INF MdeModulePkg/Universal/Disk/RamDiskDxe/RamDiskDxe.inf
 
-  #
-  # MU Modules
-  #
   INF  MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTableDxe/FirmwarePerformanceDxe.inf
   INF  MsCorePkg/MuCryptoDxe/MuCryptoDxe.inf
   INF  MsGraphicsPkg/MsEarlyGraphics/Dxe/MsEarlyGraphics.inf

@@ -990,7 +990,7 @@
   }
 
   #
-  # MU PEI Modules
+  # PEI Modules
   #
   MsWheaPkg/MsWheaReport/Pei/MsWheaReportPei.inf
 
