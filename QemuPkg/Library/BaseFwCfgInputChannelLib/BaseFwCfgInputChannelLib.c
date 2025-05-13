@@ -50,7 +50,7 @@ GetReplayEventLogFromCustomInterface (
     return EFI_INVALID_PARAMETER;
   }
 
-  Status = QemuFwCfgFindFile ("opt/org.mu/tpm_replay/event_log", &LogItem, &LogSize);
+  Status = QemuFwCfgFindFile ("opt/org.patina/tpm_replay/event_log", &LogItem, &LogSize);
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "[%a] - TPM Replay FW CFG event log not found (%r).\n", __func__, Status));
     return EFI_NOT_FOUND;

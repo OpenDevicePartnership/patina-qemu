@@ -1,9 +1,9 @@
 author_string: Microsoft Core UEFI
 copyright_string: Copyright (c) Microsoft Corporation.
 description_string: QEMU Q35 No SMM RELEASE Platform Firmware
-name: Mu.QemuQ35.NoSmm.FW.RELEASE
-project_url: https://microsoft.github.io/mu/
+name: Patina.QemuQ35.NoSmm.FW.RELEASE
+project_url: https://github.com/OpenDevicePartnership/patina
 repository_type: git
-repository_url: https://github.com/microsoft/mu_tiano_platforms
+repository_url: https://github.com/OpenDevicePartnership/patina-qemu
 server_url: https://nuget.pkg.github.com/microsoft/index.json
 tags_string: ''

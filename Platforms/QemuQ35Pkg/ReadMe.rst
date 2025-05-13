@@ -5,9 +5,8 @@ QEMU Q35 Package
 Summary
 =======
 
-This package provides the Project Mu based Q35 virtual platform and provides exemplary
-integrations for Project Mu features, including UEFI Frontpage, Device Firmware Configuration
-Interface (DFCI), Windows Hardware Error Architecture (WHEA), etc.
+This package provides the Open Device Partnership (ODP) Q35 virtual platform and provides exemplary
+integrations for Patina features.
 
 Documentation
 =============

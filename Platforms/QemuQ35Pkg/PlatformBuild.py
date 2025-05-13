@@ -1,5 +1,5 @@
 # @file
-# Script to Build QemuQ35 Mu UEFI firmware
+# Script to Build QemuQ35 Patina UEFI firmware
 #
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: BSD-2-Clause-Patent

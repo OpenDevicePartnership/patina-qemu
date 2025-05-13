@@ -1,39 +1,67 @@
-# Project Mu Security Policy
+# Vulnerability Disclosure and Embargo Policy
 
-Project Mu is an open source firmware project that is leveraged by and combined into
-other projects to build the firmware for a given product.  We build and maintain this
-code with the intent that any consuming projects can use this code as-is.  If features
-or fixes are necessary we ask that they contribute them back to the project.  **But**, that
-said, in the firmware ecosystem there is a lot of variation and differentiation, and
-the license in this project allows flexibility for use without contribution back to
-Project Mu. Therefore, any issues found here may or may not exist in products using Project Mu.
+The Open Device Partnership project welcomes the responsible disclosure of vulnerabilities.
 
-## Supported Versions
+## Initial Contact
 
-Due to the usage model we generally only supply fixes to the most recent release branch (or main).
-For a serious vulnerability we may patch older release branches.
+All security bugs in Open Device Partnership should be reported to the security team.
 
-## Additional Notes
+To do so, please reach out in the form of a
+[Github Security Advisory](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities).
 
-Project Mu contains code that is available and/or originally authored in other
-repositories (see <https://github.com/tianocore/edk2> as one such example).  For any
-vulnerability found, we may be subject to their security policy and may need to work
-with those groups to resolve amicably and patch the "upstream".  This might involve
-additional time to release and/or additional confidentiality requirements.
+You will be invited to join this private area to discuss specifics. Doing so
+allows us to start with a high level of confidentiality and relax it if the
+issue is less critical, moving to work on the fix in the open.
 
-## Reporting a Vulnerability
+Your initial contact will be acknowledged within 48 hours, and you’ll receive
+a more detailed response within 96 hours indicating the next steps in handling
+your report.
 
-**Please do not report security vulnerabilities through public GitHub issues.**
+After the initial reply to your report, the security team will endeavor to
+keep you informed of the progress being made towards a fix and full
+announcement. As recommended by
+[RFPolicy](https://dl.packetstormsecurity.net/papers/general/rfpolicy-2.0.txt),
+these updates will be sent at least every five working days.
 
-Instead please use **Github Private vulnerability reporting**, which is enabled for each Project Mu
-repository. This process is well documented by github in their documentation [here](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing/privately-reporting-a-security-vulnerability#privately-reporting-a-security-vulnerability).
+## Disclosure Policy
 
-This process will allow us to privately discuss the issue, collaborate on a solution, and then disclose the vulnerability.
+The Open Device Partnership project has a 5 step disclosure process.
 
-## Preferred Languages
+1. Contact is established, a private channel created, and the security report
+   is received and is assigned a primary handler. This person will coordinate
+   the fix and release process.
+2. The problem is confirmed and a list of all affected versions is determined.
+   If an embargo is needed (see below), details of the embargo are decided.
+3. Code is audited to find any potential similar problems.
+4. Fixes are prepared for all releases which are still under maintenance. In
+   case of embargo, these fixes are not committed to the public repository but
+   rather held in a private fork pending the announcement.
+5. The changes are pushed to the public repository and new builds are deployed.
 
-We prefer all communications to be in English.
+This process can take some time, especially when coordination is required
+with maintainers of other projects. Every effort will be made to handle the bug
+in as timely a manner as possible, however it is important that we follow the
+release process above to ensure that the disclosure is handled in a consistent
+manner.
 
-## Policy
+## Embargoes
 
-Microsoft follows the principle of [Coordinated Vulnerability Disclosure](https://www.microsoft.com/en-us/msrc/cvd).
+While the Open Device Partnership project aims to follow the highest standards of
+transparency and openness, handling some security issues may pose such an
+immediate threat to various stakeholders and require coordination between
+various actors that it cannot be made immediately public.
+
+In this case, security issues will fall under an embargo.
+
+An embargo can be called for in various cases:
+
+- when disclosing the issue without simultaneously providing a mitigation
+  would seriously endanger users,
+- when producing a fix requires coordinating between multiple actors (such as
+  upstream or downstream/dependency projects), or simply
+- when proper analysis of the issue and its ramifications demands time.
+
+If we determine that an issue you report requires an embargo, we will discuss
+this with you and try to find a reasonable expiry date (aka “embargo
+completion date”), as well as who should be included in the list of
+need-to-know people.

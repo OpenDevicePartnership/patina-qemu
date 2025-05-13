@@ -1,5 +1,5 @@
 ## @file
-#  Open Virtual Machine Firmware for the Q35 platform using Project Mu
+#  Open Virtual Machine Firmware for the Q35 platform using Patina
 #
 #  Copyright (c) Microsoft Corporation
 #  Copyright (c) 2006 - 2019, Intel Corporation. All rights reserved.<BR>
@@ -770,7 +770,7 @@ PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
 #       the private settings variables will still be locked, and the boot order is unlocked.
 #    4. Reorder the the UEFI front page boot option to be the first boot option using GUI (click
 #       the mouse in the Q35 display to give Qemu the mouse pointer, move the mouse pointer to
-#       the MU UEFI UI Front Page entry,  press the left button down, while keeping the left
+#       the Patina UEFI UI Front Page entry,  press the left button down, while keeping the left
 #       button down, move the mouse pointer to the first boot option (probably Internal Stoarage),
 #       then let go of the left button. The GUI is very slow, so wait for it).
 #    5. Select Exit, Restart to restart the system to enter front page with the variables unlocked
@@ -1018,9 +1018,6 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   }
 !endif
 
-  #
-  # MU Modules
-  #
   ## PEI
   MdeModulePkg/Universal/ResetSystemPei/ResetSystemPei.inf
   MsCorePkg/Universal/StatusCodeHandler/Serial/Pei/SerialStatusCodeHandlerPei.inf {

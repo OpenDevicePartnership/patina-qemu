@@ -1,14 +1,8 @@
-# Mu Tiano Platforms Repository
-
-??? info "Git Details"
-    Repository Url: {{mu_tiano_platforms.url}}
-      Branch:         {{mu_tiano_platforms.branch}}
-      Commit:         [{{mu_tiano_platforms.commit}}]({{mu_tiano_platforms.commitlink}})
-      Commit Date:    {{mu_tiano_platforms.date}}
+# Patina QEMU Platform Repository
 
 ## Copyright & License
 
-Project Mu contributions will be licensed as BSD-2-Clause-Patent and will contain the SPDX-License-Identifier.
+Patina contributions will be licensed as BSD-2-Clause-Patent and will contain the SPDX-License-Identifier.
 
 ```text
 Copyright (C) Microsoft Corporation

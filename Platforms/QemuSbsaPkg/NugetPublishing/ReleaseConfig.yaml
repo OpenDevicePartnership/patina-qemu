@@ -1,9 +1,9 @@
 author_string: Microsoft Core UEFI
 copyright_string: Copyright (c) Microsoft Corporation.
 description_string: QEMU SBSA RELEASE Platform Firmware
-name: Mu.QemuSbsa.FW.RELEASE
-project_url: https://microsoft.github.io/mu/
+name: Patina.QemuSbsa.FW.RELEASE
+project_url: https://github.com/OpenDevicePartnership/patina
 repository_type: git
-repository_url: https://github.com/microsoft/mu_tiano_platforms
+repository_url: https://github.com/OpenDevicePartnership/patina-qemu
 server_url: https://nuget.pkg.github.com/microsoft/index.json
 tags_string: ''

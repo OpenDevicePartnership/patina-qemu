@@ -1,16 +1,10 @@
 # This workflow automatically drafts new project releases so it is obvious
 # what a current release will look like at any time.
 #
-# It takes advantage of the labels used in Project Mu to automatically categorize
+# It takes advantage of the labels used in Patina to automatically categorize
 # the types of changes in a given release. In addition, the semantic version of
-# the code is constantly maintained based on Project Mu label conventions to ensure
+# the code is constantly maintained based on Patina label conventions to ensure
 # semantic versioning is followed and a release version is always ready.
-#
-# NOTE: This file is automatically synchronized from Mu DevOps. Update the original file there
-#       instead of the file in this repo.
-#
-# - Mu DevOps Repo: https://github.com/microsoft/mu_devops
-# - File Sync Settings: https://github.com/microsoft/mu_devops/blob/main/.sync/Files.yml
 #
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: BSD-2-Clause-Patent
