@@ -200,9 +200,9 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         creation_datetime = datetime.datetime.fromtimestamp(creation_time)
         creation_date = creation_datetime.strftime("%m/%d/%Y")
 
-        args += f" -smbios type=0,vendor=\"Project Mu\",version=\"mu_tiano_platforms-{repo_version}\",date={creation_date},uefi=on"
-        args += f" -smbios type=1,manufacturer=Palindrome,product=\"QEMU Q35\",family=QEMU,version=\"{'.'.join(qemu_version)}\",serial=42-42-42-42,uuid=9de555c0-05d7-4aa1-84ab-bb511e3a8bef"
-        args += f" -smbios type=3,manufacturer=Palindrome,serial=40-41-42-43{boot_selection}"
+        args += f" -smbios type=0,vendor=\"Patina\",version=\"patina-q35-{repo_version}\",date={creation_date},uefi=on"
+        args += f" -smbios type=1,manufacturer=OpenDevicePartnership,product=\"QEMU Q35\",family=QEMU,version=\"{'.'.join(qemu_version)}\",serial=42-42-42-42,uuid=99fb60e2-181c-413a-a3cf-0a5fea8d87b0"
+        args += f" -smbios type=3,manufacturer=OpenDevicePartnership,serial=40-41-42-43{boot_selection}"
 
         # TPM in Linux
         tpm_dev = env.GetValue("TPM_DEV")

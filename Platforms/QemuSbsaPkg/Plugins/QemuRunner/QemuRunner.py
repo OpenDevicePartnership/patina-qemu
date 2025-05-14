@@ -118,9 +118,9 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         creation_datetime = datetime.datetime.fromtimestamp(creation_time)
         creation_date = creation_datetime.strftime("%m/%d/%Y")
 
-        args += f" -smbios type=0,vendor=\"Project Mu\",version=\"mu_tiano_platforms-{repo_version}\",date={creation_date},uefi=on"
-        args += f" -smbios type=1,manufacturer=Palindrome,product=\"QEMU SBSA\",family=QEMU,version=\"{'.'.join(qemu_version)}\",serial=42-42-42-42"
-        args += f" -smbios type=3,manufacturer=Palindrome,serial=42-42-42-42,asset=SBSA,sku=SBSA"
+        args += f" -smbios type=0,vendor=\"Patina\",version=\"patina-sbsa-{repo_version}\",date={creation_date},uefi=on"
+        args += f" -smbios type=1,manufacturer=OpenDevicePartnership,product=\"QEMU SBSA\",family=QEMU,version=\"{'.'.join(qemu_version)}\",serial=42-42-42-42"
+        args += f" -smbios type=3,manufacturer=OpenDevicePartnership,serial=42-42-42-42,asset=SBSA,sku=SBSA"
 
         if (env.GetValue("QEMU_HEADLESS").upper() == "TRUE"):
             args += " -display none"  # no graphics

@@ -878,20 +878,20 @@
   gArmTokenSpaceGuid.PcdSystemBiosRelease|0x0100
   gArmTokenSpaceGuid.PcdEmbeddedControllerFirmwareRelease|0x0100
 
-  gQemuSbsaPkgTokenSpaceGuid.PcdSystemManufacturer|L"Palindrome"
+  gQemuSbsaPkgTokenSpaceGuid.PcdSystemManufacturer|L"OpenDevicePartnership"
   gQemuSbsaPkgTokenSpaceGuid.PcdSystemSerialNumber|L"42-42-42-42"
   gQemuSbsaPkgTokenSpaceGuid.PcdSystemSKU|L"NorthAmerica"
   gQemuSbsaPkgTokenSpaceGuid.PcdSystemFamily|L"ArmMax"
 
-  gQemuSbsaPkgTokenSpaceGuid.PcdBaseBoardAssetTag|L"ProjectMu"
+  gQemuSbsaPkgTokenSpaceGuid.PcdBaseBoardAssetTag|L"Patina"
   gQemuSbsaPkgTokenSpaceGuid.PcdBaseBoardSerialNumber|L"42-42-42-42"
   gQemuSbsaPkgTokenSpaceGuid.PcdBaseBoardSKU|L"NorthAmerica"
   gQemuSbsaPkgTokenSpaceGuid.PcdBaseBoardLocation|L"Internal"
 
   gQemuSbsaPkgTokenSpaceGuid.PcdChassisSerialNumber|L"42-42-42-42"
   gQemuSbsaPkgTokenSpaceGuid.PcdChassisVersion|L"1.0"
-  gQemuSbsaPkgTokenSpaceGuid.PcdChassisManufacturer|L"Palindrome"
-  gQemuSbsaPkgTokenSpaceGuid.PcdChassisAssetTag|L"ProjectMu"
+  gQemuSbsaPkgTokenSpaceGuid.PcdChassisManufacturer|L"OpenDevicePartnership"
+  gQemuSbsaPkgTokenSpaceGuid.PcdChassisAssetTag|L"Patina"
   gQemuSbsaPkgTokenSpaceGuid.PcdChassisSKU|L"NorthAmerica"
 
   #
