@@ -24,8 +24,8 @@ def _parse_arguments() -> argparse.Namespace:
     Parses command-line arguments for building and running Rust DXE Core.
 
     Args:
-        --qemu-rust-bin-repo (Path): Path to the QEMU Rust bin repository. Default is "C:/src/qemu_rust_bins".
-        --fw-patch-repo (Path): Path to the firmware patch repository. Default is "C:/src/fw_rust_patcher".
+        --patina-dxe-core-repo (Path): Path to the QEMU Rust bin repository. Default is "C:/src/patina-dxe-core-qemu".
+        --fw-patch-repo (Path): Path to the firmware patch repository. Default is "C:/src/patina-fw-patcher".
         --build-target (str): Build target, either DEBUG or RELEASE. Default is "DEBUG".
         --platform (str): QEMU platform such as Q35. Default is "Q35".
         --toolchain (str): Toolchain to use for building. Default is "VS2022".
@@ -38,9 +38,9 @@ def _parse_arguments() -> argparse.Namespace:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument(
-        "--qemu-rust-bin-repo",
+        "--patina-dxe-core-repo",
         type=Path,
-        default=Path("C:/src/qemu_rust_bins"),
+        default=Path("C:/src/patina-dxe-core-qemu"),
         help="Path to the QEMU Rust bin repository.",
     )
     parser.add_argument(
@@ -52,7 +52,7 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--fw-patch-repo",
         type=Path,
-        default=Path("C:/src/fw_rust_patcher"),
+        default=Path("C:/src/patina-fw-patcher"),
         help="Path to the firmware patch repository.",
     )
     parser.add_argument(
@@ -155,14 +155,14 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             - code_fd: The path to the QEMU platform code FD file to patch.
             - custom_efi: Whether a custom EFI file was provided.
             - efi_file: The path to the EFI file to patch.
-            - fw_patch_repo: The path to the fw_rust_patcher repo.
+            - fw_patch_repo: The path to the patina-fw-patcher repo.
             - patch_cmd: The command to patch the firmware.
             - qemu_cmd: The command to run QEMU with the specified settings.
-            - qemu_rust_bin_repo: The path to the qemu_rust_bins repo.
+            - patina_dxe_core_repo: The path to the patina-dxe-core-qemu repo.
             - ref_fd: The path to the file to use as a reference for patching.
             - toolchain: The toolchain used for building (e.g. VS2022).
     """
-    uefi_rust_dir = Path(__file__).parent
+    uefi_rust_dir = Path(__file__).resolve().parent
 
     if args.platform == "Q35":
         code_fd = (
@@ -179,7 +179,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             efi_file = args.custom_efi
         else:
             efi_file = (
-                args.qemu_rust_bin_repo
+                args.patina_dxe_core_repo
                 / "target"
                 / "x86_64-unknown-uefi"
                 / ("release" if args.build_target.lower() == "release" else "debug")
@@ -190,8 +190,9 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "cargo",
             "-Zunstable-options",
             "-C",
-            str(args.qemu_rust_bin_repo),
-            "build_q35",
+            str(args.patina_dxe_core_repo),
+            "make",
+            "q35",
         ]
         # if a serial port wasn't specified, use the default port so a debugger can be retroactively attached
         if args.serial_port is None:
@@ -276,7 +277,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             efi_file = args.custom_efi
         else:
             efi_file = (
-                args.qemu_rust_bin_repo
+                args.patina_dxe_core_repo
                 / "target"
                 / "aarch64-unknown-uefi"
                 / ("release" if args.build_target.lower() == "release" else "debug")
@@ -287,8 +288,9 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "cargo",
             "-Zunstable-options",
             "-C",
-            str(args.qemu_rust_bin_repo),
-            "build_sbsa",
+            str(args.patina_dxe_core_repo),
+            "make",
+            "sbsa",
         ]
         qemu_cmd = [
             str(
@@ -364,7 +366,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         "fw_patch_repo": args.fw_patch_repo,
         "patch_cmd": patch_cmd,
         "qemu_cmd": qemu_cmd,
-        "qemu_rust_bin_repo": args.qemu_rust_bin_repo,
+        "patina_dxe_core_repo": args.patina_dxe_core_repo,
         "ref_fd": ref_fd,
         "toolchain": args.toolchain,
     }
@@ -379,13 +381,13 @@ def _print_configuration(settings: Dict[str, Path]) -> None:
             - 'build_target': The build target.
             - 'custom_efi': Path to a custom EFI file to patch (instead of the Rust DXE Core).
             - 'efi_file': Path to the .efi file to patch.
-            - 'fw_patch_repo': Path to the fw_rust_patcher repo.
+            - 'fw_patch_repo': Path to the patina-fw-patcher repo.
             - 'qemu_cmd': The command to run QEMU with the specified settings.
-            - 'qemu_rust_bin_repo': Path to the qemu_rust_bins repo.
+            - 'patina_dxe_core_repo': Path to the patina-dxe-core-qemu repo.
             - 'toolchain': The toolchain being used.
     """
     print("== Current Configuration ==")
-    print(f" - QEMU Rust Bin Repo (qemu_rust_bins): {settings['qemu_rust_bin_repo']}")
+    print(f" - QEMU Rust Bin Repo (patina-dxe-core-qemu): {settings['patina_dxe_core_repo']}")
     print(
         f" - {'Custom EFI' if settings['custom_efi'] else 'DXE Core'}: {settings['efi_file']}"
     )
@@ -429,7 +431,7 @@ def _patch_rust_binary(settings: Dict[str, Path]) -> None:
         settings (Dict[str, Path]): A dictionary containing the following keys:
             - 'code_fd': Path to patch output FD file.
             - 'custom_efi': Whether a custom EFI file was provided.
-            - 'fw_patch_repo': Path to the fw_rust_patcher repo.
+            - 'fw_patch_repo': Path to the patina-fw-patcher repo.
             - 'patch_cmd': Command to run for patching.
             - 'ref_fd': Path to patch input (reference) FD file.
     """
