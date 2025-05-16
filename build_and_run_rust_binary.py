@@ -10,13 +10,17 @@
 ##
 
 import argparse
+import logging
 import os
 import shutil
 import subprocess
+import sys
 import timeit
 from datetime import datetime
 from pathlib import Path
 from typing import Dict
+
+SCRIPT_DIR = Path(__file__).resolve().parent
 
 
 def _parse_arguments() -> argparse.Namespace:
@@ -162,19 +166,17 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             - ref_fd: The path to the file to use as a reference for patching.
             - toolchain: The toolchain used for building (e.g. VS2022).
     """
-    uefi_rust_dir = Path(__file__).resolve().parent
-
     if args.platform == "Q35":
-        code_fd = (
-            uefi_rust_dir
-            / "Build"
-            / "QemuQ35Pkg"
-            / f"{args.build_target.upper()}_{args.toolchain.upper()}"
-            / "FV"
-            / "QEMUQ35_CODE.fd"
-        )
+            code_fd = (
+                SCRIPT_DIR
+                / "Build"
+                / "QemuQ35Pkg"
+                / f"{args.build_target.upper()}_{args.toolchain.upper()}"
+                / "FV"
+                / "QEMUQ35_CODE.fd"
+            )
         ref_fd = code_fd.with_suffix(".ref.fd")
-        config_file = args.fw_patch_repo / "Configs" / "QemuQ35.json"
+            config_file = args.fw_patch_repo / "Configs" / "QemuQ35.json"
         if args.custom_efi:
             efi_file = args.custom_efi
         else:
@@ -198,7 +200,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         if args.serial_port is None:
             args.serial_port = 50001
         qemu_cmd = [
-            uefi_rust_dir
+            SCRIPT_DIR
             / "QemuPkg"
             / "Binaries"
             / "qemu-win_extdep"
@@ -206,7 +208,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "-debugcon",
             "stdio",
             "-L",
-            uefi_rust_dir / "QemuPkg" / "Binaries" / "qemu-win_extdep" / "share",
+            SCRIPT_DIR / "QemuPkg" / "Binaries" / "qemu-win_extdep" / "share",
             "-global",
             "isa-debugcon.iobase=0x402",
             "-global",
@@ -263,16 +265,16 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             str(code_fd),
         ]
     elif args.platform == "SBSA":
-        code_fd = (
-            uefi_rust_dir
-            / "Build"
-            / "QemuSbsaPkg"
-            / f"{args.build_target.upper()}_{args.toolchain.upper()}"
-            / "FV"
-            / "QEMU_EFI.fd"
-        )
+            code_fd = (
+                SCRIPT_DIR
+                / "Build"
+                / "QemuSbsaPkg"
+                / f"{args.build_target.upper()}_{args.toolchain.upper()}"
+                / "FV"
+                / "QEMU_EFI.fd"
+            )
         ref_fd = code_fd.with_suffix(".ref.fd")
-        config_file = args.fw_patch_repo / "Configs" / "QemuSbsa.json"
+            config_file = args.fw_patch_repo / "Configs" / "QemuSbsa.json"
         if args.custom_efi:
             efi_file = args.custom_efi
         else:
@@ -294,7 +296,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         ]
         qemu_cmd = [
             str(
-                uefi_rust_dir
+                SCRIPT_DIR
                 / "QemuPkg"
                 / "Binaries"
                 / "qemu-win_extdep"
@@ -303,7 +305,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "-net",
             "none",
             "-L",
-            str(uefi_rust_dir / "QemuPkg" / "Binaries" / "qemu-win_extdep" / "share"),
+            str(SCRIPT_DIR / "QemuPkg" / "Binaries" / "qemu-win_extdep" / "share"),
             "-machine",
             "sbsa-ref",
             "-cpu",
@@ -386,17 +388,16 @@ def _print_configuration(settings: Dict[str, Path]) -> None:
             - 'patina_dxe_core_repo': Path to the patina-dxe-core-qemu repo.
             - 'toolchain': The toolchain being used.
     """
-    print("== Current Configuration ==")
-    print(f" - QEMU Rust Bin Repo (patina-dxe-core-qemu): {settings['patina_dxe_core_repo']}")
-    print(
+    logging.info("== Current Configuration ==")
+    logging.info(f" - QEMU Rust Bin Repo (patina-dxe-core-qemu): {settings['patina_dxe_core_repo']}")
+    logging.info(
         f" - {'Custom EFI' if settings['custom_efi'] else 'DXE Core'}: {settings['efi_file']}"
     )
-    print(f" - Code FD File: {settings['code_fd']}")
-    print(f" - FW Patch Repo: {settings['fw_patch_repo']}")
-    print(f" - Build Target: {settings['build_target']}")
-    print(f" - Toolchain: {settings['toolchain']}")
-    print(f" - QEMU Command Line: {settings['qemu_cmd']}")
-    print()
+    logging.info(f" - Code FD File: {settings['code_fd']}")
+    logging.info(f" - FW Patch Repo: {settings['fw_patch_repo']}")
+    logging.info(f" - Build Target: {settings['build_target']}")
+    logging.info(f" - Toolchain: {settings['toolchain']}")
+    logging.info(f" - QEMU Command Line: {settings['qemu_cmd']}")
 
 
 def _build_rust_dxe_core(settings: Dict[str, Path]) -> None:
@@ -408,7 +409,7 @@ def _build_rust_dxe_core(settings: Dict[str, Path]) -> None:
             - 'build_cmd' (Path): The command to execute for building the Rust DXE Core.
             - 'build_target' (str): The target build type.
     """
-    print("[1]. Building Rust DXE Core...\n")
+    logging.info("[1]. Building Rust DXE Core...\n")
 
     env = os.environ.copy()
     if "-Zunstable-options" in settings["build_cmd"]:
@@ -435,7 +436,7 @@ def _patch_rust_binary(settings: Dict[str, Path]) -> None:
             - 'patch_cmd': Command to run for patching.
             - 'ref_fd': Path to patch input (reference) FD file.
     """
-    print(
+    logging.info(
         f"[2]. Patching {'Custom EFI' if settings['custom_efi'] else 'Rust DXE Core'}...\n"
     )
 
@@ -450,7 +451,7 @@ def _run_qemu(settings: Dict[str, Path]) -> None:
     Runs QEMU with the specified settings.
 
     """
-    print("[3]. Running QEMU with Patched Binary...\n")
+    logging.info("[3]. Running QEMU with Patched Binary...\n")
     if os.name == "nt":
         import win32console
 
@@ -458,7 +459,7 @@ def _run_qemu(settings: Dict[str, Path]) -> None:
         try:
             console_mode = std_handle.GetConsoleMode()
         except Exception:
-            std_handle = None
+                std_handle = None
     try:
         subprocess.run(settings["qemu_cmd"], check=True)
     finally:
@@ -474,14 +475,23 @@ def main() -> None:
     """
     start_time = timeit.default_timer()
 
-    print("Rust Binary Build and Runner\n")
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+
+    stdout_logger_handler = logging.StreamHandler(sys.stdout)
+    stdout_logger_handler.set_name("stdout_logger_handler")
+    stdout_logger_handler.setLevel(logging.INFO)
+    stdout_logger_handler.setFormatter(logging.Formatter("%(message)s"))
+    root_logger.addHandler(stdout_logger_handler)
+
+    logging.info("Patina Rust Binary Build and Runner")
 
     args = _parse_arguments()
 
     try:
         settings = _configure_settings(args)
     except ValueError as e:
-        print(f"Error: {e}")
+        logging.error(f"Error: {e}")
         exit(1)
 
     _print_configuration(settings)
@@ -491,18 +501,18 @@ def main() -> None:
             build_start_time = timeit.default_timer()
             _build_rust_dxe_core(settings)
             build_end_time = timeit.default_timer()
-            print(
+            logging.info(
                 f"Rust DXE Core Build Time: {build_end_time - build_start_time:.2f} seconds.\n"
             )
 
         _patch_rust_binary(settings)
         end_time = timeit.default_timer()
-        print(
+        logging.info(
             f"Total time to get to kick off QEMU: {end_time - start_time:.2f} seconds.\n"
         )
         _run_qemu(settings)
     except subprocess.CalledProcessError as e:
-        print(f"Failed with error #{e.returncode}.")
+        logging.error(f"Failed with error #{e.returncode}.")
         exit(e.returncode)
 
 
