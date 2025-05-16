@@ -245,7 +245,7 @@ jobs:
       working-directory: "Z:"
       env:
         RUST_ENV_CHECK_TOOL_EXCLUSIONS: "cargo fmt, cargo tarpaulin"
-      run: stuart_build -c ${{ matrix.build_file }} TARGET=DEBUG TOOL_CHAIN_TAG=${{ matrix.tool_chain_tag }} --FlashRom
+      run: stuart_build -c ${{ matrix.build_file }} TARGET=DEBUG TOOL_CHAIN_TAG=${{ matrix.tool_chain_tag }} SHUTDOWN_AFTER_RUN=TRUE QEMU_HEADLESS=TRUE EMPTY_DRIVE=TRUE BLD_*_QEMU_CORE_NUM=2 --FlashRom
 
     - name: Build Cleanup
       id: build_cleanup
