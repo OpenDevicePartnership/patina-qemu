@@ -1390,15 +1390,15 @@
   StandaloneMmPkg/Core/StandaloneMmCore.inf {
     <LibraryClasses>
       NULL|MdePkg/Library/StackCheckLibNull/StackCheckLibNull.inf
-    # <PcdsFixedAtBuild>
-    #   gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000000
+    <PcdsFixedAtBuild>
+      gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000000
     <PcdsPatchableInModule>
       gArmTokenSpaceGuid.PcdFfaLibConduitSmc|FALSE
   }
 
   ArmPkg/Drivers/StandaloneMmCpu/StandaloneMmCpu.inf {
-    # <PcdsFixedAtBuild>
-    #   gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000000
+    <PcdsFixedAtBuild>
+      gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000000
   }
   MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteStandaloneMm.inf
   MdeModulePkg/Universal/Variable/RuntimeDxe/VariableStandaloneMm.inf {
