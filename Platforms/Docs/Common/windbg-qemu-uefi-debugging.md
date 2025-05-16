@@ -43,8 +43,8 @@ The `ExdiGdbSrv.dll` in WinDbg acts as a GDB client.
 
 ### Step 1: Install WinDbg
 
-- Download from: [https://aka.ms/windbgnext](https://aka.ms/windbgnext)
-- Installed by default at:
+- Download [Windbg](https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/)
+- It will be installed to:
   `C:\Program Files\WindowsApps\Microsoft.WinDbg.Fast_1.xxxxxxxxx\amd64`
 
 Contains:
