@@ -18,3 +18,5 @@ UefiDbgExt/x64/
 
 # Ignore Rust build output
 /target
+*venv*
+PatinaPatching/Configs/
