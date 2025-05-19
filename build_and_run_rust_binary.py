@@ -453,19 +453,21 @@ def _run_qemu(settings: Dict[str, Path]) -> None:
     """
     logging.info("[3]. Running QEMU with Patched Binary...\n")
     if os.name == "nt":
-        import win32console
+        import ctypes
 
-        std_handle = win32console.GetStdHandle(win32console.STD_INPUT_HANDLE)
-        try:
-            console_mode = std_handle.GetConsoleMode()
-        except Exception:
+        kernel32 = ctypes.windll.kernel32
+        STD_INPUT_HANDLE = -10
+        std_handle = kernel32.GetStdHandle(STD_INPUT_HANDLE)
+        original_mode = ctypes.c_uint()
+        if std_handle != 0:
+            if not kernel32.GetConsoleMode(std_handle, ctypes.byref(original_mode)):
                 std_handle = None
     try:
         subprocess.run(settings["qemu_cmd"], check=True)
     finally:
-        if os.name == "nt" and std_handle is not None:
+        if os.name == "nt" and std_handle and original_mode.value:
             # Restore the console mode for Windows as QEMU garbles it
-            std_handle.SetConsoleMode(console_mode)
+            kernel32.SetConsoleMode(std_handle, original_mode.value)
 
 
 def main() -> None:
