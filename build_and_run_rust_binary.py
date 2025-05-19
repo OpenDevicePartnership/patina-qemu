@@ -45,7 +45,7 @@ def _parse_arguments() -> argparse.Namespace:
         "--patina-dxe-core-repo",
         type=Path,
         default=Path("C:/src/patina-dxe-core-qemu"),
-        help="Path to the QEMU Rust bin repository. If a file, the file is used as the EFI file.",
+        help="Path to the QEMU Rust bin repository.",
     )
     parser.add_argument(
         "--config-file",
