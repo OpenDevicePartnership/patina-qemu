@@ -97,6 +97,28 @@ which is not ideal due to language and tooling differences.
 
 There are two platforms currently supported in this repository - `QemuQ35Pkg` and `QemuSbsaPkg`.
 
+If this is your first time using this repository and you're not familiar with the build process, it is recommended
+that you start with `QemuQ35Pkg` and use the workspace setup wizard to get started. You will need to install Python
+([Python downloads](https://www.python.org/downloads/)), and then run the following command to start the setup
+process:
+
+Linux:
+
+```bash
+>python workspace_setup.py
+```
+
+Windows:
+
+```powershell
+>py -3 workspace_setup.py
+```
+
+Using this script, you will be guided through the process of setting up the workspace and installing the required
+dependencies. The manual steps are described below.
+
+---
+
 - [QemuQ35Pkg](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/QemuQ35Pkg)
   - Intel Q35 chipset with ICH9 south bridge
   - This demonstrates x86/x64 UEFI firmware development with Patina.
