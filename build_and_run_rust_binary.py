@@ -45,11 +45,27 @@ def _parse_arguments() -> argparse.Namespace:
         "--patina-dxe-core-repo",
         type=Path,
         default=Path("C:/src/patina-dxe-core-qemu"),
-        help="Path to the QEMU Rust bin repository.",
+        help="Path to the QEMU Rust bin repository. If a file, the file is used as the EFI file.",
+    )
+    parser.add_argument(
+        "--config-file",
+        "-c",
+        type=Path,
+        default=None,
+        help="Path to a configuration file to use for patching. If not specified, "
+        "the script will use the default configuration file for the selected platform.",
+    )
+    parser.add_argument(
+        "--pre-compiled-rom",
+        "-r",
+        type=Path,
+        default=None,
+        help="A UEFI ROM file to patch. If not specified, the script will use the default "
+        "UEFI ROM image for the platform target in the Build directory.",
     )
     parser.add_argument(
         "--custom-efi",
-        "-c",
+        "-e",
         type=Path,
         help="Path to a custom EFI to patch (instead of the Rust DXE Core).",
     )
@@ -58,6 +74,14 @@ def _parse_arguments() -> argparse.Namespace:
         type=Path,
         default=Path("C:/src/patina-fw-patcher"),
         help="Path to the firmware patch repository.",
+    )
+    parser.add_argument(
+        "--qemu-path",
+        "-q",
+        type=Path,
+        default=None,
+        help="Path to the bin directory of the QEMU installation to use. If not specified, "
+        "the script will use the default QEMU installation in the repo.",
     )
     parser.add_argument(
         "--build-target",
@@ -157,16 +181,22 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             - build_cmd: The command to build the Rust DXE core.
             - build_target: The build target (e.g., RELEASE or DEBUG).
             - code_fd: The path to the QEMU platform code FD file to patch.
+            - config_file: The path to the configuration file for patching (None uses default).
             - custom_efi: Whether a custom EFI file was provided.
             - efi_file: The path to the EFI file to patch.
             - fw_patch_repo: The path to the patina-fw-patcher repo.
             - patch_cmd: The command to patch the firmware.
+            - pre_compiled_rom: The path to the pre-compiled ROM file (if provided).
             - qemu_cmd: The command to run QEMU with the specified settings.
+            - qemu_path: The path to the QEMU installation (None uses default).
             - patina_dxe_core_repo: The path to the patina-dxe-core-qemu repo.
             - ref_fd: The path to the file to use as a reference for patching.
             - toolchain: The toolchain used for building (e.g. VS2022).
     """
     if args.platform == "Q35":
+        if args.pre_compiled_rom:
+            code_fd = args.pre_compiled_rom
+        else:
             code_fd = (
                 SCRIPT_DIR
                 / "Build"
@@ -176,7 +206,11 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
                 / "QEMUQ35_CODE.fd"
             )
         ref_fd = code_fd.with_suffix(".ref.fd")
+        if args.config_file:
+            config_file = args.config_file
+        else:
             config_file = args.fw_patch_repo / "Configs" / "QemuQ35.json"
+
         if args.custom_efi:
             efi_file = args.custom_efi
         else:
@@ -199,12 +233,19 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         # if a serial port wasn't specified, use the default port so a debugger can be retroactively attached
         if args.serial_port is None:
             args.serial_port = 50001
+
+        if args.qemu_path:
+            qemu_exec = args.qemu_path
+        else:
+            qemu_exec = str(
+                SCRIPT_DIR
+                / "QemuPkg"
+                / "Binaries"
+                / "qemu-win_extdep"
+                / "qemu-system-x86_64"
+            )
         qemu_cmd = [
-            SCRIPT_DIR
-            / "QemuPkg"
-            / "Binaries"
-            / "qemu-win_extdep"
-            / "qemu-system-x86_64",
+            qemu_exec,
             "-debugcon",
             "stdio",
             "-L",
@@ -265,6 +306,9 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             str(code_fd),
         ]
     elif args.platform == "SBSA":
+        if args.pre_compiled_rom:
+            code_fd = args.pre_compiled_rom
+        else:
             code_fd = (
                 SCRIPT_DIR
                 / "Build"
@@ -274,6 +318,9 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
                 / "QEMU_EFI.fd"
             )
         ref_fd = code_fd.with_suffix(".ref.fd")
+        if args.config_file:
+            config_file = args.config_file
+        else:
             config_file = args.fw_patch_repo / "Configs" / "QemuSbsa.json"
         if args.custom_efi:
             efi_file = args.custom_efi
@@ -294,14 +341,18 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "make",
             "sbsa",
         ]
-        qemu_cmd = [
-            str(
+        if args.qemu_path:
+            qemu_exec = args.qemu_path, "qemu-system-aarch64"
+        else:
+            qemu_exec = str(
                 SCRIPT_DIR
                 / "QemuPkg"
                 / "Binaries"
                 / "qemu-win_extdep"
                 / "qemu-system-aarch64"
-            ),
+            )
+        qemu_cmd = [
+            qemu_exec,
             "-net",
             "none",
             "-L",
@@ -389,7 +440,9 @@ def _print_configuration(settings: Dict[str, Path]) -> None:
             - 'toolchain': The toolchain being used.
     """
     logging.info("== Current Configuration ==")
-    logging.info(f" - QEMU Rust Bin Repo (patina-dxe-core-qemu): {settings['patina_dxe_core_repo']}")
+    logging.info(
+        f" - QEMU Rust Bin Repo (patina-dxe-core-qemu): {settings['patina_dxe_core_repo']}"
+    )
     logging.info(
         f" - {'Custom EFI' if settings['custom_efi'] else 'DXE Core'}: {settings['efi_file']}"
     )
