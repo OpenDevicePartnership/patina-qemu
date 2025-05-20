@@ -654,7 +654,7 @@ PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedFileLoggerFlush|3
   gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerPreMemPages|3
   gEfiSecurityPkgTokenSpaceGuid.PcdUserPhysicalPresence|FALSE
-  gEfiMdePkgTokenSpaceGuid.PcdPerformanceLibraryPropertyMask|1
+  gEfiMdePkgTokenSpaceGuid.PcdPerformanceLibraryPropertyMask|0
 
 !if $(NETWORK_TLS_ENABLE) == FALSE
   # match PcdFlashNvStorageVariableSize purely for convenience
