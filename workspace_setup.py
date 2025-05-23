@@ -116,6 +116,7 @@ class _PatchConfig:
         self.fv_layout = fv_layout
 
         self.input = None
+        self.input_patch_paths = []
         self.reference_fw = None
         self.output = None
         self.patch_repo_path = None
@@ -158,6 +159,7 @@ class _PatchConfig:
                     else {}
                 ),
             },
+            "Patches": self.input_patch_paths,
         }
 
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -180,6 +182,7 @@ class _PatchConfig:
             self.reference_fw = config.get("Paths", {}).get("ReferenceFw")
             self.output = config.get("Paths", {}).get("Output")
             self.input = config.get("Paths", {}).get("Input")
+            self.input_patch_paths = config.get("Patches", [])
             self.qemu_path = config.get("Paths", {}).get("QemuPath")
             self.patch_repo_path = config.get("Paths", {}).get("FwPatchRepoPath")
 
@@ -187,6 +190,13 @@ class _PatchConfig:
         """
         Returns a string representation of the patch configuration.
         """
+        if len(self.input_patch_paths) > 0:
+            extra_patch_paths = "\t[Patch Paths]"
+            for path in self.input_patch_paths:
+                extra_patch_paths += f"\n\t{path}"
+            extra_patch_paths += "\n"
+        else:
+            extra_patch_paths = " "
         return (
             f"Patch Configuration:\n\n"
             f"  - QEMU ROM Image to Patch:\n      {self.output}\n"
@@ -195,7 +205,8 @@ class _PatchConfig:
                 if self.output and self.output.endswith(".ref.fd")
                 else "\n"
             )
-            + f"  - Patina EFI Binary Repo:\n      {self.input}\n\n"
+            + f"  - Patina EFI Binary Repo:\n      {self.input}\n"
+            f"{extra_patch_paths}\n"
             f"  - QEMU Path:\n      {self.qemu_path}\n\n"
             f"  - Patch Repo Path:\n      {self.patch_repo_path}\n\n"
             f"  Internal Patch Details:\n"
@@ -1138,6 +1149,26 @@ class _Wizard:
             _LOGGER.error(
                 "The provided path does not exist or is not a directory. Please enter a valid directory path:"
             )
+        
+        _Utils.print_divider(_LOGGER)
+
+        _LOGGER.info(
+            "\nThis tool supports patching dependencies used to build the Patina DXE Core binary (you provided above)"
+            " with other local versions of the crates.\n\nIf you would like to automatically patch any dependencies,"
+            " please provide the path(s) to them below. Providing an empty path will skip this step.\n"
+        )
+
+        patch_repo_paths = []
+        while True:
+            patch_repo_path = input().strip()
+            if patch_repo_path == "":
+                break
+            if os.path.isdir(patch_repo_path):
+                patch_repo_paths.append(patch_repo_path)
+            else:
+                _LOGGER.error(
+                    "The provided path does not exist or is not a directory. Please enter a valid directory path:"
+                )
 
         selected_code_fd_file = self._find_code_fd_file()
         if not selected_code_fd_file:
@@ -1163,8 +1194,10 @@ class _Wizard:
             selected_code_fd_file.with_suffix(".ref.fd")
         )
         self._settings.patch_config.input = patina_binary_local_repo_path
+        self._settings.patch_config.input_patch_paths = patch_repo_paths
         self._settings.patch_config.patch_repo_path = patina_fw_patcher_local_repo_path
         self._settings.patch_config.qemu_path = qemu_path
+        
 
     def run_patching_script(self) -> None:
         """
@@ -1197,6 +1230,9 @@ class _Wizard:
             "--config-file",
             str(patch_config.path),
         ]
+
+        for patch in patch_config.input_patch_paths:
+            command.extend(["--crate-patch", str(patch)])
 
         _LOGGER.info(f"  Running command: '{' '.join(command)}'\n")
         try:
