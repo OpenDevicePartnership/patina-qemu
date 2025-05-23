@@ -349,7 +349,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "make",
             "sbsa",
         ]
-        build_cmd.extend([str(p) for p in args.patch])
+        build_cmd.extend([str(p) for p in args.crate_patch])
         if args.qemu_path:
             qemu_exec = args.qemu_path, "qemu-system-aarch64"
         else:
