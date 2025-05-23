@@ -48,6 +48,13 @@ def _parse_arguments() -> argparse.Namespace:
         help="Path to the QEMU Rust bin repository.",
     )
     parser.add_argument(
+        "--crate-patch",
+        action='append',
+        type=Path,
+        help="Additional repositories to patch the Patina DXE Core Repo with.",
+        default=[],
+    )
+    parser.add_argument(
         "--config-file",
         "-c",
         type=Path,
@@ -230,6 +237,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "make",
             "q35",
         ]
+        build_cmd.extend([str(p) for p in args.crate_patch])
         # if a serial port wasn't specified, use the default port so a debugger can be retroactively attached
         if args.serial_port is None:
             args.serial_port = 50001
@@ -341,6 +349,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "make",
             "sbsa",
         ]
+        build_cmd.extend([str(p) for p in args.patch])
         if args.qemu_path:
             qemu_exec = args.qemu_path, "qemu-system-aarch64"
         else:
