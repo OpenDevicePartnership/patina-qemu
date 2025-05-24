@@ -468,6 +468,39 @@ class _Utils:
             wiz_logger.removeHandler(handler)
 
     @staticmethod
+    def run_cmd(
+        cmd: list[str], context_msg: str = None, quiet: bool = False, cwd: Path = None
+    ) -> None:
+        """
+        Runs a command in a subprocess.
+
+        This function exits with the command return code if the command fails.
+
+        Args:
+            cmd (list[str]): The command to run as a list of strings.
+            context_msg (str, optional): A message to display before running the command.
+            quiet (bool, optional): If True, suppresses output to stdout and stderr.
+            cwd (Path, optional): The working directory to run the command in.
+        """
+        if context_msg:
+            _LOGGER.info(context_msg)
+
+        try:
+            if quiet:
+                subprocess.run(
+                    cmd,
+                    check=True,
+                    cwd=cwd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            else:
+                subprocess.run(cmd, check=True, cwd=cwd)
+        except subprocess.CalledProcessError as e:
+            _LOGGER.error(f"Command failed with error #{e.returncode}.")
+            exit(e.returncode)
+
+    @staticmethod
     def check_submodule_state(workspace_dir: Path) -> tuple[bool, bool]:
         """
         Checks if submodules have been initialized and are up-to-date.
@@ -618,16 +651,11 @@ class _Utils:
                 f"\nCreating a Python virtual environment at {wizard_venv_dir}..."
             )
 
-            try:
-                subprocess.run(
-                    [selected_install, "-m", "venv", str(wizard_venv_dir)], check=True
-                )
-                _LOGGER.info("\nVirtual environment created successfully!")
-            except subprocess.CalledProcessError as e:
-                _LOGGER.error(
-                    f"\nFailed to create virtual environment (exit code {e.returncode})."
-                )
-                exit(e.returncode)
+            cmd = [selected_install, "-m", "venv", str(wizard_venv_dir)]
+            _Utils.run_cmd(
+                cmd,
+                context_msg=f"\nTip: The command used to create this virtual environment is:\n  {' '.join(cmd)}\n\n",
+            )
 
             _LOGGER.info(
                 "\nTo activate the virtual environment, after this script exits, run:"
@@ -684,18 +712,12 @@ class _Utils:
             _LOGGER.error(f"pip-requirements.txt not found at {requirements_path}")
             exit(1)
 
-        # Check if pip is installed
-        try:
-            subprocess.run(
-                [str("pip"), "install", "-r", str(requirements_path), "--upgrade"],
-                check=True,
-            )
-            _LOGGER.info("\nPip modules installed successfully!")
-        except subprocess.CalledProcessError as e:
-            _LOGGER.error(
-                f"\nFailed to install pip modules (exit code {e.returncode})."
-            )
-            exit(e.returncode)
+        cmd = [str("pip"), "install", "-r", str(requirements_path), "--upgrade"]
+        _Utils.run_cmd(
+            cmd,
+            context_msg=f"\nTip: The command used to install pip modules is:\n  {' '.join(cmd)}\n\n",
+        )
+        _LOGGER.info("\nPip modules installed successfully!")
 
         return py_install
 
@@ -706,14 +728,12 @@ class _Utils:
         """
 
         _LOGGER.info("\nUpdating submodules...")
-        try:
-            subprocess.run(
-                ["git", "submodule", "update", "--init", "--recursive"],
-                check=True,
-            )
-        except subprocess.CalledProcessError as e:
-            _LOGGER.error(f"\nFailed to update submodules (exit code {e.returncode}).")
-            exit(e.returncode)
+
+        cmd = ["git", "submodule", "update", "--init", "--recursive"]
+        _Utils.run_cmd(
+            cmd,
+            context_msg=f"\nTip: The command used to update submodules is:\n  {' '.join(cmd)}\n\n",
+        )
 
     @staticmethod
     def get_build_dir_state(build_dir: Path) -> _BuildDirState:
@@ -852,58 +872,52 @@ class _Wizard:
         _LOGGER.info("\nRunning Stuart Setup... To initialize your workspace.\n")
         _LOGGER.info(f"\nRunning stuart_setup for {self._settings.package_name}...\n")
 
-        try:
-            command = [
-                "stuart_setup",
-                "-c",
-                f"{str(self._settings.package_path / "PlatformBuild.py")}",
-            ]
-
-            _LOGGER.info(f"  Running command: '{' '.join(command)}'")
-            subprocess.run(command, check=True)
-        except subprocess.CalledProcessError as e:
-            _LOGGER.error(f"Stuart Setup failed with error #{e.returncode}.")
-            exit(e.returncode)
+        cmd = [
+            "stuart_setup",
+            "-c",
+            f"{str(self._settings.package_path / "PlatformBuild.py")}",
+        ]
+        _Utils.run_cmd(
+            cmd,
+            context_msg=f"\nTip: The command used for stuart_setup is:\n  {' '.join(cmd)}\n\n",
+        )
 
     def _run_stuart_build(self) -> None:
         """
         Runs the Stuart Build command to build the workspace.
         """
-        _LOGGER.info("\nRunning Stuart Build...\n")
+        _LOGGER.info("\nRunning Stuart Build...\n\n")
         _LOGGER.info(
-            f'Tip: If an error occurs, check the "BUILDLOG_" files in {self._settings.build_dir}.\n\n'
+            f'Tip: If an error occurs, check the "BUILDLOG_" files in {self._settings.build_dir}.\n'
         )
 
-        try:
-            command = [
-                "stuart_build",
-                "-c",
-                f"{str(self._settings.package_path / 'PlatformBuild.py')}",
-                "--FlashRom",
-            ]
-            if self._settings.package.upper() == "SBSA":
-                if platform.system() == "Windows":
-                    command.append("TOOL_CHAIN_TAG=CLANGPDB")
-                else:
-                    command.append("TOOL_CHAIN_TAG=GCC5")
-
-            _LOGGER.info(f"  Running command: '{' '.join(command)}'")
-            if self._settings.show_build_output:
-                subprocess.run(command, check=True)
+        command = [
+            "stuart_build",
+            "-c",
+            f"{str(self._settings.package_path / 'PlatformBuild.py')}",
+            "--FlashRom",
+        ]
+        if self._settings.package.upper() == "SBSA":
+            if platform.system() == "Windows":
+                command.append("TOOL_CHAIN_TAG=CLANGPDB")
             else:
-                _LOGGER.info(
-                    '\nTip: Build output is hidden by default. Use "--show-build-output" for it to be '
-                    "displayed in the console.\n"
-                )
-                subprocess.run(
-                    command,
-                    check=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-        except subprocess.CalledProcessError as e:
-            _LOGGER.error(f"Stuart Build failed with error #{e.returncode}.")
-            exit(e.returncode)
+                command.append("TOOL_CHAIN_TAG=GCC5")
+
+        if self._settings.show_build_output:
+            _Utils.run_cmd(
+                command,
+                context_msg=f"\nTip: The command used for this build is:\n  {' '.join(command)}\n\n",
+            )
+        else:
+            _LOGGER.info(
+                '\nTip: Build output is hidden by default. Use "--show-build-output" for it to be '
+                "displayed in the console.\n"
+            )
+            _Utils.run_cmd(
+                command,
+                context_msg=f"\nTip: The command used for this build is:\n  {' '.join(command)}\n\n",
+                quiet=True,
+            )
 
     def _find_code_fd_file(self) -> Path:
         """
@@ -1010,23 +1024,22 @@ class _Wizard:
                 "check for any updates to external dependencies? (y/n): "
             )
 
+        cmd = [
+            "stuart_update",
+            "-c",
+            f"{str(self._settings.package_path / "PlatformBuild.py")}",
+        ]
         if _Utils.get_yes_no_response(stuart_update_prompt):
             _LOGGER.info("\nRunning Stuart Update...\n")
-            try:
-                command = [
-                    "stuart_update",
-                    "-c",
-                    f"{str(self._settings.package_path / "PlatformBuild.py")}",
-                ]
-                _LOGGER.info(f"  Running command: '{' '.join(command)}'")
-                subprocess.run(command, check=True)
-            except subprocess.CalledProcessError as e:
-                _LOGGER.error(f"Stuart Update failed with error #{e.returncode}.")
-                exit(e.returncode)
+            _Utils.run_cmd(
+                cmd,
+                context_msg=f"\nTip: The command used for stuart_update is:\n  {' '.join(cmd)}.\n\n"
+                "You should run stuart_update periodically to check for updates to external "
+                "dependencies.\n\n",
+            )
         else:
             _LOGGER.info(
-                "\nYou can run Stuart Update in the future by running the command:\n"
-                f"  stuart_update -c {str(self._settings.package_path / 'PlatformBuild.py')}"
+                f"\nYou can run Stuart Update in the future by running the command:\n  {' '.join(cmd)}\n\n"
             )
 
     def patch_config_setup(self) -> None:
@@ -1149,7 +1162,7 @@ class _Wizard:
             _LOGGER.error(
                 "The provided path does not exist or is not a directory. Please enter a valid directory path:"
             )
-        
+
         _Utils.print_divider(_LOGGER)
 
         _LOGGER.info(
@@ -1197,7 +1210,6 @@ class _Wizard:
         self._settings.patch_config.input_patch_paths = patch_repo_paths
         self._settings.patch_config.patch_repo_path = patina_fw_patcher_local_repo_path
         self._settings.patch_config.qemu_path = qemu_path
-        
 
     def run_patching_script(self) -> None:
         """
@@ -1234,12 +1246,11 @@ class _Wizard:
         for patch in patch_config.input_patch_paths:
             command.extend(["--crate-patch", str(patch)])
 
-        _LOGGER.info(f"  Running command: '{' '.join(command)}'\n")
-        try:
-            subprocess.run(command, check=True, cwd=self._settings.workspace_dir)
-        except subprocess.CalledProcessError as e:
-            _LOGGER.error(f"Patching script failed with error #{e.returncode}.")
-            exit(e.returncode)
+        _Utils.run_cmd(
+            command,
+            context_msg=f"\nTip: The command used for patching is:\n {' '.join(command)}\n\n",
+            cwd=self._settings.workspace_dir,
+        )
 
     def is_needed(self) -> bool:
         """
