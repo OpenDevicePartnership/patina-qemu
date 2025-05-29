@@ -98,14 +98,12 @@ which is not ideal due to language and tooling differences.
 There are two platforms currently supported in this repository - `QemuQ35Pkg` and `QemuSbsaPkg`.
 
 - [QemuQ35Pkg](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/QemuQ35Pkg)
-  - Intel Q35 chipset with ICH9 south bridge
+  - Intel Q35 chipset with ICH9 south bridge and AMD Cpu
   - This demonstrates x86/x64 UEFI firmware development with Patina.
   - [QemuQ35Pkg Detailed Info](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/Docs/Q35/QemuQ35_ReadMe.md)
 - [QemuSbsaPkg](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/QemuSbsaPkg)
   - ARM Server Base System Architecture
   - This demonstrates AARCH64 UEFI firmware development with Patina.
-  - Note: `QemuSbsaPkg` could build in the past on Windows using the `CLANGPDB` toolchain. However, this is no longer
-    possible due to some code that is part of the build that only builds only Linux at this time.
   - [QemuSbsaPkg Detailed Info](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/Docs/SBSA/QemuSbsa_ReadMe.md)
 
   **Supported Host Platforms and Target Architectures**
