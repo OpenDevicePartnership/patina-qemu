@@ -93,9 +93,28 @@ build system with the EDK II build system and it naturally leads to Rust source 
 which is not ideal due to language and tooling differences.
 </details>
 
-## First-Time Tool Setup Instructions For This Repository
+## First-Time Setup Instructions For This Repository
 
 There are two platforms currently supported in this repository - `QemuQ35Pkg` and `QemuSbsaPkg`.
+
+- [QemuQ35Pkg](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/QemuQ35Pkg)
+  - Intel Q35 chipset with ICH9 south bridge and AMD Cpu
+  - This demonstrates x86/x64 UEFI firmware development with Patina.
+  - [QemuQ35Pkg Detailed Info](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/Docs/Q35/QemuQ35_ReadMe.md)
+- [QemuSbsaPkg](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/QemuSbsaPkg)
+  - ARM Server Base System Architecture
+  - This demonstrates AARCH64 UEFI firmware development with Patina.
+  - [QemuSbsaPkg Detailed Info](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/Docs/SBSA/QemuSbsa_ReadMe.md)
+
+  **Supported Host Platforms and Target Architectures**
+
+  | Host Platform | Target Architectures Supported |
+  | ------------- | ------------------------------ |
+  | Windows       | x64, AArch64                   |
+  | WSL           | x64, AArch64                   |
+  | Linux         | x64, AArch64                   |
+
+### Option 1: Automated Guided Setup Script - workspace_setup.py
 
 If this is your first time using this repository and you're not familiar with the build process, it is recommended
 that you start with `QemuQ35Pkg` and use the workspace setup wizard to get started. You will need to install Python
@@ -117,70 +136,111 @@ Windows:
 Using this script, you will be guided through the process of setting up the workspace and installing the required
 dependencies. The manual steps are described below.
 
----
+<!-- markdownlint-disable MD033
+MD033: Allow inline HTML for styling elements not easily handled by Markdown.-->
+### Option 2: Manual Setup
 
-- [QemuQ35Pkg](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/QemuQ35Pkg)
-  - Intel Q35 chipset with ICH9 south bridge
-  - This demonstrates x86/x64 UEFI firmware development with Patina.
-  - [QemuQ35Pkg Detailed Info](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/Docs/Q35/QemuQ35_ReadMe.md)
-- [QemuSbsaPkg](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/QemuSbsaPkg)
-  - ARM Server Base System Architecture
-  - This demonstrates AARCH64 UEFI firmware development with Patina.
-  - Note: `QemuSbsaPkg` could build in the past on Windows using the `CLANGPDB` toolchain. However, this is no longer
-    possible due to some code that is part of the build that only builds only Linux at this time.
-  - [QemuSbsaPkg Detailed Info](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/Docs/SBSA/QemuSbsa_ReadMe.md)
+This is a more detailed, step-by-step manual setup process.
 
-The following instructions install Rust.
+#### Prerequisites
 
-1. Since this repository will be built using the [stuart tools](https://github.com/tianocore/edk2-pytool-extensions?tab=readme-ov-file#tianocore-edk2-pytool-extensions-edk2toolext)
-in the Tianocore project, setup the pre-requisites described in [How to Build with Stuart](https://github.com/tianocore/tianocore.github.io/wiki/How-to-Build-With-Stuart).
-2. With that done, it is recommended you start by following the [instructions to build `QemuQ35Pkg`](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/Docs/Common/building.md).
+One-time tools and packages required to set up Patina development.
 
-Using those instructions, your commands will look like the following to build `QemuQ35Pkg` on Windows:
+<details>
+<summary><b> 🪟 Windows 11 - 24H2 </b></summary>
 
-1. Clone this repo:
+| Tool                                                                                                                                  | Install Command                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Chocolatey](https://chocolatey.org/)                                                                                                 | `winget install --id Chocolatey.Chocolatey -e`                                                                                                                                                                                                                                                                                                                                                                                                      |
+| [Python 3](https://www.python.org/)                                                                                                   | `winget install --id Python.Python.3.12 -e` <br> **Note:** Disable any app execution alias defined for `python.exe` and `python3.exe` from Windows settings(Apps > Advanced app settings > App execution alias)                                                                                                                                                                                                                                     |
+| [Git](https://git-scm.com/)                                                                                                           | `winget install --id Git.Git -e`                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| [Rust](https://rustup.rs/)                                                                                                            | `winget install --id Rustlang.Rustup -e` <ol><li> **Add x86_64 uefi target:** `rustup target add x86_64-unknown-uefi` </li><li> **Add aarch64 uefi target:** `rustup target add aarch64-unknown-uefi`</li><li>**Install cargo make:** `cargo install cargo-make`</li><li>**Install cargo tarpaulin:** `cargo install cargo-tarpaulin`</li></ol>                                                                                                     |
+| [LLVM](https://llvm.org/)                                                                                                             | `winget install --id LLVM.LLVM -e --override "/S /D=C:\LLVM"` <ul><li>**Note:** `/D=C:\LLVM` override(with no spaces) is needed for AArch64 build of `patina-qemu` repo on Windows.</li></ul>                                                                                                                                                                                                                                                       |
+| [GNU Make](https://community.chocolatey.org/packages/make)                                                                            | `choco  install make` <ul><li>**Note:** Needed for AArch64 build of `patina-qemu` repo on Windows.</li></ul>                                                                                                                                                                                                                                                                                                                                        |
+| [MSVC BuildTools](https://rust-lang.github.io/rustup/installation/windows-msvc.html#installing-only-the-required-components-optional) | `winget install --id Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Component.VC.CoreBuildTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64  --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --add Microsoft.VisualStudio.Component.VC.Tools.ARM  --add Microsoft.VisualStudio.Component.VC.Tools.ARM64"` <br> **Note:** Only required when building for `std` |
+| [Node](https://nodejs.org/en)                                                                                                         | `winget install --id OpenJS.NodeJS.LTS -e` <ol><li> **Add cspell:** `npm install -g cspell@latest` </li><li> **Add markdown lint cli:** `npm install -g markdownlint-cli` </li></ol>                                                                                                                                                                                                                                                                |
+| [QEMU](https://www.qemu.org/)                                                                                                         | `winget install --id SoftwareFreedomConservancy.QEMU -e -v 10.0.0`                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Optional**                                                                                                                          |                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| [WinDBG](https://learn.microsoft.com/en-us/windows-hardware/drivers/debugger/)                                                        | `winget install --id Microsoft.WinDbg -e`                                                                                                                                                                                                                                                                                                                                                                                                           |
+| [VSCode](https://code.visualstudio.com/)                                                                                              | `winget install --id Microsoft.VisualStudioCode -e`                                                                                                                                                                                                                                                                                                                                                                                                 |
+| [Rust Analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)                                          | `code --install-extension rust-lang.rust-analyzer`                                                                                                                                                                                                                                                                                                                                                                                                  |
 
-    \>`cd <your source directory>`
+**Note:** Add the LLVM bin directory (`C:\LLVM\bin`) and the QEMU bin directory
+(`C:\Program Files\qemu`) to the `PATH` environment variable.
+</details>
 
-    \>`git clone https://github.com/OpenDevicePartnership/patina-qemu.git`
+<details>
+<summary><b> 🐧 Linux/WSL - Ubuntu 24.04 LTS - Bash </b></summary>
 
-2. Setup and activate a local Python virtual environment.
+| Tool                                                                                            | Install Command                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Build Essentials                                                                                | `sudo apt update && sudo apt install -y build-essential git nasm m4 bison flex curl wget uuid-dev python3 python3-venv python-is-python3 unzip acpica-tools gcc-multilib mono-complete pkg-config libssl-dev mtools`                                                                                                                                                                                                     |
+| [Rust](https://rustup.rs/)                                                                      | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` <br>**Note:** Might have to reopen the terminal <ol><li> **Add x86_64 uefi target:** `rustup target add x86_64-unknown-uefi` </li><li> **Add aarch64 uefi target:** `rustup target add aarch64-unknown-uefi`</li><li>**Install cargo make:** `cargo install cargo-make`</li><li>**Install cargo tarpaulin:** `cargo install cargo-tarpaulin`</li></ol> |
+| [Node](https://nodejs.org/en)                                                                   | `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh \| bash` <br>`source ~/.bashrc`<br>`nvm install --lts` <ol><li> **Add cspell:** `npm install -g cspell@latest` </li><li> **Add markdown lint cli:** `npm install -g markdownlint-cli` </li></ol>                                                                                                                                               |
+| [QEMU](https://www.qemu.org/)                                                                   | `sudo apt install -y qemu-system`                                                                                                                                                                                                                                                                                                                                                                                        |
+| [LLVM](https://llvm.org/)                                                                       | `sudo apt install -y clang llvm lld`                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Optional**                                                                                    |                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| [VSCode](https://code.visualstudio.com/docs/setup/linux#_debian-and-ubuntu-based-distributions) | `wget https://go.microsoft.com/fwlink/?LinkID=760868 -O code.deb` <br> `sudo apt install ./code.deb`                                                                                                                                                                                                                                                                                                                     |
+| [Rust Analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)    | `code --install-extension rust-lang.rust-analyzer`                                                                                                                                                                                                                                                                                                                                                                       |
 
-    \>`py -3 -m venv patina.venv`
+</details>
 
-    \>`.\patina.venv\Scripts\Activate.ps1`
-    > Use the script that works with your environment (e.g. .ps1 for PowerShell, .bat for "cmd").
+#### Code
 
-3. Switch to the enlistment and install pip modules.
+| Repo                                                                                   | Clone                                                                     | About                                                                            |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [patina](https://github.com/OpenDevicePartnership/patina/)                             | `git clone https://github.com/OpenDevicePartnership/patina`               | Patina Firmware. Contains all crates published to [crates.io](https://crates.io) |
+| [patina-qemu](https://github.com/OpenDevicePartnership/patina-qemu/)                   | `git clone https://github.com/OpenDevicePartnership/patina-qemu`          | Repository to produce Patina firmware image for QEMU                             |
+| [patina-dxe-core-qemu](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu/) | `git clone https://github.com/OpenDevicePartnership/patina-dxe-core-qemu` | Repository to produce Patina DXE Core Binary for QEMU                            |
 
-    \>`cd patina-qemu`
+**Note:** Prefer short paths on Windows(`C:\r\`) or Linux(`/home/<username>/r/`)
 
-    \>`pip install --upgrade -r pip-requirements.txt`
+#### Build and Run
 
-4. Fetch submodules and external dependencies.
+<details>
+<summary><b> 🖥️ X64 Target </b></summary>
 
-    `>stuart_setup -c Platforms\QemuQ35Pkg\PlatformBuild.py`
+| Repo                                                                                   | Build Instructions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [patina-dxe-core-qemu](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu/) | `cd <patina-dxe-core-qemu>` <br><br> **Build dxe core efi binary:** <br>`cargo make q35`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| [patina-qemu](https://github.com/OpenDevicePartnership/patina-qemu/)                   | `cd <patina-qemu>` <br><br> **Setup and Activate Virtual Env:** <br> `python -m venv q35env` <br> 🪟 `q35env\Scripts\activate.bat` <br> 🐧 `source q35env/bin/activate` <br><br> **Build Perquisites:** <br>`pip install --upgrade -r pip-requirements.txt` <br><br> **Stuart Setup:** <br>`stuart_setup  -c Platforms/QemuQ35Pkg/PlatformBuild.py` <br> <br>**Stuart Update:** <br>`stuart_update -c Platforms/QemuQ35Pkg/PlatformBuild.py` <br>**Note:** Retry the command if failed with `Filename too long` error <br><br> **Stuart Build and Launch Uefi Shell:** <br>🪟 `stuart_build  -c Platforms/QemuQ35Pkg/PlatformBuild.py --flashrom BLD_*_DXE_CORE_BINARY_PATH="C:\r\patina-dxe-core-qemu\target\x86_64-unknown-uefi"` <br>🐧 `stuart_build  -c Platforms/QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom BLD_*_DXE_CORE_BINARY_PATH="$HOME/r/patina-dxe-core-qemu/target/x86_64-unknown-uefi"` <br><br> **Stuart Build and Launch OS(Optional):** <br>🪟 `stuart_build  -c Platforms/QemuQ35Pkg/PlatformBuild.py --flashrom BLD_*_DXE_CORE_BINARY_PATH="C:\r\patina-dxe-core-qemu\target\x86_64-unknown-uefi" PATH_TO_OS="C:\OS\Windows11.qcow2"` <br>🐧 `stuart_build  -c Platforms/QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom BLD_*_DXE_CORE_BINARY_PATH="$HOME/r/patina-dxe-core-qemu/target/x86_64-unknown-uefi" PATH_TO_OS="$HOME/OS/Windows11.qcow2"` |
+| [patina](https://github.com/OpenDevicePartnership/patina/)                             | No need to build this(except for local development). Crates from this repo are consumed directly from [crates.io](https://crates.io) by `patina-dxe-core-qemu` repo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
-    `>stuart_update -c Platforms\QemuQ35Pkg\PlatformBuild.py`
+**Note:** Please note that the paths `C:\r\patina-dxe-core-qemu` and `$HOME/r/patina-dxe-core-qemu`
+in `C:\r\patina-dxe-core-qemu\target\x86_64-unknown-uefi` and
+`$HOME/r/patina-dxe-core-qemu/target/x86_64-unknown-uefi`, respectively, are user-specific and
+depend on the location where the repositories are cloned.
 
-5. Compile the firmware (above steps are only required to configure the enlistment; subsequent builds can just run
-   this command).
+</details>
 
-    \>`stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py`
+<details>
+<summary><b> 📱 AArch64 Target </b></summary>
 
-6. Verify that your UEFI build can successfully execute on QEMU by passing the `--FlashRom` argument to the build:
+| Repo                                                                                   | Build Instructions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [patina-dxe-core-qemu](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu/) | `cd <patina-dxe-core-qemu>` <br><br> **Build dxe core efi binary:** <br>`cargo make sbsa`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| [patina-qemu](https://github.com/OpenDevicePartnership/patina-qemu/)                   | `cd <patina-qemu>` <br><br> **Setup and Activate Virtual Env:** <br> `python -m venv sbsaenv` <br> 🪟 `sbsaenv\Scripts\activate.bat` <br> 🐧 `source sbsaenv/bin/activate` <br><br> **Build Perquisites:** <br>`pip install --upgrade -r pip-requirements.txt` <br><br> **Stuart Setup:** <br>`stuart_setup  -c Platforms/QemuSbsaPkg/PlatformBuild.py` <br> <br>**Stuart Update:** <br>`stuart_update -c Platforms/QemuSbsaPkg/PlatformBuild.py` <br><br> **Stuart Build and Launch Uefi Shell:** <br>🪟 `stuart_build  -c Platforms/QemuSbsaPkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom BLD_*_DXE_CORE_BINARY_PATH="C:\r\patina-dxe-core-qemu\target\aarch64-unknown-uefi"` <br>🐧 `stuart_build  -c Platforms/QemuSbsaPkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom BLD_*_DXE_CORE_BINARY_PATH="$HOME/r/patina-dxe-core-qemu/target/aarch64-unknown-uefi"` <br><br> **Stuart Build and Launch OS(Optional):** <br>🪟 `stuart_build  -c Platforms/QemuSbsaPkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom BLD_*_DXE_CORE_BINARY_PATH="C:\r\patina-dxe-core-qemu\target\aarch64-unknown-uefi" PATH_TO_OS="C:\OS\Windows11.qcow2"` <br>🐧 `stuart_build  -c Platforms/QemuSbsaPkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom BLD_*_DXE_CORE_BINARY_PATH="$HOME/r/patina-dxe-core-qemu/target/aarch64-unknown-uefi" PATH_TO_OS="$HOME/OS/Windows11.qcow2"` |
+| [patina](https://github.com/OpenDevicePartnership/patina/)                             | No need to build this(except for local development). Crates from this repo are consumed directly from [crates.io](https://crates.io) by `patina-dxe-core-qemu` repo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
-    \>`stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py --FlashRom`
+**Note:** Please note that the paths `C:\r\patina-dxe-core-qemu` and `$HOME/r/patina-dxe-core-qemu`
+in `C:\r\patina-dxe-core-qemu\target\x86_64-unknown-uefi` and
+`$HOME/r/patina-dxe-core-qemu/target/x86_64-unknown-uefi`, respectively, are user-specific and
+depend on the location where the repositories are cloned.
 
-You can then apply that knowledge to build the platform you're interested in with the `PlatformBuild.py` files located
-in the platform package directory.
+</details>
 
-After you run the firmare you've built on QEMU (for example, adding `--flashrom` to the end of the `stuart_build`
-command), you've successfully built and run the Patina DXE Core! No Rust tools are needed since right now, you are
-using the "simpler" model of the Rust code coming into the firmware build through a .efi binary.
+#### Local Development
 
-If you are interested in installing the Rust tools, follow the instructions in the [patina repo readme](https://github.com/OpenDevicePartnership/patina?tab=readme-ov-file#first-time-tool-setup-instructions)
-and start by building the code in the [patina repo](https://github.com/OpenDevicePartnership/patina).
+The above steps will help you build and test the vanilla code, with dependencies fetched from
+[crates.io](https://crates.io). For local development, you should modify the relevant crates within
+the `patina` repository and update the dependencies using appropriate local path.
+
+#### Debugging
+
+- [WinDbg + QEMU + Patina UEFI - Debugging Guide](Platforms/Docs/Common/windbg-qemu-uefi-debugging.md)
+- [WinDbg + QEMU + Patina UEFI + Windows OS - Debugging Guide](Platforms/Docs/Common/windbg-qemu-windows-debugging.md)
+
+<!-- markdownlint-enable MD033 -->
 
 ## Advanced Usage
 
@@ -215,7 +275,7 @@ For more details about how to run the script, review the script help information
 > Note: Because this is only patching an existing QEMU ROM image, if you make changes to the platform firmware code
 > (e.g. C code), you will need to run the full Stuart build process to build a new ROM image with those changes and
 > then use the `FW Patcher` tool to patch the Patina DXE Core .efi binary into that new ROM image.
-
+>
 > Note: The `FW Patcher` tool can patch more than just the Patina DXE Core. If you need help patching other binaries,
 > please start a discussion in [patina-fw-patcher Discussions area](https://github.com/OpenDevicePartnership/patina-fw-patcher/discussions/categories/q-a.)
 
