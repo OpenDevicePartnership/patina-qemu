@@ -82,7 +82,7 @@ In `C:\r\patina-dxe-core-qemu\bin\q35_dxe_core.rs`, modify the `DEBUGGER` initia
 Then build using:
 
 ```sh
-cargo build_q35
+cargo make q35
 ```
 
 This produces the dxe core binary at:
