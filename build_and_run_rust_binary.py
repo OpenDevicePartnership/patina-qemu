@@ -477,12 +477,16 @@ def _build_rust_dxe_core(settings: Dict[str, Path]) -> None:
     if "-Zunstable-options" in settings["build_cmd"]:
         env["RUSTC_BOOTSTRAP"] = "1"
 
-    if settings["build_target"] == "RELEASE":
-        subprocess.run(
-            settings["build_cmd"] + ["--profile", "release"], check=True, env=env
-        )
-    else:
-        subprocess.run(settings["build_cmd"], check=True, env=env)
+    try:
+        if settings["build_target"] == "RELEASE":
+            subprocess.run(
+                settings["build_cmd"] + ["--profile", "release"], check=True, env=env
+            )
+        else:
+            subprocess.run(settings["build_cmd"], check=True, env=env)
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Build failed with error #{e.returncode}.")
+        sys.exit(e.returncode)
 
 
 def _patch_rust_binary(settings: Dict[str, Path]) -> None:
