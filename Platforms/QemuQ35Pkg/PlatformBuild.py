@@ -300,6 +300,9 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         # Enabled all of the SMM modules
         self.env.SetValue("BLD_*_SMM_ENABLED", "TRUE", "Default")
 
+        # Enable performance tracing.
+        self.env.SetValue("BLD_*_PERF_TRACE_ENABLE", "FALSE", "Disable performance tracing by default.")
+
         if self.Helper.generate_secureboot_pcds(self) != 0:
             logging.error("Failed to generate include PCDs")
             return -1
