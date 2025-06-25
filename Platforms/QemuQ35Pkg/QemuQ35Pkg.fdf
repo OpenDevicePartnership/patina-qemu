@@ -223,10 +223,6 @@ READ_STATUS        = TRUE
 READ_LOCK_CAP      = TRUE
 READ_LOCK_STATUS   = TRUE
 
-APRIORI PEI {
-  INF  MdeModulePkg/Universal/PCD/Pei/Pcd.inf
-}
-
 #
 #  PEI Phase modules
 #
@@ -299,14 +295,11 @@ READ_STATUS        = TRUE
 READ_LOCK_CAP      = TRUE
 READ_LOCK_STATUS   = TRUE
 
-APRIORI DXE {
-  INF  MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
-  INF  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
-}
-
 #
 # Use externally built Rust DXE core binary
 #
+
+INF  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
 
 !if $(BUILD_RUST_CODE) == TRUE
 # Simple pure Rust DXE driver that is loaded by Rust DXE Core
@@ -319,7 +312,6 @@ INF  QemuQ35Pkg/RustFfiImageTestDxe/RustFfiImageTestDxe.inf
 
 INF  MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
 INF  MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf
-INF  MdeModulePkg/Universal/PCD/Dxe/Pcd.inf
 
 # Equivalent functionality is in DxeRust
 # INF  MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
@@ -335,6 +327,7 @@ INF  MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
 INF  MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
 INF  MdeModulePkg/Universal/ResetSystemRuntimeDxe/ResetSystemRuntimeDxe.inf
 INF  MdeModulePkg/Universal/Metronome/Metronome.inf
+INF  MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
 INF  PcAtChipsetPkg/PcatRealTimeClockRuntimeDxe/PcatRealTimeClockRuntimeDxe.inf
 
 # CPU branding information
@@ -363,7 +356,6 @@ INF  MdeModulePkg/Universal/BdsDxe/BdsDxe.inf
 # MU_CHANGE
 #INF  MdeModulePkg/Application/UiApp/UiApp.inf
 INF  QemuQ35Pkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.inf
-INF  MdeModulePkg/Universal/DevicePathDxe/DevicePathDxe.inf
 INF  MdeModulePkg/Universal/PrintDxe/PrintDxe.inf
 INF  MdeModulePkg/Universal/Disk/DiskIoDxe/DiskIoDxe.inf
 INF  MdeModulePkg/Universal/Disk/PartitionDxe/PartitionDxe.inf
