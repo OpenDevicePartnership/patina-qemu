@@ -875,7 +875,7 @@ class _Wizard:
         cmd = [
             "stuart_setup",
             "-c",
-            f"{str(self._settings.package_path / "PlatformBuild.py")}",
+            f"{str(self._settings.package_path / 'PlatformBuild.py')}",
         ]
         _Utils.run_cmd(
             cmd,
@@ -1027,7 +1027,7 @@ class _Wizard:
         cmd = [
             "stuart_update",
             "-c",
-            f"{str(self._settings.package_path / "PlatformBuild.py")}",
+            f"{str(self._settings.package_path / 'PlatformBuild.py')}",
         ]
         if _Utils.get_yes_no_response(stuart_update_prompt):
             _LOGGER.info("\nRunning Stuart Update...\n")
