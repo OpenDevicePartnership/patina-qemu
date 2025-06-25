@@ -642,7 +642,7 @@ class _Utils:
         else:
             if not _Utils.get_yes_no_response(
                 "Would you like to create a Python virtual environment using"
-                "\n {selected_install}? (y/n): "
+                f"\n {selected_install}? (y/n): "
             ):
                 _LOGGER.info("Skipping virtual environment creation.")
                 return _PythonInstallation(selected_install, False)
