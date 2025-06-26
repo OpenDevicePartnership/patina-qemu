@@ -33,6 +33,7 @@
   MemTypeInfo.c
   Platform.c
   Platform.h
+  ResourceDescriptorV2Hobs.c
   SmmRelocation.c
 
 [Packages]

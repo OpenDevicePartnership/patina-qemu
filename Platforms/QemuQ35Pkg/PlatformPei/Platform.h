@@ -114,6 +114,11 @@ SevInitializeRam (
   VOID
   );
 
+VOID
+PublishV2ResourceHobs (
+  VOID
+  );
+
 extern UINT8  mPhysMemAddressWidth;
 
 extern UINT32  mMaxCpuCount;
