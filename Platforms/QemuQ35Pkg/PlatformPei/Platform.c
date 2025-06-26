@@ -860,5 +860,7 @@ InitializePlatform (
     RelocateSmBase ();
   }
 
+  PublishV2ResourceHobs ();
+
   return EFI_SUCCESS;
 }
