@@ -49,69 +49,47 @@ and extract it's contents to: `%LOCALAPPDATA%\Dbg\EngineExtensions\`
 
 ---
 
-## Building Patina DXE Core with Debugging Enabled
+## Launching Patina QEMU UEFI with Debugging Enabled
 
-Clone the [patina-dxe-core-qemu](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu) repo and modify the
-PatinaDebugger initialization module's `.with_force_enable()` parameter in the /bin/q35_dxe_core.rs or /bin/sbsa_dxe_core.rs
-file from false to true:
+The patina-qemu UEFI build by default uses a pre-compiled DXE core binary from a nuget feed provided by the
+[patina-dxe-core-qemu](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu) repository.  Since these
+binaries have debug disabled, the following steps need to be performed to enable debug and override the default.
+
+Note: The following steps are for the Q35 build, but the same can be done for the SBSA build.  They also use the
+command line parameter to override the new EFI file.  See the [readme advanced](https://github.com/OpenDevicePartnership/patina-qemu/edit/personal/rogurr/dxe_core_bin_path/Readme.md#insert-a-new-dxe-core-driver-into-the-build)
+section for other methods such as patching the binary.
+
+- Clone the patina DXE Core QEMU repository
+- Open the `/bin/q35_dxe_core.rs` file and locate the static `DEBUGGER` declaration
+- Change the Patina Debugger `.with_force_enable()` module's input from `false` to `true`
 
   ```rust
   // Before change
   patina_debugger::PatinaDebugger::new(Uart16550::Io { base: 0x3F8 }).with_force_enable(false)
-
   // After change
   patina_debugger::PatinaDebugger::new(Uart16550::Io { base: 0x3F8 }).with_force_enable(true)
   ```
 
-Then build using cargo
-
-- Q35 build
+- Build a new Patina DXE Core EFI driver
 
   ```cmd
-  Command: "cargo make q35"
-  Output: "/target/x86_64-unknown-uefi/debug/qemu_q35_dxe_core.efi"
+  cargo make q35
   ```
 
-- sbsa build:
+- Copy the output file `/target/x86_64-unknown-uefi/debug/qemu_q35_dxe_core.efi` back to where this patina-qemu code is
+  being compiled.  The next step assumes it was copied to the patina-qemu root folder.
+- Rebuild the patina-qemu UEFI with the new DXE driver and execute QEMU with both serial and GBD support enabled.
+  The command line parameter BLD_*_DXE_CORE_BINARY_PATH is used to indicate the override DXE core driver.
 
   ```cmd
-  Command: "cargo make sbsa"
-  Output: "target/aarch64-unknown-uefi/debug/qemu_sbsa_dxe_core.efi"
+  stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py GDB_SERVER=5555 SERIAL_PORT=56789 --FlashRom BLD_*_DXE_CORE_BINARY_PATH="./qemu_q35_dxe_core.efi"
   ```
 
----
+  The stuart_build command should launch QEMU and wait for the initial break in:
 
-## Launch the Patina QEMU UEFI Using the New Patina DXE Core
-
-The patina-qemu UEFI build by default uses a pre-compiled DXE core binary from a nuget feed provided by the patina-dxe-core-qemu
-repository with debug disabled.  To override this default, the platform .FDF file can be updated to point to the new .efi
-file produced above, or the build supports a command line parameter to indicate the new DXE core override binary.
-
-To use the command line parameter, after cloning the [patina-qemu](https://github.com/OpenDevicePartnership/patina-qemu)
-repository, run the following commands to setup and build a UEFI using the override DXE core binary and execute QEMU with
-both serial and GBD support enabled.
-
-```cmd
-stuart_setup -c Platforms\QemuQ35Pkg\PlatformBuild.py
-stuart_update -c Platforms\QemuQ35Pkg\PlatformBuild.py
-stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py GDB_SERVER=5555 SERIAL_PORT=56789 --FlashRom BLD_*_DXE_CORE_BINARY_PATH="<path to dxe core file>"
-```
-
-As an option if several iterative changes are being made to the DXE core for testing, the Patina project has a
-[patina-fw-patcher](https://github.com/OpenDevicePartnership/patina-fw-patcher) utility to replace the DXE core .EFI file
-in an already compiled UEFI binary.  Clone the [patina-fw-patcher](https://github.com/OpenDevicePartnership/patina-fw-patcher)
-repository then run the following command from this repo to find the UEFI binary, patch in the new DXE core binary, and
-execute QEMU.
-
-```cmd
-python build_and_run_rust_binary.py --fw-patch-repo "<path to patina-fw-patcher>" --custom-efi "<path to dxe core file>" -s 56789 -g 5555
-```
-
-Both the stuart_build or the build_and_run_rust_binary.py commands should launch QEMU and wait for the initial break in:
-
-![QEMU Hardware and Software Debugging ports](images/qemu_sw_hw_debugging_serial_ports.png)
-
-![QEMU Initial break in](images/qemu_initial_break_in.png)
+  ![QEMU Hardware and Software Debugging ports](images/qemu_sw_hw_debugging_serial_ports.png)
+  
+  ![QEMU Initial break in](images/qemu_initial_break_in.png)
 
 ---
 
