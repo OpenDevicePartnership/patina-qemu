@@ -55,7 +55,7 @@ The patina-qemu UEFI platform build, by default, uses a pre-compiled DXE core bi
 [patina-dxe-core-qemu](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu) repository.  Since these
 binaries have debug disabled, the following steps need to be performed to enable debug and override the default.
 
-Note: The following steps are for the Q35 build, but the same can be done for the SBSA build.  They also use the
+Note: **The following steps are for the Q35 build**, but the same can be done for the SBSA build.  They also use the
 build command line parameter BLD_*_DXE_CORE_BINARY_PATH to override the current DXE core with the new file.  For
 other options such as patching a UEFI FD binary, see the patina-qemu readme [advanced usage](https://github.com/OpenDevicePartnership/patina-qemu?tab=readme-ov-file#advanced-usage)
 section.
