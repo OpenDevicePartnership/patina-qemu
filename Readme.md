@@ -244,8 +244,8 @@ the `patina` repository and update the dependencies using appropriate local path
 
 ## Advanced Usage
 
-This repository was originally created as demonstratration UEFI using Patina modules with an emphasis on ingesting
-the patina DXE Core.  The build currently consumes a pre-built DXE Core .EFI driver from a nuget feed containing
+This repository was originally created as a UEFI to demonstrate using Patina modules with an emphasis on ingesting
+the patina DXE Core.  The build currently consumes a pre-built DXE Core .EFI file provided by a nuget feed containing
 artifacts from the [patina-dxe-core-qemu](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu) repository's
 CI build.
 
@@ -254,8 +254,8 @@ To modify and build the Rust DXE Core code then insert it into this UEFI build, 
 ### Insert a new DXE Core Driver into the Build
 
 The platform FDF file (`/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf` or `/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf`) can be updated
-to directly pull the new .EFI driver into the build.  Typical to UEFI builds ingesting pre-compiled binaries, modify
-the SECTION definition in the DXE_CORE file declaration to point to the new file, compile, and run QEMU normally.
+to directly pull the new .EFI driver into the build.  Modify the SECTION definition in the DXE_CORE file declaration to
+point to the new file as typically done in UEFI builds that ingest pre-compiled binaries.
 
 ```cmd
 FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
@@ -264,9 +264,9 @@ FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
 }
 ```
 
-The QEMU platform FDF files do support defining a build variable DXE_CORE_BINARY_PATH to override the default binary
-from the nuget feed without needing to modify the FDF file.  This can be set from the stuart_build command line to point
-to the new file:
+This repository's platform platform FDF files do support defining a build variable DXE_CORE_BINARY_PATH to override the
+default binary from the nuget feed without needing to modify the FDF file.  This can be set from the stuart_build command
+line to point to the new file:
 
 ```cmd
 stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py --flashonly BLD_*_DXE_CORE_BINARY_PATH="<new dxe core file path>"
@@ -276,8 +276,8 @@ stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py --flashonly BLD_*_DXE_CORE
 
 If multiple iterations of the DXE core are to be tested, the fastest way to make changes to the Rust DXE Core code and
 integrate it into this UEFI build is to use the [Patina FW Patcher](https://github.com/OpenDevicePartnership/patina-fw-patcher).
-This tool will find and extract the current DXE Core driver, replace it with the new file, and launch QEMU with the
-patched ROM image.
+This tool will search an existing UEFI FD binary, find and replace the current DXE Core driver with a new file, and launch
+QEMU with the patched ROM image.
 
 A [build_and_run_rust_binary.py](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/build_and_run_rust_binary.py)
 script has been created in this repository to perform all steps necessary to compile the Patina DXE core driver, call the
