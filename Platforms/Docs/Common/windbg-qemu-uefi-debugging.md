@@ -60,7 +60,7 @@ build command line parameter BLD_*_DXE_CORE_BINARY_PATH to override the current 
 other options such as patching a UEFI FD binary, see the patina-qemu readme [advanced usage](https://github.com/OpenDevicePartnership/patina-qemu?tab=readme-ov-file#advanced-usage)
 section.
 
-- Clone the patina DXE Core QEMU repository
+- Clone the Patina DXE Core QEMU repository
 - Open the `/bin/q35_dxe_core.rs` file and locate the static `DEBUGGER` declaration
 - Change the Patina Debugger `.with_force_enable()` module's input from `false` to `true`
 
