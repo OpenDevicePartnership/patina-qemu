@@ -614,7 +614,7 @@ FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
 !endif
 
 #######################################################################################################################
-## This firmware volume is dedicated to containing the pre-compiled DXE core .EFI binary used in the build process
+## This firmware volume is dedicated to containing the pre-compiled DXE core .EFI binary.
 ##
 ## Setting the variable DXE_CORE_BINARY_PATH on the command line will override the default with a user input file:
 ##   'stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py BLD_*_DXE_CORE_BINARY_PATH=<path to file>'
