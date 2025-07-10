@@ -51,7 +51,7 @@ The `ExdiGdbSrv.dll` in WinDbg acts as a GDB client.
 
 ## Launching Patina QEMU UEFI with Debugging Enabled
 
-The patina-qemu UEFI build by default uses a pre-compiled DXE core binary from a nuget feed provided by the
+The patina-qemu UEFI platform build, by default, uses a pre-compiled DXE core binary from a nuget feed provided by the
 [patina-dxe-core-qemu](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu) repository.  Since these
 binaries have debug disabled, the following steps need to be performed to enable debug and override the default.
 
