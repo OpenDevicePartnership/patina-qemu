@@ -29,9 +29,9 @@ communicates with WinDbg using the KDCOM transport.
 
 ## Launch QEMU with Patina UEFI and Windows
 
-By default, the qemu build uses a pre-compiled Patina DXE core provided through a nuget feed which is sufficient to
-boot and debug Windows.  If debugging of the Patina UEFI or any other UEFI driver is needed, see the
-[WinDbg + QEMU + Patina UEFI - Debugging Guide](https://github.com/OpenDevicePartnership/patina-qemu/blob/personal/rogurr/dxe_core_bin_path/Platforms/Docs/Common/windbg-qemu-uefi-debugging.md)
+By default, the patina-qemu build uses a pre-compiled Patina DXE Core binary which is sufficient to
+boot and debug Windows as outlined here.  However if debugging of the Patina UEFI or any other UEFI
+driver is needed, see the [WinDbg + QEMU + Patina UEFI - Debugging Guide](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/Docs/Common/windbg-qemu-uefi-debugging.md)
 documentation.
 
 To compile the firmware image and launch QEMU with serial and GDB support, execute the stuart_build command:
