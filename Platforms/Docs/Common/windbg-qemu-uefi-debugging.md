@@ -41,11 +41,11 @@ The `ExdiGdbSrv.dll` in WinDbg acts as a GDB client.
 
 ## Setting Up WinDbg
 
-- Download and install [Windbg](https://learn.microsoft.com/windows-hardware/drivers/debugger/) which should drop `ExdiGdbSrv.dll`
-and `exdiConfigData.xml` in the `C:\Program Files\WindowsApps\Microsoft.WinDbg.Fast_1.xxxxxxxxx\amd64` directory
-
+- Download and install [Windbg](https://learn.microsoft.com/windows-hardware/drivers/debugger/)
+- Verify `ExdiGdbSrv.dll` and `exdiConfigData.xml` were installed into the
+  `C:\Program Files\WindowsApps\Microsoft.WinDbg.Fast_1.xxxxxxxxx\amd64` directory
 - Download the latest release of the UEFI WinDbg Extension from [mu_feature_debugger releases](https://github.com/microsoft/mu_feature_debugger/releases/latest)
-and extract it's contents to: `%LOCALAPPDATA%\Dbg\EngineExtensions\`
+- Extract it's contents to: `%LOCALAPPDATA%\Dbg\EngineExtensions\`
 
 ---
 
@@ -56,8 +56,9 @@ The patina-qemu UEFI build by default uses a pre-compiled DXE core binary from a
 binaries have debug disabled, the following steps need to be performed to enable debug and override the default.
 
 Note: The following steps are for the Q35 build, but the same can be done for the SBSA build.  They also use the
-command line parameter to override the new EFI file.  See the [readme advanced](https://github.com/OpenDevicePartnership/patina-qemu/edit/personal/rogurr/dxe_core_bin_path/Readme.md#insert-a-new-dxe-core-driver-into-the-build)
-section for other methods such as patching the binary.
+build command line parameter BLD_*_DXE_CORE_BINARY_PATH to override the current DXE core with the new file.  For
+other options such as patching a UEFI FD binary, see the patina-qemu readme [advanced usage](https://github.com/OpenDevicePartnership/patina-qemu?tab=readme-ov-file#advanced-usage)
+section.
 
 - Clone the patina DXE Core QEMU repository
 - Open the `/bin/q35_dxe_core.rs` file and locate the static `DEBUGGER` declaration
@@ -85,7 +86,7 @@ section for other methods such as patching the binary.
   stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py GDB_SERVER=5555 SERIAL_PORT=56789 --FlashRom BLD_*_DXE_CORE_BINARY_PATH="./qemu_q35_dxe_core.efi"
   ```
 
-  The stuart_build command should launch QEMU and wait for the initial break in:
+- The stuart_build command should launch QEMU and wait for the initial break in:
 
   ![QEMU Hardware and Software Debugging ports](images/qemu_sw_hw_debugging_serial_ports.png)
   
