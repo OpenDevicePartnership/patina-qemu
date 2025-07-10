@@ -244,18 +244,17 @@ the `patina` repository and update the dependencies using appropriate local path
 
 ## Advanced Usage
 
-This repository was originally created as a UEFI to demonstrate using Patina modules with an emphasis on ingesting
-the patina DXE Core.  The build currently consumes a pre-built DXE Core .EFI file provided by a nuget feed containing
-artifacts from the [patina-dxe-core-qemu](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu) repository's
-CI build.
-
-To modify and build the Rust DXE Core code then insert it into this UEFI build, there are several methods supported.
-
 ### Insert a new DXE Core Driver into the Build
 
-The platform FDF file (`/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf` or `/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf`) can be updated
-to directly pull the new .EFI driver into the build.  Modify the SECTION definition in the DXE_CORE file declaration to
-point to the new file as typically done in UEFI builds that ingest pre-compiled binaries.
+This repository was originally created to demonstrate using Patina modules with an emphasis on ingesting the [Patina
+DXE Core](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu).  To modify the build to consume a new DXE
+Core binary instead of the pre-built .EFI file from the nuget feed, there are several methods supported.
+
+#### Update the Platform FDF File
+
+The easiest way to inject a new Patina DXE Core driver is to update the platform FDF (`/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf`
+or `/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf`) file to point to the new file as typically done in UEFI builds that ingest
+pre-compiled binaries.  Modify the `SECTION` definition in the `DXE_CORE` file declaration as follows:
 
 ```cmd
 FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
@@ -264,35 +263,35 @@ FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
 }
 ```
 
-This repository's platform platform FDF files do support defining a build variable DXE_CORE_BINARY_PATH to override the
-default binary from the nuget feed without needing to modify the FDF file.  This can be set from the stuart_build command
-line to point to the new file:
+This repository's platform FDF files do support defining a build variable to override the default binary without needing
+to modify the FDF file.  This can be set from the stuart_build command line by defining `BLD_*_DXE_CORE_BINARY_PATH':
 
 ```cmd
 stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py --flashonly BLD_*_DXE_CORE_BINARY_PATH="<new dxe core file path>"
 ```
 
-### Patching a new DXE Core Driver into a pre-compiled QEMU UEFI ROM
+#### Patching a Pre-Built UEFI Firmware Device Image
 
-If multiple iterations of the DXE core are to be tested, the fastest way to make changes to the Rust DXE Core code and
-integrate it into this UEFI build is to use the [Patina FW Patcher](https://github.com/OpenDevicePartnership/patina-fw-patcher).
-This tool will search an existing UEFI FD binary, find and replace the current DXE Core driver with a new file, and launch
-QEMU with the patched ROM image.
+If multiple iterations of the DXE core are to be tested, the fastest way to integrate each to a bootable FD image is
+using the [Patina FW Patcher](https://github.com/OpenDevicePartnership/patina-fw-patcher). This tool will open an
+existing UEFI FD binary, find and replace the current DXE Core driver with a new file, and launch QEMU with the patched
+ROM image.
 
 A [build_and_run_rust_binary.py](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/build_and_run_rust_binary.py)
-script has been created in this repository to perform all steps necessary to compile the Patina DXE core driver, call the
-patcher, and start QEMU.  For more details, run it with the help command line parameter:
+script is provided in the root of this repository to perform all steps necessary to compile the Patina DXE core driver,
+call the patcher, and start QEMU.  For more details, run it with the `--help` command line parameter:
 
 ```cmd
 python build_and_run_rust_binary.py --help
 ```
 
-- Note 1: This tool is not a general FW patcher and relies on specific features implemented in this UEFI build.
-- Note 2: Because this tool is patching an existing QEMU ROM image, only changes to the Rust DXE core will be integrated.
-Any changes to the C code will require running a full stuart_build process to build a new ROM image.
-- Note 3: The tool can be enhanced to patch more than just the Patina DXE Core.  If there is interest in further feature
-changes, please start a discussion in the tool's repo [discussions](https://github.com/OpenDevicePartnership/patina-fw-patcher/discussions/categories/q-a)
-area.
+- Note 1: This tool is not a general FW patcher to be used on any UEFI FD image.  It relies on specific features
+  implemented in this UEFI build.
+- Note 2: Because this tool is patching an existing QEMU ROM image, only changes to the Rust DXE Core code will be
+  merged.  Any changes to the C code will require running a full stuart_build process to build a new ROM image.
+- Note 3: The tool can be enhanced to patch more than the Patina DXE Core.  If there is interest in new features,
+  please start a discussion in the tool's repo [discussions](https://github.com/OpenDevicePartnership/patina-fw-patcher/discussions/categories/q-a)
+  area.
 
 ### Using a Custom QEMU Installation
 
@@ -307,11 +306,10 @@ stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py --flashonly QEMU_PATH="<pa
 You can also specify the directory where the QEMU binary is located by passing the `QEMU_DIR` argument. For example:
 
 ```cmd
-stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py --flashonly QEMU_DIR="<path to qemu bin dir>"
+stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py --flashonly QEMU_DIR="<path to qemu bin directory>"
 ```
 
-## Self Certification Tests
+### Self Certification Tests
 
-Refer to [`docs/SelfCertificationTest.md`](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/docs/SelfCertifcationTest.md)
-for documentation on how to configure the platform to run [Self Certification Tests (SCTs)](https://github.com/tianocore/tianocore.github.io/wiki/UEFI-SCT)
-and how to run them.
+Refer to the [Self Certification Test](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/docs/SelfCertifcationTest.md)
+documentation for information on how to configure and run the [Self Certification Tests (SCTs)](https://github.com/tianocore/tianocore.github.io/wiki/UEFI-SCT).

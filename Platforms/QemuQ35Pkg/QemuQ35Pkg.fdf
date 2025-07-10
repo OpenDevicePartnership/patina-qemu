@@ -619,7 +619,7 @@ FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
 ## Setting the variable DXE_CORE_BINARY_PATH on the command line will override the default with a user input file:
 ##   'stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py BLD_*_DXE_CORE_BINARY_PATH=<path to file>'
 ##
-## Or if no override is provided, the build will default to using a binary from the nuget feed
+## If no override is provided, the build will default to using a binary from the nuget feed
 ##
 [FV.RUST_DXE_CORE]
 FvForceRebase       = FALSE
@@ -640,7 +640,7 @@ READ_STATUS         = TRUE
 READ_LOCK_CAP       = TRUE
 READ_LOCK_STATUS    = TRUE
 
-# Define DXE_CORE_BINARY_PATH to the nuget feed if not defined
+# If not defined, define DXE_CORE_BINARY_PATH to point to the nuget feed files
 !ifndef $(DXE_CORE_BINARY_PATH)
   !if $(TARGET) == RELEASE
     DEFINE DXE_CORE_BINARY_PATH = QemuPkg/Binaries/DXECORE.QEMU_extdep/release/qemu_q35_dxe_core.efi
@@ -654,7 +654,6 @@ FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
   SECTION PE32 = $(DXE_CORE_BINARY_PATH)
   SECTION UI = "DxeCore"
 }
-
 
 ################################################################################
 
