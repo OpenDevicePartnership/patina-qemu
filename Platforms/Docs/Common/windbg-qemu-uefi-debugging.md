@@ -79,7 +79,7 @@ section.
 
 - Copy the output file `/target/x86_64-unknown-uefi/debug/qemu_q35_dxe_core.efi` back to where this patina-qemu code is
   being compiled.  The next step assumes it was copied to the patina-qemu root folder.
-- Rebuild the patina-qemu UEFI with the new DXE driver and execute QEMU with both serial and GBD support enabled.
+- Rebuild the patina-qemu UEFI with the new DXE driver and execute QEMU with both serial and GDB support enabled.
   The command line parameter BLD_*_DXE_CORE_BINARY_PATH is used to indicate the override DXE core driver.
 
   ```cmd
