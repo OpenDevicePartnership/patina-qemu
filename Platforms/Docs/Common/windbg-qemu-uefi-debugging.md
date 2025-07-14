@@ -60,7 +60,7 @@ build command line parameter BLD_*_DXE_CORE_BINARY_PATH to override the current 
 other options such as patching a UEFI FD binary, see the patina-qemu readme [advanced usage](https://github.com/OpenDevicePartnership/patina-qemu?tab=readme-ov-file#advanced-usage)
 section.
 
-- Clone the Patina DXE Core QEMU repository
+- Clone the Patina DXE Core QEMU repository into a new directory
 - Open the `/bin/q35_dxe_core.rs` file and locate the static `DEBUGGER` declaration
 - Change the Patina Debugger `.with_force_enable()` module's input from `false` to `true`
 
@@ -71,22 +71,20 @@ section.
   patina_debugger::PatinaDebugger::new(Uart16550::Io { base: 0x3F8 }).with_force_enable(true)
   ```
 
-- Build a new Patina DXE Core EFI driver
+- Build a new Patina DXE Core EFI driver.  The output file will be: `/target/x86_64-unknown-uefi/debug/qemu_q35_dxe_core.efi`
 
   ```cmd
   cargo make q35
   ```
 
-- Copy the output file `/target/x86_64-unknown-uefi/debug/qemu_q35_dxe_core.efi` back to where this patina-qemu code is
-  being compiled.  The next step assumes it was copied to the patina-qemu root folder.
-- Rebuild the patina-qemu UEFI with the new DXE driver and execute QEMU with both serial and GDB support enabled.
-  The command line parameter BLD_*_DXE_CORE_BINARY_PATH is used to indicate the override DXE core driver.
+- Return to this repository's directory and rebuild the patina-qemu UEFI using the BLD_*_DXE_CORE_BINARY_PATH command line
+  parameter to indicate an override DXE core driver should be used and its location.
 
   ```cmd
-  stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py GDB_SERVER=5555 SERIAL_PORT=56789 --FlashRom BLD_*_DXE_CORE_BINARY_PATH="./qemu_q35_dxe_core.efi"
+  stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py GDB_SERVER=5555 SERIAL_PORT=56789 --FlashRom BLD_*_DXE_CORE_BINARY_PATH="<patina dxe core qemu repo path>/target/x86_64-unknown-uefi/debug/qemu_q35_dxe_core.efi"
   ```
 
-- The stuart_build command should launch QEMU and wait for the initial break in:
+- The stuart_build command will also launch QEMU and wait for the initial break in:
 
   ![QEMU Hardware and Software Debugging ports](images/qemu_sw_hw_debugging_serial_ports.png)
   
