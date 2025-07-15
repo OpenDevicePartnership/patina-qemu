@@ -115,6 +115,7 @@
   gUefiCpuPkgTokenSpaceGuid.PcdSevEsIsEnabled
   gEfiMdePkgTokenSpaceGuid.PcdConfidentialComputingGuestAttr
   gUefiCpuPkgTokenSpaceGuid.PcdGhcbHypervisorFeatures
+  gEfiMdePkgTokenSpaceGuid.PcdPerformanceLibraryPropertyMask            ## SOMETIMES_CONSUMES
 
 [FixedPcd]
   gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfCpuidBase
