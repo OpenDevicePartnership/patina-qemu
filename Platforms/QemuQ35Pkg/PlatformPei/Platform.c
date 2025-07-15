@@ -27,6 +27,7 @@
 #include <Library/PciLib.h>
 #include <Library/PeimEntryPoint.h>
 #include <Library/PeiServicesLib.h>
+#include <Library/PerformanceLib.h>
 #include <Library/QemuFwCfgLib.h>
 #include <Library/QemuFwCfgSimpleParserLib.h>
 #include <Library/ResourcePublicationLib.h>
@@ -39,6 +40,7 @@
 #include <OvmfPlatforms.h>
 #include <Guid/DxeMemoryProtectionSettings.h> // MU_CHANGE
 #include <Guid/MmMemoryProtectionSettings.h>  // MU_CHANGE
+#include <Guid/PatinaPerformanceConfig.h>
 
 #include "Platform.h"
 #include "Cmos.h"
@@ -772,6 +774,45 @@ MaxCpuCountInitialization (
   ASSERT_RETURN_ERROR (PcdStatus);
 }
 
+VOID
+PublishPatinaPerformanceConfigHob (
+  VOID
+  )
+{
+  PATINA_PERFORMANCE_CONFIG_HOB  *PatinaPerformanceConfigHob;
+
+ #if defined (PERF_TRACE_ENABLE) && (PERF_TRACE_ENABLE)
+  UINT8  PerformancePropertyMask;
+ #endif
+
+  PatinaPerformanceConfigHob = BuildGuidHob (&gPatinaPerformanceConfigHobGuid, sizeof (*PatinaPerformanceConfigHob));
+  if (PatinaPerformanceConfigHob == NULL) {
+    DEBUG ((DEBUG_ERROR, "%a: Failed to build Patina Performance Config HOB\n", __func__));
+    ASSERT (PatinaPerformanceConfigHob != NULL);
+    return;
+  }
+
+  PatinaPerformanceConfigHob->Enabled             = FALSE;
+  PatinaPerformanceConfigHob->EnabledMeasurements = 0;
+
+ #if defined (PERF_TRACE_ENABLE) && (PERF_TRACE_ENABLE)
+  PerformancePropertyMask = PcdGet8 (PcdPerformanceLibraryPropertyMask);
+  if (PerformancePropertyMask & PERFORMANCE_LIBRARY_PROPERTY_MEASUREMENT_ENABLED) {
+    PatinaPerformanceConfigHob->Enabled             = TRUE;
+    PatinaPerformanceConfigHob->EnabledMeasurements = PerformancePropertyMask;
+  }
+
+ #endif
+
+  DEBUG ((
+    DEBUG_INFO,
+    "%a: Patina Performance Config HOB: Enabled=%d, EnabledMeasurements=0x%x\n",
+    __func__,
+    PatinaPerformanceConfigHob->Enabled,
+    PatinaPerformanceConfigHob->EnabledMeasurements
+    ));
+}
+
 /**
   Perform Platform PEI initialization.
 
@@ -861,6 +902,7 @@ InitializePlatform (
   }
 
   PublishV2ResourceHobs ();
+  PublishPatinaPerformanceConfigHob ();
 
   return EFI_SUCCESS;
 }
