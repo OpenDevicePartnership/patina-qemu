@@ -170,12 +170,9 @@ FV = FVMAIN_COMPACT
 
 ################################################################################
 #
-# FV Section
-#
-# [FV] section is used to define what components or modules are placed within a flash
-# device file.  This section also defines order the components and modules are positioned
-# within the image.  The [FV] section consists of define statements, set statements and
-# module statements.
+# The FvMain firmware volume contains all of the binary modules necessary to boot
+# the DXE phase with the exception of the pre-compiled DXE core driver which will
+# be placed in the [FV.RUST_DXE_CORE] firmware volume.
 #
 ################################################################################
 
@@ -456,14 +453,24 @@ READ_LOCK_STATUS   = TRUE
     SECTION RAW = OemPkg/FrontPage/Resources/NoBoot.bmp
   }
 
-#######################################################################################################################
-## This firmware volume is dedicated to containing the pre-compiled DXE core .EFI binary used in the build process
-##
-## Setting the variable DXE_CORE_BINARY_PATH on the command line will override the default with a user input file:
-##   'stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py BLD_*_DXE_CORE_BINARY_PATH=<path to file>'
-##
-## If no override is provided, the build will default to using a binary from the nuget feed
-##
+################################################################################
+#
+# The RUST_DXE_CORE firmware volume contains the pre-compiled DXE Core Driver to
+# be used in the build process.  There is no requirement to keep it isolated,
+# but is not part of the [FV.FvMain] firmware volume in this build to support
+# Patina features such as post-build replacement of the DXE Core driver.
+#
+# By default, DXE_CORE_NUGET_FEED_PATH is defined in the DXECORE.QEMU_ext_dep.json
+# file and indicates the directory that the Stuart build placed the pre-compiled
+# drivers from the Nuget feed.
+#
+# To override the pre-compiled DXE Core driver with a user specific binary, the
+# DXE_CORE_BINARY_OVERRIDE variable can be set on the command line with the new
+# file path:
+#
+# stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py BLD_*_DXE_CORE_BINARY_OVERRIDE=<path to file>
+#
+################################################################################
 [FV.RUST_DXE_CORE]
 FvAlignment         = 16
 BlockSize           = 0x40
@@ -484,18 +491,16 @@ READ_STATUS         = TRUE
 READ_LOCK_CAP       = TRUE
 READ_LOCK_STATUS    = TRUE
 
-# If not defined, define DXE_CORE_BINARY_PATH to point to the nuget feed files
-!ifndef $(DXE_CORE_BINARY_PATH)
+FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
+!ifdef $(DXE_CORE_BINARY_OVERRIDE)
+  SECTION PE32 = $(DXE_CORE_BINARY_OVERRIDE)                                  # User defined override
+!else
   !if $(TARGET) == RELEASE
-    DEFINE DXE_CORE_BINARY_PATH = QemuPkg/Binaries/DXECORE.QEMU_extdep/release/qemu_sbsa_dxe_core.efi
+    SECTION PE32 = $(DXE_CORE_NUGET_FEED_PATH)/release/qemu_sbsa_dxe_core.efi # Nuget feed release build
   !else
-    DEFINE DXE_CORE_BINARY_PATH = QemuPkg/Binaries/DXECORE.QEMU_extdep/debug/qemu_sbsa_dxe_core.efi
+    SECTION PE32 = $(DXE_CORE_NUGET_FEED_PATH)/debug/qemu_sbsa_dxe_core.efi   # Nuget feed debug build
   !endif
 !endif
-
-# Add the DXE core binary to the firmwware volume
-FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
-  SECTION PE32 = $(DXE_CORE_BINARY_PATH)
   SECTION UI = "DxeCore"
 }
 

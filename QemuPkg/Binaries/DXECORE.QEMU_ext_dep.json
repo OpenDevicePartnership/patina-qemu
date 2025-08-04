@@ -5,5 +5,5 @@
     "source": "https://pkgs.dev.azure.com/patina-fw/artifacts/_packaging/qemu-dxe-core/nuget/v3/index.json",
     "version": "1.0.0",
     "flags": ["set_build_var"],
-    "var_name": "BLD_*_DXE_CORE_BINARY_PATH"
+    "var_name": "BLD_*_DXE_CORE_NUGET_FEED_PATH"
 }

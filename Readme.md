@@ -252,9 +252,9 @@ Core binary instead of the pre-built .EFI file from the nuget feed, there are se
 
 #### Update the Platform FDF File
 
-The easiest way to inject a new Patina DXE Core driver is to update the platform FDF (`/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf`
-or `/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf`) file to point to the new file as typically done in UEFI builds that ingest
-pre-compiled binaries.  Modify the `SECTION` definition in the `DXE_CORE` file declaration as follows:
+The easiest way to inject a new Patina DXE Core driver is to update the platform FDF file (`/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf`
+or `/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf`) to point to the new binary driver file as typically done in UEFI builds
+that ingest pre-compiled binaries.  Modify the `SECTION` definition in the `DXE_CORE` file declaration as follows:
 
 ```cmd
 FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
@@ -264,10 +264,10 @@ FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
 ```
 
 This repository's platform FDF files do support defining a build variable to override the default binary without needing
-to modify the FDF file.  This can be set from the stuart_build command line by defining `BLD_*_DXE_CORE_BINARY_PATH':
+to modify the FDF file.  This can be set from the stuart_build command line by defining `BLD_*_DXE_CORE_BINARY_OVERRIDE':
 
 ```cmd
-stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py --flashonly BLD_*_DXE_CORE_BINARY_PATH="<new dxe core file path>"
+stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py --flashonly BLD_*_DXE_CORE_BINARY_OVERRIDE="<new dxe core file path>"
 ```
 
 #### Patching a Pre-Built UEFI Firmware Device Image

@@ -77,11 +77,11 @@ section.
   cargo make q35
   ```
 
-- Return to this repository's directory and rebuild the patina-qemu UEFI using the BLD_*_DXE_CORE_BINARY_PATH command line
-  parameter to indicate an override DXE core driver should be used and its location.
+- Return to this repository's directory and rebuild the patina-qemu UEFI using the BLD_*_DXE_CORE_BINARY_OVERRIDE command
+  line parameter to indicate an override DXE core driver should be used and its location.
 
   ```cmd
-  stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py GDB_SERVER=5555 SERIAL_PORT=56789 --FlashRom BLD_*_DXE_CORE_BINARY_PATH="<patina dxe core qemu repo path>/target/x86_64-unknown-uefi/debug/qemu_q35_dxe_core.efi"
+  stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py GDB_SERVER=5555 SERIAL_PORT=56789 --FlashRom BLD_*_DXE_CORE_BINARY_OVERRIDE="<patina dxe core qemu repo path>/target/x86_64-unknown-uefi/debug/qemu_q35_dxe_core.efi"
   ```
 
 - The stuart_build command will also launch QEMU and wait for the initial break in:
