@@ -457,7 +457,7 @@ READ_LOCK_STATUS   = TRUE
 #
 # The RUST_DXE_CORE firmware volume contains the pre-compiled DXE Core Driver to
 # be used in the build process.  There is no requirement to keep it isolated,
-# but is not part of the [FV.FvMain] firmware volume in this build to support
+# but it is not part of the [FV.FvMain] firmware volume in this build to support
 # Patina features such as post-build replacement of the DXE Core driver.
 #
 # By default, DXE_CORE_NUGET_FEED_PATH is defined in the DXECORE.QEMU_ext_dep.json
