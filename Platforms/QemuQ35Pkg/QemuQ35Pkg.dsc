@@ -1603,6 +1603,12 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
 #
 ################################################################################
 [BuildOptions]
+  !if $(PERF_TRACE_ENABLE) == TRUE
+    DEFINE PERFORMANCE_OPTIONS = -DPERF_TRACE_ENABLE=1
+  !else
+    DEFINE PERFORMANCE_OPTIONS =
+  !endif
+
   # Exception tables are required for stack walks in the debugger.
   MSFT:*_*_X64_GENFW_FLAGS  = --keepexceptiontable
   GCC:*_*_X64_GENFW_FLAGS   = --keepexceptiontable
@@ -1610,8 +1616,8 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   #
   # Disable deprecated APIs.
   #
-  MSFT:*_*_*_CC_FLAGS = /D DISABLE_NEW_DEPRECATED_INTERFACES
-  GCC:*_*_*_CC_FLAGS = -D DISABLE_NEW_DEPRECATED_INTERFACES
+  MSFT:*_*_*_CC_FLAGS = /D DISABLE_NEW_DEPRECATED_INTERFACES $(PERFORMANCE_OPTIONS)
+  GCC:*_*_*_CC_FLAGS = -D DISABLE_NEW_DEPRECATED_INTERFACES $(PERFORMANCE_OPTIONS)
 
   #
   # Disable stack cookies in this repo (not supported in Rust modules).
