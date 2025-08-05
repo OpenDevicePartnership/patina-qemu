@@ -273,6 +273,12 @@ INF  DebuggerFeaturePkg/DebugConfigPei/DebugConfigPei.inf
 !include $(SHARED_CRYPTO_PATH)/Driver/Bin/CryptoDriver.PEI.inc.fdf
 
 ################################################################################
+#
+# The DXEFV firmware volume contains all of the binary modules necessary to boot
+# the DXE phase with the exception of the pre-compiled DXE core driver which will
+# be placed in the [FV.RUST_DXE_CORE] firmware volume.
+#
+################################################################################
 
 [FV.DXEFV]
 FvForceRebase      = FALSE
@@ -613,6 +619,24 @@ FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
   }
 !endif
 
+################################################################################
+#
+# The RUST_DXE_CORE firmware volume contains the pre-compiled DXE Core Driver to
+# be used in the build process.  There is no requirement to keep it isolated,
+# but it is not part of the [FV.DXEFV] firmware volume in this build to support
+# Patina features such as post-build replacement of the DXE Core driver.
+#
+# By default, DXE_CORE_NUGET_FEED_PATH is defined in the DXECORE.QEMU_ext_dep.json
+# file and indicates the directory that the Stuart build placed the pre-compiled
+# drivers from the Nuget feed.
+#
+# To override the pre-compiled DXE Core driver with a user specific binary, the
+# DXE_CORE_BINARY_OVERRIDE variable can be set on the command line with the new
+# file path:
+#
+# stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py BLD_*_DXE_CORE_BINARY_OVERRIDE=<path to file>
+#
+################################################################################
 [FV.RUST_DXE_CORE]
 FvForceRebase       = FALSE
 FvAlignment         = 16
@@ -633,10 +657,14 @@ READ_LOCK_CAP       = TRUE
 READ_LOCK_STATUS    = TRUE
 
 FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
-!if $(TARGET) == RELEASE
-  SECTION PE32 = $(DXE_CORE_BINARY_PATH)/release/qemu_q35_dxe_core.efi
+!ifdef $(DXE_CORE_BINARY_OVERRIDE)
+  SECTION PE32 = $(DXE_CORE_BINARY_OVERRIDE)                                 # User defined override
 !else
-  SECTION PE32 = $(DXE_CORE_BINARY_PATH)/debug/qemu_q35_dxe_core.efi
+  !if $(TARGET) == RELEASE
+    SECTION PE32 = $(DXE_CORE_NUGET_FEED_PATH)/release/qemu_q35_dxe_core.efi # Nuget feed release build
+  !else
+    SECTION PE32 = $(DXE_CORE_NUGET_FEED_PATH)/debug/qemu_q35_dxe_core.efi   # Nuget feed debug build
+  !endif
 !endif
   SECTION UI = "DxeCore"
 }

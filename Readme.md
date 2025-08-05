@@ -203,7 +203,7 @@ One-time tools and packages required to set up Patina development.
 | Repo                                                                                   | Build Instructions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [patina-dxe-core-qemu](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu/) | `cd <patina-dxe-core-qemu>` <br><br> **Build dxe core efi binary:** <br>`cargo make q35`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| [patina-qemu](https://github.com/OpenDevicePartnership/patina-qemu/)                   | `cd <patina-qemu>` <br><br> **Setup and Activate Virtual Env:** <br> `python -m venv q35env` <br> 🪟 `q35env\Scripts\activate.bat` <br> 🐧 `source q35env/bin/activate` <br><br> **Build Perquisites:** <br>`pip install --upgrade -r pip-requirements.txt` <br><br> **Stuart Setup:** <br>`stuart_setup  -c Platforms/QemuQ35Pkg/PlatformBuild.py` <br> <br>**Stuart Update:** <br>`stuart_update -c Platforms/QemuQ35Pkg/PlatformBuild.py` <br>**Note:** Retry the command if failed with `Filename too long` error <br><br> **Stuart Build and Launch Uefi Shell:** <br>🪟 `stuart_build  -c Platforms/QemuQ35Pkg/PlatformBuild.py --flashrom BLD_*_DXE_CORE_BINARY_PATH="C:\r\patina-dxe-core-qemu\target\x86_64-unknown-uefi"` <br>🐧 `stuart_build  -c Platforms/QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom BLD_*_DXE_CORE_BINARY_PATH="$HOME/r/patina-dxe-core-qemu/target/x86_64-unknown-uefi"` <br><br> **Stuart Build and Launch OS(Optional):** <br>🪟 `stuart_build  -c Platforms/QemuQ35Pkg/PlatformBuild.py --flashrom BLD_*_DXE_CORE_BINARY_PATH="C:\r\patina-dxe-core-qemu\target\x86_64-unknown-uefi" PATH_TO_OS="C:\OS\Windows11.qcow2"` <br>🐧 `stuart_build  -c Platforms/QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom BLD_*_DXE_CORE_BINARY_PATH="$HOME/r/patina-dxe-core-qemu/target/x86_64-unknown-uefi" PATH_TO_OS="$HOME/OS/Windows11.qcow2"` |
+| [patina-qemu](https://github.com/OpenDevicePartnership/patina-qemu/)                   | `cd <patina-qemu>` <br><br> **Setup and Activate Virtual Env:** <br> `python -m venv q35env` <br> 🪟 `q35env\Scripts\activate.bat` <br> 🐧 `source q35env/bin/activate` <br><br> **Build Perquisites:** <br>`pip install --upgrade -r pip-requirements.txt` <br><br> **Stuart Setup:** <br>`stuart_setup  -c Platforms/QemuQ35Pkg/PlatformBuild.py` <br> <br>**Stuart Update:** <br>`stuart_update -c Platforms/QemuQ35Pkg/PlatformBuild.py` <br>**Note:** Retry the command if failed with `Filename too long` error <br><br> **Stuart Build and Launch Uefi Shell:** <br>🪟 `stuart_build  -c Platforms/QemuQ35Pkg/PlatformBuild.py --flashrom` <br>🐧 `stuart_build  -c Platforms/QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom` <br><br> **Stuart Build and Launch OS(Optional):** <br>🪟 `stuart_build  -c Platforms/QemuQ35Pkg/PlatformBuild.py --flashrom PATH_TO_OS="C:\OS\Windows11.qcow2"` <br>🐧 `stuart_build  -c Platforms/QemuQ35Pkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom PATH_TO_OS="$HOME/OS/Windows11.qcow2"` |
 | [patina](https://github.com/OpenDevicePartnership/patina/)                             | No need to build this(except for local development). Crates from this repo are consumed directly from [crates.io](https://crates.io) by `patina-dxe-core-qemu` repo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 **Note:** Please note that the paths `C:\r\patina-dxe-core-qemu` and `$HOME/r/patina-dxe-core-qemu`
@@ -219,7 +219,7 @@ depend on the location where the repositories are cloned.
 | Repo                                                                                   | Build Instructions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [patina-dxe-core-qemu](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu/) | `cd <patina-dxe-core-qemu>` <br><br> **Build dxe core efi binary:** <br>`cargo make sbsa`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| [patina-qemu](https://github.com/OpenDevicePartnership/patina-qemu/)                   | `cd <patina-qemu>` <br><br> **Setup and Activate Virtual Env:** <br> `python -m venv sbsaenv` <br> 🪟 `sbsaenv\Scripts\activate.bat` <br> 🐧 `source sbsaenv/bin/activate` <br><br> **Build Perquisites:** <br>`pip install --upgrade -r pip-requirements.txt` <br><br> **Stuart Setup:** <br>`stuart_setup  -c Platforms/QemuSbsaPkg/PlatformBuild.py` <br> <br>**Stuart Update:** <br>`stuart_update -c Platforms/QemuSbsaPkg/PlatformBuild.py` <br><br> **Stuart Build and Launch Uefi Shell:** <br>🪟 `stuart_build  -c Platforms/QemuSbsaPkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom BLD_*_DXE_CORE_BINARY_PATH="C:\r\patina-dxe-core-qemu\target\aarch64-unknown-uefi"` <br>🐧 `stuart_build  -c Platforms/QemuSbsaPkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom BLD_*_DXE_CORE_BINARY_PATH="$HOME/r/patina-dxe-core-qemu/target/aarch64-unknown-uefi"` <br><br> **Stuart Build and Launch OS(Optional):** <br>🪟 `stuart_build  -c Platforms/QemuSbsaPkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom BLD_*_DXE_CORE_BINARY_PATH="C:\r\patina-dxe-core-qemu\target\aarch64-unknown-uefi" PATH_TO_OS="C:\OS\Windows11.qcow2"` <br>🐧 `stuart_build  -c Platforms/QemuSbsaPkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom BLD_*_DXE_CORE_BINARY_PATH="$HOME/r/patina-dxe-core-qemu/target/aarch64-unknown-uefi" PATH_TO_OS="$HOME/OS/Windows11.qcow2"` |
+| [patina-qemu](https://github.com/OpenDevicePartnership/patina-qemu/)                   | `cd <patina-qemu>` <br><br> **Setup and Activate Virtual Env:** <br> `python -m venv sbsaenv` <br> 🪟 `sbsaenv\Scripts\activate.bat` <br> 🐧 `source sbsaenv/bin/activate` <br><br> **Build Perquisites:** <br>`pip install --upgrade -r pip-requirements.txt` <br><br> **Stuart Setup:** <br>`stuart_setup  -c Platforms/QemuSbsaPkg/PlatformBuild.py` <br> <br>**Stuart Update:** <br>`stuart_update -c Platforms/QemuSbsaPkg/PlatformBuild.py` <br><br> **Stuart Build and Launch Uefi Shell:** <br>🪟 `stuart_build  -c Platforms/QemuSbsaPkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom` <br>🐧 `stuart_build  -c Platforms/QemuSbsaPkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom` <br><br> **Stuart Build and Launch OS(Optional):** <br>🪟 `stuart_build  -c Platforms/QemuSbsaPkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom PATH_TO_OS="C:\OS\Windows11.qcow2"` <br>🐧 `stuart_build  -c Platforms/QemuSbsaPkg/PlatformBuild.py TOOL_CHAIN_TAG=CLANGPDB --flashrom PATH_TO_OS="$HOME/OS/Windows11.qcow2"` |
 | [patina](https://github.com/OpenDevicePartnership/patina/)                             | No need to build this(except for local development). Crates from this repo are consumed directly from [crates.io](https://crates.io) by `patina-dxe-core-qemu` repo                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 **Note:** Please note that the paths `C:\r\patina-dxe-core-qemu` and `$HOME/r/patina-dxe-core-qemu`
@@ -244,53 +244,54 @@ the `patina` repository and update the dependencies using appropriate local path
 
 ## Advanced Usage
 
-If you are using this repository often and to test Rust changes you are developing, you may want to consider the
-following advanced usage options.
+### Insert a new DXE Core Driver into the Build
 
-### Patching the Patina DXE Core Into a QEMU UEFI ROM
+This repository was originally created to demonstrate using Patina modules with an emphasis on ingesting the [Patina
+DXE Core](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu).  To modify the build to consume a new DXE
+Core binary instead of the pre-built .EFI file from the nuget feed, there are several methods supported.
 
-The fastest way to test changes to Rust code on QEMU is to use a Patina tool called "FW Patcher" that automates the
-process of building the Rust code and then patching it directly into an existing QEMU UEFI ROM image. This is
-significantly faster than building the entire platform firmware using the normal Stuart build process and is often
-completed within a few seconds.
+#### Update the Platform FDF File
 
-The `FW Patcher` tool is located in  the [patina-fw-patcher](https://github.com/OpenDevicePartnership/patina-fw-patcher)
-repository. Review the [readme](https://github.com/OpenDevicePartnership/patina-fw-patcher?tab=readme-ov-file#firmware-rust-patcher)
-in that repository for instructions on how to use it a s standalone script.
+The easiest way to inject a new Patina DXE Core driver is to update the platform FDF file (`/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf`
+or `/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf`) to point to the new binary driver file as typically done in UEFI builds
+that ingest pre-compiled binaries.  Modify the `SECTION` definition in the `DXE_CORE` file declaration as follows:
 
-To further simplify the process of using the tool in this repository, a script is provided in this repository called
-[build_and_run_rust_binary.py](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/build_and_run_rust_binary.py)
-that can be called to:
-
-1. Build your Rust changes
-2. Patch the resulting Patina DXE Core .efi binary into your local `patina-qemu` UEFI ROM image.
-3. Start QEMU with the patched UEFI ROM image.
-
-For more details about how to run the script, review the script help information locally:
-
-```bash
->python build_and_run_rust_binary.py --help
+```cmd
+FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
+  SECTION PE32 = "<new dxe core file path>"
+  SECTION UI = "DxeCore"
+}
 ```
 
-> Note: Because this is only patching an existing QEMU ROM image, if you make changes to the platform firmware code
-> (e.g. C code), you will need to run the full Stuart build process to build a new ROM image with those changes and
-> then use the `FW Patcher` tool to patch the Patina DXE Core .efi binary into that new ROM image.
->
-> Note: The `FW Patcher` tool can patch more than just the Patina DXE Core. If you need help patching other binaries,
-> please start a discussion in [patina-fw-patcher Discussions area](https://github.com/OpenDevicePartnership/patina-fw-patcher/discussions/categories/q-a.)
+This repository's platform FDF files do support defining a build variable to override the default binary without needing
+to modify the FDF file.  This can be set from the stuart_build command line by defining `BLD_*_DXE_CORE_BINARY_OVERRIDE':
 
-### Substituting a Local DXE Core Into the Stuart Build
-
-The Patina DXE Core binary used in the platform build of this repository is specified as an "external dependency" in
-`Platforms\QemuQ35Pkg\Binaries\dxe_core_ext_dep.yaml` (for `QemuQ35Pkg`). The binary can be overridden locally by
-in your build command by passing `BLD_*_DXE_CORE_BINARY_PATH` with the path to the directory containing the DXE Core
-.efi binary to the Stuart build command.
-
-Example:
-
-```bash
->stuart_setup -c Platforms\QemuQ35Pkg\PlatformBuild.py --flashonly BLD_*_DXE_CORE_BINARY_PATH=C:\src\patina-dxe-core-qemu\target\x86_64-unknown-uefi\debug\patina_q35_dxe_core_.efi
+```cmd
+stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py --flashonly BLD_*_DXE_CORE_BINARY_OVERRIDE="<new dxe core file path>"
 ```
+
+#### Patching a Pre-Built UEFI Firmware Device Image
+
+If multiple iterations of the DXE core are to be tested, the fastest way to integrate each to a bootable FD image is
+using the [Patina FW Patcher](https://github.com/OpenDevicePartnership/patina-fw-patcher). This tool will open an
+existing UEFI FD binary, find and replace the current DXE Core driver with a new file, and launch QEMU with the patched
+ROM image.
+
+A [build_and_run_rust_binary.py](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/build_and_run_rust_binary.py)
+script is provided in the root of this repository to perform all steps necessary to compile the Patina DXE core driver,
+call the patcher, and start QEMU.  For more details, run it with the `--help` command line parameter:
+
+```cmd
+python build_and_run_rust_binary.py --help
+```
+
+- Note 1: This tool is not a general FW patcher to be used on any UEFI FD image.  It relies on specific features
+  implemented in this UEFI build.
+- Note 2: Because this tool is patching an existing QEMU ROM image, only changes to the Rust DXE Core code will be
+  merged.  Any changes to the C code will require running a full stuart_build process to build a new ROM image.
+- Note 3: The tool can be enhanced to patch more than the Patina DXE Core.  If there is interest in new features,
+  please start a discussion in the tool's repo [discussions](https://github.com/OpenDevicePartnership/patina-fw-patcher/discussions/categories/q-a)
+  area.
 
 ### Using a Custom QEMU Installation
 
@@ -298,18 +299,17 @@ By default, this repository automates the process of choosing a known working QE
 into the workspace for you. If you want to use a custom QEMU installation, you can do so by passing the path to the
 Stuart build command with the`QEMU_PATH` argument. For example:
 
-```bash
->stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py --flashonly QEMU_PATH=C:\path\to\your\qemu\bin\qemu-system-x86_64.exe
+```cmd
+stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py --flashonly QEMU_PATH="<path to qemu executable>"
 ```
 
 You can also specify the directory where the QEMU binary is located by passing the `QEMU_DIR` argument. For example:
 
-```bash
->stuart_build -c Platforms\QemuQ35Pkg\PlatformBuild.py --flashonly QEMU_DIR=C:\path\to\your\qemu\bin
+```cmd
+stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py --flashonly QEMU_DIR="<path to qemu bin directory>"
 ```
 
-## Self Certification Tests
+### Self Certification Tests
 
-Refer to [`docs/SelfCertificationTest.md`](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/docs/SelfCertifcationTest.md)
-for documentation on how to configure the platform to run [Self Certification Tests (SCTs)](https://github.com/tianocore/tianocore.github.io/wiki/UEFI-SCT)
-and how to run them.
+Refer to the [Self Certification Test](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/docs/SelfCertifcationTest.md)
+documentation for information on how to configure and run the [Self Certification Tests (SCTs)](https://github.com/tianocore/tianocore.github.io/wiki/UEFI-SCT).
