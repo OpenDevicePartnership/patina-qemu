@@ -1148,6 +1148,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
 
   QemuQ35Pkg/8259InterruptControllerDxe/8259.inf
   UefiCpuPkg/CpuIo2Dxe/CpuIo2Dxe.inf
+  UefiCpuPkg/MpDxe/MpDxe.inf
   UefiCpuPkg/CpuDxe/CpuDxe.inf {
     <LibraryClasses>
     NULL|MsCorePkg/Library/MemoryProtectionExceptionHandlerLib/MemoryProtectionExceptionHandlerLib.inf
