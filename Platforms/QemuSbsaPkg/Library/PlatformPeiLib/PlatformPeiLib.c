@@ -53,7 +53,5 @@ PlatformPeim (
 
   ASSERT_EFI_ERROR (Status);
 
-  BuildFvHob (PcdGet64 (PcdFvBaseAddress), PcdGet32 (PcdFvSize));
-
   return EFI_SUCCESS;
 }
