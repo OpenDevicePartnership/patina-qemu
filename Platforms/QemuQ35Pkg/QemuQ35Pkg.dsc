@@ -327,11 +327,7 @@
 [LibraryClasses.IA32, LibraryClasses.X64]
   XenHypercallLib|QemuQ35Pkg/Library/XenHypercallLib/XenHypercallLib.inf
 
-!if $(PERF_TRACE_ENABLE) == TRUE
-  PerformanceLib|MdeModulePkg/Library/PeiPerformanceLib/PeiPerformanceLib.inf
-!endif
-
-[LibraryClasses.common.PEIM]
+[LibraryClasses.common.PEI_CORE, LibraryClasses.common.PEIM]
 !if $(PERF_TRACE_ENABLE) == TRUE
   PerformanceLib|MdeModulePkg/Library/PeiPerformanceLib/PeiPerformanceLib.inf
 !endif
