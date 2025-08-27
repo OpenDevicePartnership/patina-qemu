@@ -49,7 +49,7 @@ def _parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument(
         "--crate-patch",
-        action='append',
+        action="append",
         type=Path,
         help="Additional repositories to patch the Patina DXE Core Repo with.",
         default=[],
@@ -79,7 +79,7 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--fw-patch-repo",
         type=Path,
-        default=Path("C:/src/patina-fw-patcher"),
+        default=Path("../patina-fw-patcher"),
         help="Path to the firmware patch repository.",
     )
     parser.add_argument(
@@ -110,7 +110,7 @@ def _parse_arguments() -> argparse.Namespace:
         type=str,
         default="VS2022",
         help="Toolchain to use for building. "
-        "Q35 default: VS2022. SBSA default: CLANGPDB.",
+        "Q35 default: VS2022. SBSA default: GCC5.",
     )
     parser.add_argument(
         "--os",
@@ -135,7 +135,7 @@ def _parse_arguments() -> argparse.Namespace:
 
     args = parser.parse_args()
     if args.platform == "SBSA" and args.toolchain == "VS2022":
-        args.toolchain = "CLANGPDB"
+        args.toolchain = "GCC5"
 
     if args.os:
         file_extension = args.os.suffix.lower().replace('"', "")
@@ -351,21 +351,26 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         ]
         build_cmd.extend([str(p) for p in args.crate_patch])
         if args.qemu_path:
-            qemu_exec = args.qemu_path, "qemu-system-aarch64"
+            qemu_exec = args.qemu_path
+            qemu_dir = str(Path(qemu_exec).parent / "share")
         else:
-            qemu_exec = str(
-                SCRIPT_DIR
-                / "QemuPkg"
-                / "Binaries"
-                / "qemu-win_extdep"
-                / "qemu-system-aarch64"
-            )
+            qemu_exec = "/usr/local/bin/qemu-system-aarch64"
+            qemu_dir = "/usr/local/share/qemu"
+
+        if not Path(qemu_exec).is_file():
+            raise FileNotFoundError(f"QEMU executable not found at: {qemu_exec}")
+
+        # This is an attempt to minimize the number of script parameters and should cover most setups. If this turns
+        # out to be a problem, we can always add a QEMU_DIR script parameter.
+        if not Path(qemu_dir).is_dir():
+            qemu_dir = str(Path(qemu_exec).parent)
+
         qemu_cmd = [
             qemu_exec,
             "-net",
             "none",
             "-L",
-            str(SCRIPT_DIR / "QemuPkg" / "Binaries" / "qemu-win_extdep" / "share"),
+            qemu_dir,
             "-machine",
             "sbsa-ref",
             "-cpu",
