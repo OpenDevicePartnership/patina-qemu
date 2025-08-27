@@ -67,7 +67,12 @@ class CommonPlatform():
     @staticmethod
     def add_common_command_line_options(parserObj) -> None:
         """Add common command line options to the parser object."""
-        parserObj.add_argument("-r", "--rust", dest="build_rust", action="store_true", help="Builds this platform with additional Rust components (And some C components removed).")
+        parserObj.add_argument(
+            "-r", "--rust",
+            dest="build_rust",
+            action="store_true",
+            help="Builds this platform with additional Rust EFI modules (this is independent of the Patina DXE Core). Default: False."
+        )
 
     @staticmethod
     def get_common_command_line_options(settings, args) -> None:
