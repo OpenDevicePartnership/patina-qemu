@@ -28,8 +28,8 @@ def _parse_arguments() -> argparse.Namespace:
     Parses command-line arguments for building and running Rust DXE Core.
 
     Args:
-        --patina-dxe-core-repo (Path): Path to the QEMU Rust bin repository. Default is "C:/src/patina-dxe-core-qemu".
-        --fw-patch-repo (Path): Path to the firmware patch repository. Default is "C:/src/patina-fw-patcher".
+        --patina-dxe-core-repo (Path): Path to the QEMU Rust bin repository. Default is "../patina-dxe-core-qemu".
+        --fw-patch-repo (Path): Path to the firmware patch repository. Default is "../patina-fw-patcher".
         --build-target (str): Build target, either DEBUG or RELEASE. Default is "DEBUG".
         --platform (str): QEMU platform such as Q35. Default is "Q35".
         --toolchain (str): Toolchain to use for building. Default is "VS2022".
@@ -44,7 +44,7 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--patina-dxe-core-repo",
         type=Path,
-        default=Path("C:/src/patina-dxe-core-qemu"),
+        default=Path("../patina-dxe-core-qemu"),
         help="Path to the QEMU Rust bin repository.",
     )
     parser.add_argument(
