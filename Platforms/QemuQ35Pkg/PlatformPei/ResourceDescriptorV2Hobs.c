@@ -128,13 +128,11 @@ PublishV2MemoryHobs (
   VOID
   )
 {
-  EFI_PHYSICAL_ADDRESS  End;
   UINT64                Length;
   EFI_PEI_HOB_POINTERS  Hob;
 
   Hob.Raw = GetHobList ();
   while ((Hob.Raw = GetNextHob (EFI_HOB_TYPE_RESOURCE_DESCRIPTOR, Hob.Raw)) != NULL) {
-    End    = Hob.ResourceDescriptor->PhysicalStart + Hob.ResourceDescriptor->ResourceLength - 1;
     Length = Hob.ResourceDescriptor->ResourceLength;
 
     if (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_SYSTEM_MEMORY) {
