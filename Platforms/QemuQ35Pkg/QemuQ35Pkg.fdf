@@ -162,11 +162,11 @@ gUefiQemuQ35PkgTokenSpaceGuid.PcdSecPeiTemporaryRamBase|gUefiQemuQ35PkgTokenSpac
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvSize
 FV = PEIFV
 
-0x100000|0xA00000
+0x100000|0x9E0000
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvSize
 FV = DXEFV
 
-0xB00000|0x200000
+0xAE0000|0x220000
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvSize
 FV = RUST_DXE_CORE
 
