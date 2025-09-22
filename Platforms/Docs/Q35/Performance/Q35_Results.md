@@ -2,6 +2,9 @@
 
 A subset of performance measurements on Q35 are provided below.
 
+Note that timing on QEMU is simulated and absolute values may not be correct;
+however the timing of events can still be compared relative to each other.
+
 | Type        | GUID                                                                       | GUID Value                                   | Description                                                                                                            | Start Time (ms) | Length (ms)    |
 | ----------- | -------------------------------------------------------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------- | -------------- |
 | Entrypoint  | 86D70125-BAA3-4296-A62F-602BEBBB9081                                       | DxeIpl                                       | Entrypoint measurement for module DxeIpl                                                                               | 1080.288416     | 0.768254       |
