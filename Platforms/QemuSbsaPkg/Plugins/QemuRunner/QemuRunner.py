@@ -53,7 +53,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             return
 
         tpm_cmd = "swtpm"
-        tpm_args = f"socket --tpmstate dir={"/".join(tpm_path.rsplit("/", 1)[:-1])} --ctrl type=unixio,path={tpm_path} --tpm2 --log level=20"
+        tpm_args = f"socket --tpmstate dir={'/'.join(tpm_path.rsplit('/', 1)[:-1])} --ctrl type=unixio,path={tpm_path} --tpm2 --log level=20"
 
         # Start the TPM emulator in a separate thread
         ret = utility_functions.RunCmd(tpm_cmd, tpm_args)
@@ -149,7 +149,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
 
         args += f" -smbios type=0,vendor=\"Patina\",version=\"patina-sbsa-{repo_version}\",date={creation_date},uefi=on"
         args += f" -smbios type=1,manufacturer=OpenDevicePartnership,product=\"QEMU SBSA\",family=QEMU,version=\"{'.'.join(qemu_version)}\",serial=42-42-42-42"
-        args += f" -smbios type=3,manufacturer=OpenDevicePartnership,serial=42-42-42-42,asset=SBSA,sku=SBSA"
+        args += " -smbios type=3,manufacturer=OpenDevicePartnership,serial=42-42-42-42,asset=SBSA,sku=SBSA"
 
         if (env.GetValue("QEMU_HEADLESS").upper() == "TRUE"):
             args += " -display none"  # no graphics
