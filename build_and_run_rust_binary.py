@@ -243,8 +243,12 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "-C",
             str(args.patina_dxe_core_repo),
             "make",
-            "q35",
         ]
+
+        if args.build_target.upper() == "RELEASE":
+            build_cmd.append("q35-release")
+        else:
+            build_cmd.append("q35")
 
         for p in args.crate_patch:
             build_cmd.append("--crate-patch ")
@@ -359,8 +363,12 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "-C",
             str(args.patina_dxe_core_repo),
             "make",
-            "sbsa",
         ]
+
+        if args.build_target.upper() == "RELEASE":
+            build_cmd.append("sbsa-release")
+        else:
+            build_cmd.append("sbsa")
 
         for p in args.crate_patch:
             build_cmd.append("--crate-patch ")
@@ -503,12 +511,7 @@ def _build_rust_dxe_core(settings: Dict[str, Path]) -> None:
         env["RUSTC_BOOTSTRAP"] = "1"
 
     try:
-        if settings["build_target"] == "RELEASE":
-            subprocess.run(
-                settings["build_cmd"] + ["--profile", "release"], check=True, env=env
-            )
-        else:
-            subprocess.run(settings["build_cmd"], check=True, env=env)
+        subprocess.run(settings["build_cmd"], check=True, env=env)
     except subprocess.CalledProcessError as e:
         logging.error(f"Build failed with error #{e.returncode}.")
         sys.exit(e.returncode)
