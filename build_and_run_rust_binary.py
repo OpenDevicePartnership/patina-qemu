@@ -237,10 +237,6 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
                 / "qemu_q35_dxe_core.efi"
             )
 
-        features = None
-        if args.features:
-            features = "--features " + str(args.features)
-
         build_cmd = [
             "cargo",
             "-Zunstable-options",
@@ -249,7 +245,11 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "make",
             "q35",
         ]
-        build_cmd.extend(["--crate-patch " + str(p) for p in args.crate_patch])
+
+        for p in args.crate_patch:
+            build_cmd.append("--crate-patch ")
+            build_cmd.append(str(p))
+
         # if a serial port wasn't specified, use the default port so a debugger can be retroactively attached
         if args.serial_port is None:
             args.serial_port = 50001
@@ -361,7 +361,11 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "make",
             "sbsa",
         ]
-        build_cmd.extend([str(p) for p in args.crate_patch])
+
+        for p in args.crate_patch:
+            build_cmd.append("--crate-patch ")
+            build_cmd.append(str(p))
+
         if args.qemu_path:
             qemu_exec = args.qemu_path
             qemu_dir = str(Path(qemu_exec).parent / "share")
@@ -436,8 +440,9 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
     else:
         raise ValueError(f"Unsupported platform: {args.platform}")
 
-    if features is not None:
-        build_cmd.extend([str(features)])
+    if args.features is not None:
+        build_cmd.append("--features")
+        build_cmd.append(str(args.features))
 
     return {
         "build_cmd": build_cmd,
