@@ -1,9 +1,12 @@
 {
     "scope": "qemu",
-    "type": "nuget",
+    "type": "web",
     "name": "DXECORE.QEMU",
-    "source": "https://pkgs.dev.azure.com/patina-fw/artifacts/_packaging/qemu-dxe-core/nuget/v3/index.json",
-    "version": "2.0.0",
+    "source": "https://github.com/OpenDevicePartnership/patina-dxe-core-qemu/releases/download/v2.0.1/patina_dxe_core_qemu.zip",
+    "version": "2.0.1",
+    "sha256": "3536096ac77c6c2a62048b2bfc2788a20eb4883d54f8de51778e3e6812b5ebb0",
+    "internal_path": "/",
+    "compression_type": "zip",
     "flags": ["set_build_var"],
     "var_name": "BLD_*_DXE_CORE_NUGET_FEED_PATH"
 }
