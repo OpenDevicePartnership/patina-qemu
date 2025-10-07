@@ -33,6 +33,7 @@ def _parse_arguments() -> argparse.Namespace:
         --build-target (str): Build target, either DEBUG or RELEASE. Default is "DEBUG".
         --platform (str): QEMU platform such as Q35. Default is "Q35".
         --toolchain (str): Toolchain to use for building. Default is "VS2022".
+        --features (str): Feature set to pass to patina-dxe-core-qemu build
 
     Returns:
         argparse.Namespace: Parsed command-line arguments.
@@ -132,6 +133,13 @@ def _parse_arguments() -> argparse.Namespace:
         default=None,
         help="Port to use for GDB communication.",
     )
+    parser.add_argument(
+        "--features",
+        "-f",
+        type=str,
+        default=None,
+        help="Feature set for patina-dxe-core-qemu build"
+    )
 
     args = parser.parse_args()
     if args.platform == "SBSA" and args.toolchain == "VS2022":
@@ -228,6 +236,10 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
                 / ("release" if args.build_target.lower() == "release" else "debug")
                 / "qemu_q35_dxe_core.efi"
             )
+
+        features = None
+        if args.features:
+            features = "--features " + str(args.features)
 
         build_cmd = [
             "cargo",
@@ -423,6 +435,9 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         ]
     else:
         raise ValueError(f"Unsupported platform: {args.platform}")
+
+    if features is not None:
+        build_cmd.extend([str(features)])
 
     return {
         "build_cmd": build_cmd,
