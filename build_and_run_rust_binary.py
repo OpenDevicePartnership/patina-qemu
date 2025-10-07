@@ -249,7 +249,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "make",
             "q35",
         ]
-        build_cmd.extend([str(p) for p in args.crate_patch])
+        build_cmd.extend(["--crate-patch " + str(p) for p in args.crate_patch])
         # if a serial port wasn't specified, use the default port so a debugger can be retroactively attached
         if args.serial_port is None:
             args.serial_port = 50001
