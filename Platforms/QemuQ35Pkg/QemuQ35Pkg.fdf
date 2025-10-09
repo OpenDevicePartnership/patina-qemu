@@ -319,8 +319,7 @@ INF  QemuQ35Pkg/RustFfiImageTestDxe/RustFfiImageTestDxe.inf
 INF  MdeModulePkg/Universal/ReportStatusCodeRouter/RuntimeDxe/ReportStatusCodeRouterRuntimeDxe.inf
 INF  MdeModulePkg/Universal/StatusCodeHandler/RuntimeDxe/StatusCodeHandlerRuntimeDxe.inf
 
-# Equivalent functionality is in DxeRust
-# INF  MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
+INF  MdeModulePkg/Core/RuntimeDxe/RuntimeDxe.inf
 INF  MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
 
 INF  QemuQ35Pkg/8259InterruptControllerDxe/8259.inf

@@ -33,6 +33,7 @@ def _parse_arguments() -> argparse.Namespace:
         --build-target (str): Build target, either DEBUG or RELEASE. Default is "DEBUG".
         --platform (str): QEMU platform such as Q35. Default is "Q35".
         --toolchain (str): Toolchain to use for building. Default is "VS2022".
+        --features (str): Feature set to pass to patina-dxe-core-qemu build
 
     Returns:
         argparse.Namespace: Parsed command-line arguments.
@@ -131,6 +132,13 @@ def _parse_arguments() -> argparse.Namespace:
         type=int,
         default=None,
         help="Port to use for GDB communication.",
+    )
+    parser.add_argument(
+        "--features",
+        "-f",
+        type=str,
+        default=None,
+        help="Feature set for patina-dxe-core-qemu build"
     )
 
     args = parser.parse_args()
@@ -235,9 +243,17 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "-C",
             str(args.patina_dxe_core_repo),
             "make",
-            "q35",
         ]
-        build_cmd.extend([str(p) for p in args.crate_patch])
+
+        if args.build_target.upper() == "RELEASE":
+            build_cmd.append("q35-release")
+        else:
+            build_cmd.append("q35")
+
+        for p in args.crate_patch:
+            build_cmd.append("--crate-patch ")
+            build_cmd.append(str(p))
+
         # if a serial port wasn't specified, use the default port so a debugger can be retroactively attached
         if args.serial_port is None:
             args.serial_port = 50001
@@ -347,9 +363,17 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "-C",
             str(args.patina_dxe_core_repo),
             "make",
-            "sbsa",
         ]
-        build_cmd.extend([str(p) for p in args.crate_patch])
+
+        if args.build_target.upper() == "RELEASE":
+            build_cmd.append("sbsa-release")
+        else:
+            build_cmd.append("sbsa")
+
+        for p in args.crate_patch:
+            build_cmd.append("--crate-patch ")
+            build_cmd.append(str(p))
+
         if args.qemu_path:
             qemu_exec = args.qemu_path
             qemu_dir = str(Path(qemu_exec).parent / "share")
@@ -424,6 +448,10 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
     else:
         raise ValueError(f"Unsupported platform: {args.platform}")
 
+    if args.features is not None:
+        build_cmd.append("--features")
+        build_cmd.append(str(args.features))
+
     return {
         "build_cmd": build_cmd,
         "build_target": args.build_target,
@@ -483,12 +511,7 @@ def _build_rust_dxe_core(settings: Dict[str, Path]) -> None:
         env["RUSTC_BOOTSTRAP"] = "1"
 
     try:
-        if settings["build_target"] == "RELEASE":
-            subprocess.run(
-                settings["build_cmd"] + ["--profile", "release"], check=True, env=env
-            )
-        else:
-            subprocess.run(settings["build_cmd"], check=True, env=env)
+        subprocess.run(settings["build_cmd"], check=True, env=env)
     except subprocess.CalledProcessError as e:
         logging.error(f"Build failed with error #{e.returncode}.")
         sys.exit(e.returncode)
