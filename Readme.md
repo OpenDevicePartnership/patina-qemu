@@ -18,7 +18,7 @@ in a UEFI platform. Depending on your background, you may find the following ent
 - All:
   - [Patina Overview](https://github.com/OpenDevicePartnership/patina/blob/main/docs/src/patina.md)
 - Interested in the Patina DXE Core?
-  - [High-Level Differences of Patina DXE Core vs EDK II DXE Core](https://github.com/OpenDevicePartnership/patina/blob/main/docs/src/integrate/rust_vs_edk2.md)
+  - [Key Requirements Versus EDK II](https://github.com/OpenDevicePartnership/patina/blob/main/docs/src/integrate/patina_dxe_core_requirements.md)
 - Developers:
   - [Developer Introduction](https://github.com/OpenDevicePartnership/patina/blob/main/docs/src/introduction.md)
   - [Patina Code Organization](https://github.com/OpenDevicePartnership/patina/blob/main/docs/src/dev/code_organization.md)
