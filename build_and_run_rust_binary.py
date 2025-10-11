@@ -260,7 +260,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         if args.qemu_path:
             qemu_exec = args.qemu_path
-        else:
+        elif os.name == "nt":
             qemu_exec = str(
                 SCRIPT_DIR
                 / "QemuPkg"
@@ -268,6 +268,9 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
                 / "qemu-win_extdep"
                 / "qemu-system-x86_64"
             )
+        else:
+            qemu_exec = "/usr/local/bin/qemu-system-x86_64"
+
         qemu_cmd = [
             qemu_exec,
             "-debugcon",
