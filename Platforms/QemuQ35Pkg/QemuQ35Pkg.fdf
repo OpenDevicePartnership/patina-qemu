@@ -162,11 +162,11 @@ gUefiQemuQ35PkgTokenSpaceGuid.PcdSecPeiTemporaryRamBase|gUefiQemuQ35PkgTokenSpac
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvSize
 FV = PEIFV
 
-0x100000|0x9E0000
+0x100000|0x9B0000
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvSize
 FV = DXEFV
 
-0xAE0000|0x220000
+0xAB0000|0x250000
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvSize
 FV = RUST_DXE_CORE
 
@@ -380,8 +380,9 @@ INF  MdeModulePkg/Universal/MemoryTest/NullMemoryTestDxe/NullMemoryTestDxe.inf
 INF  QemuQ35Pkg/SioBusDxe/SioBusDxe.inf
 INF  MdeModulePkg/Bus/Isa/Ps2KeyboardDxe/Ps2KeyboardDxe.inf
 
-INF  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
-INF  QemuQ35Pkg/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
+# SMBIOS drivers disabled - using Rust SMBIOS implementation instead
+#INF  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
+#INF  QemuQ35Pkg/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
 
 INF  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
 INF  QemuQ35Pkg/AcpiPlatformDxe/AcpiPlatformDxe.inf

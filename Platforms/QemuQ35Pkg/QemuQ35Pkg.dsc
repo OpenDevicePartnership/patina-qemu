@@ -1237,13 +1237,13 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   MdeModulePkg/Bus/Isa/Ps2KeyboardDxe/Ps2KeyboardDxe.inf
 
   #
-  # SMBIOS Support
+  # SMBIOS Support - DISABLED to use Rust SMBIOS implementation
   #
-  MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf {
-    <LibraryClasses>
-      NULL|QemuQ35Pkg/Library/SmbiosVersionLib/DetectSmbiosVersionLib.inf
-  }
-  QemuQ35Pkg/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
+  # MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf {
+  #   <LibraryClasses>
+  #     NULL|QemuQ35Pkg/Library/SmbiosVersionLib/DetectSmbiosVersionLib.inf
+  # }
+  # QemuQ35Pkg/SmbiosPlatformDxe/SmbiosPlatformDxe.inf
 
   #
   # ACPI Support
