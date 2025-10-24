@@ -144,10 +144,10 @@ FV = SECFV
 
 [FD.MEMFD]
 BaseAddress   = $(MEMFD_BASE_ADDRESS)
-Size          = 0xD00000
+Size          = 0xE00000
 ErasePolarity = 1
 BlockSize     = 0x10000
-NumBlocks     = 0xD0
+NumBlocks     = 0xE0
 
 0x000000|0x006000
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfSecPageTablesBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfSecPageTablesSize
@@ -162,11 +162,11 @@ gUefiQemuQ35PkgTokenSpaceGuid.PcdSecPeiTemporaryRamBase|gUefiQemuQ35PkgTokenSpac
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvSize
 FV = PEIFV
 
-0x100000|0x9E0000
+0x100000|0xAE0000
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfDxeMemFvSize
 FV = DXEFV
 
-0xAE0000|0x220000
+0xBE0000|0x220000
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfRustDxeMemFvSize
 FV = RUST_DXE_CORE
 
@@ -826,13 +826,9 @@ FILE FV_IMAGE = FB5947AF-7CB5-413E-8C1A-38167FCBE3EA {
 
 [Rule.Common.UEFI_APPLICATION]
   FILE APPLICATION = $(NAMED_GUID) {
-    COMPRESS PI_STD {
-      GUIDED {
-        PE32     PE32                    $(INF_OUTPUT)/$(MODULE_NAME).efi
-        UI       STRING="$(MODULE_NAME)" Optional
-        VERSION  STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
-      }
-    }
+    PE32     PE32                    $(INF_OUTPUT)/$(MODULE_NAME).efi
+    UI       STRING="$(MODULE_NAME)" Optional
+    VERSION  STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
   }
 
 [Rule.Common.UEFI_APPLICATION.BINARY]
