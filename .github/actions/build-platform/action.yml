@@ -163,5 +163,6 @@ runs:
     if: ${{ always() && steps.tempdir.outputs.path }}
     uses: actions/upload-artifact@v4
     with:
-      name: build-logs-${{ inputs.platform-name }}-${{ inputs.target }}-${{ inputs.tool-chain }}
+      # Specify architecture if it is not empty
+      name: build-logs-${{ inputs.platform-name }}-${{ inputs.target }}-${{ inputs.tool-chain }}${{ if inputs.architecture != '' }}-${{ inputs.architecture }}${{ end }}
       path: ${{ steps.tempdir.outputs.path }}
