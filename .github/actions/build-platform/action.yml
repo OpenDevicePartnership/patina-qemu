@@ -139,7 +139,8 @@ runs:
     if: ${{ inputs.flash != 'false' }}
     shell: bash
     run: |
-      stuart_build -c ${{ inputs.platform-config }} --FLASHONLY ${{ steps.stuart.outputs.arguments }}
+      stuart_build -c ${{ inputs.platform-config }} --FLASHONLY ${{ steps.stuart.outputs.arguments }} \
+      $([[ -n "${{ inputs.architecture }}" ]] && echo " -a ${{ inputs.architecture }}")
 
   # Optional: Move the run logs to the temporary directory if it was created
   - name: Move run log
