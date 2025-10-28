@@ -43,8 +43,11 @@
 #
 ################################################################################
 [BuildOptions]
-  GCC:RELEASE_*_*_CC_FLAGS             = -DMDEPKG_NDEBUG
-  MSFT:RELEASE_*_*_CC_FLAGS            = /D MDEPKG_NDEBUG
+  !if $(PERF_TRACE_ENABLE) == TRUE
+    DEFINE PERFORMANCE_OPTIONS = -DPERF_TRACE_ENABLE=1
+  !else
+    DEFINE PERFORMANCE_OPTIONS =
+  !endif
 
   # Exception tables are required for stack walks in the debugger.
   MSFT:*_*_X64_GENFW_FLAGS  = --keepexceptiontable
