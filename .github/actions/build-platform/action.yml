@@ -165,5 +165,5 @@ runs:
     uses: actions/upload-artifact@v4
     with:
       # Specify architecture if it is not empty
-      name: build-logs-${{ inputs.platform-name }}-${{ inputs.target }}${{ inputs.architecture && format('-{0}', inputs.architecture) || '' }}
+      name: build-logs-${{ inputs.platform-name }}-${{ inputs.target }}-${{ inputs.tool-chain }}${{ inputs.architecture && format('-{0}', inputs.architecture) || '' }}
       path: ${{ steps.tempdir.outputs.path }}
