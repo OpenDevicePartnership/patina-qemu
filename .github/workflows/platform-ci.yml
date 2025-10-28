@@ -131,7 +131,7 @@ jobs:
         run: pip install -r pip-requirements.txt
       
       # Run the build-platform action, which calls stuart_setup, stuart_update, and stuart_build
-      - name: Build and Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain}}
+      - name: Build and Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain}} ${{ matrix.architecture || '' }}
         uses: ./.github/actions/build-platform
         with:
           platform-config: ${{ matrix.config }}
