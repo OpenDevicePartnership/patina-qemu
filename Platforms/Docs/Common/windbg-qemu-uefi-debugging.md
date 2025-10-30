@@ -56,26 +56,19 @@ The patina-qemu UEFI platform build, by default, uses a pre-compiled DXE core bi
 binaries have debug disabled, the following steps need to be performed to enable debug and override the default.
 
 Note: **The following steps are for the Q35 build**, but the same can be done for the SBSA build.  They also use the
-build command line parameter BLD_*_DXE_CORE_BINARY_PATH to override the current DXE core with the new file.  For
+build command line parameter BLD_*_DXE_CORE_BINARY_OVERRIDE to override the current DXE core with the new file.  For
 other options such as patching a UEFI FD binary, see the patina-qemu readme [advanced usage](https://github.com/OpenDevicePartnership/patina-qemu?tab=readme-ov-file#advanced-usage)
 section.
 
 - Clone the Patina DXE Core QEMU repository into a new directory
-- Open the `/bin/q35_dxe_core.rs` file and locate the static `DEBUGGER` declaration
-- Change the Patina Debugger `.with_force_enable()` module's input from `false` to `true`
-
-  ```rust
-  // Before change
-  patina_debugger::PatinaDebugger::new(Uart16550::Io { base: 0x3F8 }).with_force_enable(false)
-  // After change
-  patina_debugger::PatinaDebugger::new(Uart16550::Io { base: 0x3F8 }).with_force_enable(true)
-  ```
-
-- Build a new Patina DXE Core EFI driver.  The output file will be: `/target/x86_64-unknown-uefi/debug/qemu_q35_dxe_core.efi`
-
-  ```cmd
-  cargo make q35
-  ```
+- Build it
+  - Debug build(debugger is included): `cargo make q35`
+  - Release build: `cargo make q35-release --features build_debugger`
+- The output file will be: `/target/x86_64-unknown-uefi/debug/qemu_q35_dxe_core.efi`
+  > The output `.efi` file contains only the `.pdb` file name, not the full
+  > path. Therefore, when using WinDbg, make sure to set the path to the
+  > directory containing the `.pdb` file appropriately (as described in
+  > [Software Debugging](#instance-1-software-debugging)).
 
 - Return to this repository's directory and rebuild the patina-qemu UEFI using the BLD_*_DXE_CORE_BINARY_OVERRIDE command
   line parameter to indicate an override DXE core driver should be used and its location.
@@ -87,7 +80,7 @@ section.
 - The stuart_build command will also launch QEMU and wait for the initial break in:
 
   ![QEMU Hardware and Software Debugging ports](images/qemu_sw_hw_debugging_serial_ports.png)
-  
+
   ![QEMU Initial break in](images/qemu_initial_break_in.png)
 
 ---
@@ -106,6 +99,10 @@ section.
    .sympath+ <path to pdb dir> ; usually <cloned dir>\target\x86_64-unknown-uefi\debug\deps
    .srcpath+ <path to src dir> ; usually <cloned dir>\src
    ```
+
+    > You can avoid setting this for every debug session by configuring the
+    > `_NT_SYMBOL_PATH` environment variable, as shown below
+    > `C:\repos\patina-dxe-core-qemu\target\x86_64-unknown-uefi\debug;C:\repos\patina-dxe-core-qemu\target\aarch64-unknown-uefi\debug;srv*c:\symbolspri*https://symweb.azurefd.net;srv*C:\Symbols*https://msdl.microsoft.com/download/symbols`
 
 3. Initialize the UEFI debugger extension:
 
