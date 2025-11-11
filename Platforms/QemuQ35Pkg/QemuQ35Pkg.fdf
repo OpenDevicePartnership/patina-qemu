@@ -155,10 +155,10 @@ gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfSecPageTablesBase|gUefiQemuQ35PkgTokenSpace
 0x006000|0x001000
 gEfiMdePkgTokenSpaceGuid.PcdGuidedExtractHandlerTableAddress|gUefiQemuQ35PkgTokenSpaceGuid.PcdGuidedExtractHandlerTableSize
 
-0x010000|0x010000
+0x020000|0x020000
 gUefiQemuQ35PkgTokenSpaceGuid.PcdSecPeiTemporaryRamBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdSecPeiTemporaryRamSize
 
-0x020000|0x0E0000
+0x040000|0x0C0000
 gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvBase|gUefiQemuQ35PkgTokenSpaceGuid.PcdOvmfPeiMemFvSize
 FV = PEIFV
 
