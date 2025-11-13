@@ -41,3 +41,7 @@
 [submodule "Features/FFA"]
 	path = Features/FFA
 	url = https://github.com/microsoft/mu_feature_ffa.git
+[submodule "Common/PATINA_EDK2"]
+	path = Common/PATINA_EDK2
+	url = https://github.com/OpenDevicePartnership/patina-edk2.git
+	branch = main

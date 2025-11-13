@@ -575,7 +575,7 @@
   AdvancedLoggerLib|AdvLoggerPkg/Library/AdvancedLoggerLib/Pei/AdvancedLoggerLib.inf
 !ifndef $(DEBUG_ON_SERIAL_PORT)
   DebugLib|AdvLoggerPkg/Library/PeiDebugLibAdvancedLogger/PeiDebugLibAdvancedLogger.inf
-!endif 
+!endif
 
 [LibraryClasses.common.DXE_DRIVER, LibraryClasses.common.UEFI_DRIVER, LibraryClasses.common.UEFI_APPLICATION]
   AdvancedLoggerLib|AdvLoggerPkg/Library/AdvancedLoggerLib/Dxe/AdvancedLoggerLib.inf
@@ -1024,7 +1024,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
 
   QemuQ35Pkg/8259InterruptControllerDxe/8259.inf
   UefiCpuPkg/CpuIo2Dxe/CpuIo2Dxe.inf
-  UefiCpuPkg/MpDxe/MpDxe.inf
+  PatinaPkg/MpDxe/MpDxe.inf
   UefiCpuPkg/CpuDxe/CpuDxe.inf {
     <LibraryClasses>
     NULL|MsCorePkg/Library/MemoryProtectionExceptionHandlerLib/MemoryProtectionExceptionHandlerLib.inf

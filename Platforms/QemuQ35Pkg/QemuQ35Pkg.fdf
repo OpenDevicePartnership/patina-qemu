@@ -325,7 +325,7 @@ INF  MdeModulePkg/Universal/SecurityStubDxe/SecurityStubDxe.inf
 INF  QemuQ35Pkg/8259InterruptControllerDxe/8259.inf
 INF  UefiCpuPkg/CpuIo2Dxe/CpuIo2Dxe.inf
 # INF  UefiCpuPkg/CpuDxe/CpuDxe.inf
-INF  UefiCpuPkg/MpDxe/MpDxe.inf
+INF  PatinaPkg/MpDxe/MpDxe.inf
 INF  QemuQ35Pkg/8254TimerDxe/8254Timer.inf
 INF  QemuQ35Pkg/IncompatiblePciDeviceSupportDxe/IncompatiblePciDeviceSupport.inf
 INF  QemuPkg/PciHotPlugInitDxe/PciHotPlugInit.inf
