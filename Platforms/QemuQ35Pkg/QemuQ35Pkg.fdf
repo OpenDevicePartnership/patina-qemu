@@ -626,7 +626,7 @@ FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
 # but it is not part of the [FV.DXEFV] firmware volume in this build to support
 # Patina features such as post-build replacement of the DXE Core driver.
 #
-# By default, DXE_CORE_NUGET_FEED_PATH is defined in the DXECORE.QEMU_ext_dep.json
+# By default, DXE_CORE_PATH is defined in the DXECORE.QEMU_ext_dep.json
 # file and indicates the directory that the Stuart build placed the pre-compiled
 # drivers from the Nuget feed.
 #
@@ -661,9 +661,9 @@ FILE DXE_CORE = 23C9322F-2AF2-476A-BC4C-26BC88266C71 {
   SECTION PE32 = $(DXE_CORE_BINARY_OVERRIDE)                                 # User defined override
 !else
   !if $(TARGET) == RELEASE
-    SECTION PE32 = $(DXE_CORE_NUGET_FEED_PATH)/release/qemu_q35_dxe_core.efi # Nuget feed release build
+    SECTION PE32 = $(DXE_CORE_PATH)/release/qemu_q35_dxe_core.efi # Nuget feed release build
   !else
-    SECTION PE32 = $(DXE_CORE_NUGET_FEED_PATH)/debug/qemu_q35_dxe_core.efi   # Nuget feed debug build
+    SECTION PE32 = $(DXE_CORE_PATH)/debug/qemu_q35_dxe_core.efi   # Nuget feed debug build
   !endif
 !endif
   SECTION UI = "DxeCore"
