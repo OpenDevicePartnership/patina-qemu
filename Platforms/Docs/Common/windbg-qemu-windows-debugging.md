@@ -59,7 +59,7 @@ shutdown -r -t 0   # reboot for above settings to take effect
 Once Windows reboots, run the following command to connect WinDbg:
 
 ```sh
-windbgx -k com:port=56789,pipe=127.0.0.1 -v
+windbgx -k com:ipport=56789,port=127.0.0.1 -v
 ```
 
 or via UI ![Windbg KD Connection Dialog](images/windbg_kd_connection_dialog.png)
