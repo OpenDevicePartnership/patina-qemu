@@ -46,40 +46,47 @@ jobs:
             target: 'DEBUG'
             tool-chain: ${{ needs.vars.outputs.windows-toolchain }}
             platform: 'Q35'
+            extra-args: ''
             os: 'windows-latest'
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'RELEASE'
             tool-chain: ${{ needs.vars.outputs.windows-toolchain }}
             platform: 'Q35'
+            extra-args: ''
             os: 'windows-latest'
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'DEBUG'
             tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             platform: 'Q35'
+            extra-args: ''
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'RELEASE'
             tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             platform: 'Q35'
+            extra-args: ''
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'DEBUG'
             tool-chain: ${{ needs.vars.outputs.windows-toolchain }}
             architecture: 'IA32,X64'
+            extra-args: ''
             platform: 'Q35'
             os: 'windows-latest'
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'RELEASE'
             tool-chain: ${{ needs.vars.outputs.windows-toolchain }}
             architecture: 'IA32,X64'
+            extra-args: ''
             platform: 'Q35'
             os: 'windows-latest'
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'DEBUG'
             tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             architecture: 'IA32,X64'
+            extra-args: ''
             platform: 'Q35'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
@@ -87,6 +94,7 @@ jobs:
             target: 'RELEASE'
             tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             architecture: 'IA32,X64'
+            extra-args: ''
             platform: 'Q35'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
@@ -94,12 +102,14 @@ jobs:
             target: 'DEBUG'
             tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             platform: 'SBSA'
+            extra-args: 'HAF_TFA_BUILD=TRUE'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
           - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
             target: 'RELEASE'
             tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             platform: 'SBSA'
+            extra-args: 'HAF_TFA_BUILD=TRUE'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
 
@@ -141,7 +151,7 @@ jobs:
           # Only pass architecture if it is defined in the matrix
           architecture: ${{ matrix.architecture || '' }}
           flash: 'true'
-          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }}'
+          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} ${{ matrix.extra-args }}'
           publish-logs: 'true'
 
   # A final job to indicate that all builds are complete. This allows the github required checks to
