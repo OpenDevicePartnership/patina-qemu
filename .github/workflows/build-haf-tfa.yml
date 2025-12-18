@@ -27,6 +27,15 @@ jobs:
       image: ghcr.io/microsoft/mu_devops/ubuntu-24-dev:latest
 
     steps:
+      - name: Generate Token
+        if: github.event_name == 'release'
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.MU_ACCESS_APP_ID }}
+          private-key: ${{ secrets.MU_ACCESS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
@@ -77,7 +86,7 @@ jobs:
       - name: Upload Release Assets
         if: github.event_name == 'release'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           gh release upload "${{ github.event.release.tag_name }}" "${RUNNER_TEMP}"/*.zip
           gh release upload "${{ github.event.release.tag_name }}" "${RUNNER_TEMP}"/*.tar.gz
