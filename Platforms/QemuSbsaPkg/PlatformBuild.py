@@ -542,7 +542,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
             },
             "mssp": {
                 "image": {
-                    "file": str(op_fv / "BL32_AP_MM_SP1.fd"),
+                    "file": str(op_fv / "BL32_AP_MS_SP.fd"),
                     "offset": "0x10000"
                 },
                 "pm": {
@@ -550,6 +550,18 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
                     "offset": "0x1000"
                 },
                 "uuid": "b8bcbd0c-8e8f-4ebe-99eb-3cbbdd0cd412",
+                "owner": "Plat"
+            },
+            "mssp-rust": {
+                "image": {
+                    "file": os.path.join(self.env.GetValue("SECURE_PARTITION_BINARIES"), "msft-sp.bin"),
+                    "offset": "0x2000"
+                },
+                "pm": {
+                    "file": str(Path(__file__).parent / "fdts/qemu_sbsa_mssp_rust_config.dts"),
+                    "offset": "0x1000"
+                },
+                "uuid": "AFF0C73B-47E7-4A5B-AFFC-0052305A6520",
                 "owner": "Plat"
             }
         }
