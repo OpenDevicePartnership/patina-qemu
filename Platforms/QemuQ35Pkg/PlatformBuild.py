@@ -203,7 +203,8 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
 
         The tuple should be (<workspace relative path to dsc file>, <input dictionary of dsc key value pairs>)
         '''
-        return ("QemuQ35Pkg/QemuQ35Pkg.dsc", {})
+        dsc = CommonPlatform.GetDscName(",".join(self.ActualArchitectures))
+        return (f"QemuQ35Pkg/{dsc}", {})
 
     def GetName(self):
         return "QemuQ35"
