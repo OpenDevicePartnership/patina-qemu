@@ -102,14 +102,14 @@ jobs:
             target: 'DEBUG'
             tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             platform: 'SBSA'
-            extra-args: 'HAF_TFA_BUILD=TRUE'
+            extra-args: ''
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
           - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
             target: 'RELEASE'
             tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             platform: 'SBSA'
-            extra-args: 'HAF_TFA_BUILD=TRUE'
+            extra-args: ''
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
 
