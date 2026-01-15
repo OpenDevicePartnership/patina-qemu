@@ -90,6 +90,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         monitor_port = QemuRunner.GetStr(env, "MONITOR_PORT")
         output_path = QemuRunner.GetStr(env, "BUILD_OUTPUT_BASE")
         path_to_os = QemuRunner.GetStr(env, "PATH_TO_OS")
+        path_to_seed = QemuRunner.GetStr(env, "PATH_TO_SEED")
         qemu_accelerator = QemuRunner.GetStr(env, "QEMU_ACCEL")
         qemu_executable_path = QemuRunner.GetStr(env, "QEMU_PATH")
         qemu_ext_dep_dir = QemuRunner.GetStr(env, "QEMU_DIR")
@@ -179,6 +180,9 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             .with_monitor_port(monitor_port)
             .with_shutdown_from_guest(shutdown_after_run)
         )
+
+        if path_to_seed:
+            qemu_cmd_builder = qemu_cmd_builder.with_custom("-drive", f"file=\"{path_to_seed}\",format=raw,if=virtio")
 
         ## TODO: Save the console mode. The original issue comes from: https://gitlab.com/qemu-project/qemu/-/issues/1674
         if os.name == "nt" and qemu_version[0] >= "8":

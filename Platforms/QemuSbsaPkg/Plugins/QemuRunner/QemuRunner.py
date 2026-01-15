@@ -98,6 +98,8 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         monitor_port = QemuRunner.GetStr(env, "MONITOR_PORT")
         output_path = QemuRunner.GetStr(env, "BUILD_OUTPUT_BASE")
         path_to_os = QemuRunner.GetStr(env, "PATH_TO_OS")
+        path_to_seed = QemuRunner.GetStr(env, "PATH_TO_SEED")
+        
         qemu_accelerator = QemuRunner.GetStr(env, "QEMU_ACCEL")
         qemu_executable_path = QemuRunner.GetStr(env, "QEMU_PATH")
         qemu_ext_dep_dir = QemuRunner.GetStr(env, "QEMU_DIR")
@@ -170,6 +172,9 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             .with_serial_port(serial_port) # ["secure.log", "secure_mm.log"]
             .with_monitor_port(monitor_port)
         )
+        
+        if path_to_seed:
+            qemu_cmd_builder = qemu_cmd_builder.with_custom("-drive", f"file=\"{path_to_seed}\",format=raw,if=virtio")
 
         (executable, args) = qemu_cmd_builder.build()
         logging.info(f"Running QEMU: {executable} {args}")

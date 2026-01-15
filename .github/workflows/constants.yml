@@ -26,6 +26,19 @@ on:
       qemu-core-count:
         description: 'Number of CPU cores for QEMU.'
         value: ${{ jobs.vars.outputs.qemu-core-count }}
+      # Constants used by OS boot workflows
+      ubuntu-x64-image:
+        description: 'The Ubuntu x64 cloud image used when booting FW to the OS.'
+        value: ${{ jobs.vars.outputs.ubuntu-x64-image }}
+      ubuntu-x64-artifact:
+        description: 'The Ubuntu x64 cloud image artifact name.'
+        value: ubuntu-x64-image
+      ubuntu-aarch64-image:
+        description: 'The Ubuntu aarch64 cloud image used when booting FW to the OS.'
+        value: ${{ jobs.vars.outputs.ubuntu-aarch64-image }}
+      ubuntu-aarch64-artifact:
+        description: 'The Ubuntu aarch64 cloud image artifact name.'
+        value: ubuntu-aarch64-image
 
 env:
   WINDOWS_TOOLCHAIN: 'VS2022'
@@ -33,6 +46,8 @@ env:
   CONTAINER_IMAGE: 'ghcr.io/microsoft/mu_devops/ubuntu-24-test:latest'
   PYTHON_VERSION: '3.12'
   QEMU_CORE_COUNT: '2'
+  UBUNTU_X64_IMAGE: 'https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img' # noble = 24.04 LTS
+  UBUNTU_AARCH64_IMAGE: 'https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-arm64.img' # noble = 24.04 LTS
 
 jobs:
   vars:
@@ -45,6 +60,8 @@ jobs:
       container-image: ${{ steps.set-vars.outputs.container-image }}
       python-version: ${{ steps.set-vars.outputs.python-version }}
       qemu-core-count: ${{ steps.set-vars.outputs.qemu-core-count }}
+      ubuntu-x64-image: ${{ steps.set-vars.outputs.ubuntu-x64-image }}
+      ubuntu-aarch64-image: ${{ steps.set-vars.outputs.ubuntu-aarch64-image }}
 
     steps:
     - name: Set Environment Constants
@@ -56,3 +73,5 @@ jobs:
         echo "container-image=${CONTAINER_IMAGE}" >> $GITHUB_OUTPUT
         echo "python-version=${PYTHON_VERSION}" >> $GITHUB_OUTPUT
         echo "qemu-core-count=${QEMU_CORE_COUNT}" >> $GITHUB_OUTPUT
+        echo "ubuntu-x64-image=${UBUNTU_X64_IMAGE}" >> $GITHUB_OUTPUT
+        echo "ubuntu-aarch64-image=${UBUNTU_AARCH64_IMAGE}" >> $GITHUB_OUTPUT

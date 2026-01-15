@@ -1,0 +1,88 @@
+# A reusable workflow to prepare OS boot images for Linux and Windows
+#
+##
+# Copyright (c) Microsoft Corporation.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+name: "Boot Linux"
+
+on:
+  workflow_call:
+    inputs:
+      image-url:
+        description: 'URL of the base cloud image'
+        required: true
+        type: string
+      artifact-name:
+        description: 'Name of the artifact to upload the prepared images as'
+        required: true
+        type: string
+
+env:
+  IMG: base.img
+  DISK_IMAGE: image.qcow2
+  SEED_ISO: seed.iso
+
+jobs:
+  build-linux-images:
+    name: Prepare Linux Boot Images
+
+    if: ${{ contains(inputs.artifact-name, 'ubuntu') }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y qemu-system-x86 qemu-system-aarch64 qemu-utils ovmf curl cloud-image-utils
+      
+      - name: Download Ubuntu IMG
+        run: |
+          curl -L "${{ inputs.image-url }}" -o "${{ env.IMG }}"
+
+      - name: Create QCOW2 Image
+        run: |
+          # Create the differential qcow2
+          qemu-img create -f qcow2 -b "${{ env.IMG }}" -F qcow2 "${{ env.DISK_IMAGE }}"
+
+          # Flatten it into a standalone qcow2
+          qemu-img convert -O qcow2 "${{ env.DISK_IMAGE }}" "${{ env.DISK_IMAGE }}-flat.qcow2"
+
+          # Use the flattened image for booting / uploading
+          mv "${{ env.DISK_IMAGE }}-flat.qcow2" "${{ env.DISK_IMAGE }}"
+                
+      - name: Make seed.iso
+        run: |
+          mkdir seed
+          echo "instance-id: ci-vm-$(date +%s)" > seed/meta-data
+          echo "#cloud-config" > seed/user-data
+          echo "power_state:" >> seed/user-data
+          echo "  mode: poweroff" >> seed/user-data
+          echo "  timeout: 1" >> seed/user-data
+          echo "  condition: True" >> seed/user-data
+
+      - name: Build seed ISO (cloud-init)
+        run: |
+          cloud-localds "${{ env.SEED_ISO }}" seed/user-data seed/meta-data
+      
+      - name: Publish Artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: |
+            ${{ env.DISK_IMAGE }}
+            ${{ env.SEED_ISO }}
+            
+  build-windows-images:
+    name: Prepare Windows Boot Images
+
+    if: ${{ contains(inputs.artifact-name, 'windows') }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Print Not Implemented Error
+        run: |
+          echo "Windows image preparation not yet implemented"

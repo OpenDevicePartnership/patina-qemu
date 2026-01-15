@@ -1,0 +1,151 @@
+# A workflow to build the platform(s) in this repository and boots them with the specified OS images.
+#
+##
+# Copyright (c) Microsoft Corporation.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+name: "Nightly OS Boot Test"
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # Runs daily at 02:00 UTC
+  workflow_dispatch:
+  
+jobs:
+  vars:
+    name: Get Repository Constants
+    uses: ./.github/workflows/constants.yml
+  
+  prepare-os-images:
+    name: Prepare OS Boot Images
+
+    needs: vars
+
+    strategy:
+      matrix:
+        include:
+          - img-url: ${{ needs.vars.outputs.ubuntu-x64-image }}
+            artifact-name: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+          - img-url: ${{ needs.vars.outputs.ubuntu-aarch64-image }}
+            artifact-name: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
+
+    uses: ./.github/workflows/prepare-images.yml
+    with:
+      image-url: ${{ matrix.img-url }}
+      artifact-name: ${{ matrix.artifact-name }}
+  
+  boot-with-os:
+    name: Boot QEMU with OS Image
+    needs: 
+      - prepare-os-images
+      - vars
+
+    runs-on: 'ubuntu-latest'
+
+    container:
+      image: ${{ needs.vars.outputs.container-image }}
+      options: --security-opt seccomp=unconfined
+    
+    timeout-minutes: 20
+    
+    env:
+      OS_BOOT_ARTIFACTS_PATH: ./os-boot-artifacts
+
+    strategy:
+      matrix:
+        include:
+          # Q35 DEBUG X64 UBUNTU
+          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+            target: 'DEBUG'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            platform: 'Q35'
+            os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+          # Q35 RELEASE X64 UBUNTU
+          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+            target: 'RELEASE'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            platform: 'Q35'
+            os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+          # Q35 DEBUG IA32,X64 UBUNTU
+          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+            target: 'DEBUG'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            architecture: 'IA32,X64'
+            platform: 'Q35'
+            os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+          # Q35 RELEASE IA32,X64 UBUNTU
+          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+            target: 'RELEASE'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            architecture: 'IA32,X64'
+            platform: 'Q35'
+            os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+          # SBSA DEBUG UBUNTU
+          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+            target: 'DEBUG'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            platform: 'SBSA'
+            os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
+          # SBSA RELEASE UBUNTU
+          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+            target: 'RELEASE'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            platform: 'SBSA'
+            os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
+
+    steps:
+      # Checkout the repository to the runner or container
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Configure git for use in the container. Specifically needed for the FFA builds
+      - name: Container Configuration
+        run: |
+          git config --global --add safe.directory '*'
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+      
+      # Install the pip dependencies needed to run stuart for the platform(s)
+      - name: Install dependencies
+        run: pip install -r pip-requirements.txt
+
+      - name: Download OS Boot Artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: ${{ matrix.os-artifact }}
+          path: ${{ env.OS_BOOT_ARTIFACTS_PATH }}
+      
+      # Run the build-platform action, which calls stuart_setup, stuart_update, and stuart_build
+      - name: Prepare and Build ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain}} ${{ matrix.architecture || '' }}
+        id: build-platform  
+        uses: ./.github/actions/build-platform
+        with:
+          command: 'build'
+          platform-config: ${{ matrix.config }}
+          platform-name: ${{ matrix.platform }}
+          target: ${{ matrix.target }}
+          tool-chain: ${{ matrix.tool-chain }}
+          # Only pass architecture if it is defined in the matrix
+          architecture: ${{ matrix.architecture || '' }}
+          stuart-args: 'QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} PATH_TO_OS=${{ env.OS_BOOT_ARTIFACTS_PATH }}/image.qcow2 PATH_TO_SEED=${{ env.OS_BOOT_ARTIFACTS_PATH }}/seed.iso'
+      
+      - name: Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain}} ${{ matrix.architecture || '' }}
+        uses: ./.github/actions/build-platform
+        with:
+          command: 'flash'
+          platform-config: ${{ matrix.config }}
+          platform-name: ${{ matrix.platform }}
+          target: ${{ matrix.target }}
+          tool-chain: ${{ matrix.tool-chain }}
+          # Only pass architecture if it is defined in the matrix
+          architecture: ${{ matrix.architecture || '' }}
+          stuart-args: 'QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} PATH_TO_OS=${{ env.OS_BOOT_ARTIFACTS_PATH }}/image.qcow2 PATH_TO_SEED=${{ env.OS_BOOT_ARTIFACTS_PATH }}/seed.iso'
+     
+      - name: Publish Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          # Specify architecture if it is not empty
+          name: build-logs-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.tool-chain }}${{ matrix.architecture && format('-{0}', matrix.architecture) || '' }}
+          path: ${{ steps.build-platform.outputs.log-path }}
