@@ -1,0 +1,40 @@
+# @file label-issues.yml
+#
+# This workflow automatically applies labels to GitHub issues and pull requests based on the
+# file paths in a pull request or content in the body of an issue or pull request.
+#
+# NOTE: This file is automatically synchronized from Patina DevOps. Update the original file there
+#       instead of the file in this repo.
+#
+# - Patina DevOps Repo: https://github.com/OpenDevicePartnership/patina-devops
+# - File Sync Settings: https://github.com/OpenDevicePartnership/patina-devops/blob/main/.sync/Files.yml
+#
+##
+# Copyright (c) Microsoft Corporation.
+# SPDX-License-Identifier: Apache-2.0
+##
+name: Apply Issue and PR Labels
+
+on:
+  issues:
+    types:
+      - edited
+      - opened
+  pull_request_target:
+    types:
+      - edited
+      - opened
+      - reopened
+      - synchronize
+  workflow_dispatch:
+
+jobs:
+  apply:
+
+    permissions:
+      issues: write
+      contents: read
+      pull-requests: write
+
+    uses: OpenDevicePartnership/patina-devops/.github/workflows/Labeler.yml@v0.3.8
+    secrets: inherit

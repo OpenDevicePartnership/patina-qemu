@@ -1,12 +1,20 @@
-# Specifies labels to apply to issues and pull requests based on file path patterns in Patina repositories.
+# Specifies labels to apply to issues and pull requests based on file path patterns.
 #
+# NOTE: This file is automatically synchronized from Patina DevOps. Update the original file there
+#       instead of the file in this repo.
+#
+# - Patina DevOps Repo: https://github.com/OpenDevicePartnership/patina-devops
+# - File Sync Settings: https://github.com/OpenDevicePartnership/patina-devops/blob/main/.sync/Files.yml
+#
+##
 # Copyright (c) Microsoft Corporation.
-# SPDX-License-Identifier: BSD-2-Clause-Patent
-#
+# SPDX-License-Identifier: Apache-2.0
+##
 # For more information, see:
 # https://github.com/actions/labeler
 
 # Maintenance: Keep labels organized in ascending alphabetical order - easier to scan, identify duplicates, etc.
 
-language:python:
-  - '**/*.py'
+'language:python':
+- changed-files:
+  - any-glob-to-any-file: '**/*.py'

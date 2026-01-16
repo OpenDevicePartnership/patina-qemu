@@ -1,9 +1,9 @@
-# Patina GitHub Documentation Request Template
+# Patina Documentation Request Template
 #
+##
 # Copyright (c) Microsoft Corporation.
-# SPDX-License-Identifier: BSD-2-Clause-Patent
-#
-
+# SPDX-License-Identifier: Apache-2.0
+##
 name: 📖 Documentation Request
 description: Request a documentation change
 title: "[Documentation]: <title>"

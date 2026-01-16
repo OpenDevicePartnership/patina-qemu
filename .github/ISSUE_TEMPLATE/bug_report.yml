@@ -1,9 +1,9 @@
-# Patina GitHub Bug Report Template
+# Patina Bug Report Template
 #
+##
 # Copyright (c) Microsoft Corporation.
-# SPDX-License-Identifier: BSD-2-Clause-Patent
-#
-
+# SPDX-License-Identifier: Apache-2.0
+##
 name: 🐛 Bug Report
 description: File a bug report
 title: "[Bug]: <title>"

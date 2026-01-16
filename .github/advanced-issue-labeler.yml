@@ -1,9 +1,9 @@
-# Defines the mappings between GitHub issue responses and labels applied to the issue
-# for Patina repos.
+# Defines the mappings between GitHub issue responses and labels applied to the issue.
 #
 # IMPORTANT: Only use labels defined in the .github/Labels.yml file in this repo.
 #
-# SPDX-License-Identifier: BSD-2-Clause-Patent
+# Copyright (c) Microsoft Corporation.
+# SPDX-License-Identifier: Apache-2.0
 #
 # For more information, see:
 # https://github.com/redhat-plumbers-in-action/advanced-issue-labeler

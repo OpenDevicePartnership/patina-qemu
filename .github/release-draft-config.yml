@@ -1,19 +1,21 @@
-# Defines the configuration used for drafting new releases.
+# @file release-draft-config.yml
+#
+# Defines the configuration used for drafting new releases
 #
 # IMPORTANT: Only use labels defined in the .github/Labels.yml file in this repo.
 #
 # NOTE: `semver:major`, `semver:minor`, and `semver:patch` can be used to force that
 #       version to roll regardless of other labels.
 #
+##
 # Copyright (c) Microsoft Corporation.
-# SPDX-License-Identifier: BSD-2-Clause-Patent
-#
-# For more information, see:
-# https://github.com/release-drafter/release-drafter
-
+# SPDX-License-Identifier: Apache-2.0
+##
 name-template: 'v$RESOLVED_VERSION'
 tag-template: 'v$RESOLVED_VERSION'
 
+commitish: refs/heads/main
+filter-by-commitish: true
 
 template: |
   # What's Changed
@@ -86,7 +88,9 @@ exclude-labels:
   - 'type:dependabot'
   - 'type:file-sync'
   - 'type:notes'
+  - 'type:patina-bot'
   - 'type:question'
 
 exclude-contributors:
-  - 'uefibot'
+  - 'github-actions[bot]'
+  - 'patina-automation[bot]'

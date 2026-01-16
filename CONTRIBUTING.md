@@ -6,7 +6,7 @@ inclusive and respectful manner.
 
 ## Contribution Licensing
 
-Most of our code is distributed under the terms of the [MIT license](LICENSE), and when you contribute code that you
+Patina code is distributed under the [Apache 2.0 License](LICENSE), and when you contribute code that you
 wrote to our repositories, you agree that you are contributing under those same terms. In addition, by submitting your
 contributions you are indicating that you have the right to submit those contributions under those terms.
 
@@ -33,12 +33,10 @@ to prevent `unsafe` keyword being sprinkled everywhere.
 
 If you want feedback on your design early, please create a draft PR with title prefix `RFC:`.
 
-## Branch Naming Scheme
+## Forks
 
-For now, we're not using forks. Eventually a personal fork will be required for any PRs to limit the amount of people
-with merge access to the main branch. Until that happens, please use meaningful branch names like this
-`user_alias/feature` and avoid sending PRs from branches containing prefixes such as "wip", "test", etc. Prior to
-sending a PR, please rename the branch.
+Contribute to this repo by creating a fork. Pull requests can be made into the appropriate target branch
+such as the `main` branch or a `feature` branch from your fork.
 
 ## Regressions
 

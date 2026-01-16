@@ -1,0 +1,32 @@
+# This workflow syncs GitHub labels to the common set of labels defined for UEFI repos.
+#
+# All repos should sync at the same time.
+#   '0 0,12 * * *''
+#
+# NOTE: This file is automatically synchronized from Patina DevOps. Update the original file there
+#       instead of the file in this repo.
+#
+# - Patina DevOps Repo: https://github.com/OpenDevicePartnership/patina-devops
+# - File Sync Settings: https://github.com/OpenDevicePartnership/patina-devops/blob/main/.sync/Files.yml
+#
+##
+# Copyright (c) Microsoft Corporation.
+# SPDX-License-Identifier: Apache-2.0
+##
+name: Sync GitHub Labels
+
+on:
+  schedule:
+    # At minute 0 past hour 0 and 12
+    # https://crontab.guru/#0_0,12_*_*_*
+    - cron: '0 0,12 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+
+    permissions:
+      issues: write
+
+    uses: OpenDevicePartnership/patina-devops/.github/workflows/LabelSyncer.yml@v0.3.8
+    secrets: inherit
