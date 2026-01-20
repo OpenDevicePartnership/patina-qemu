@@ -142,7 +142,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             .with_usb_controller()
             .with_usb_mouse()
             .with_usb_keyboard()
-            .with_virtual_drive(virtual_drive)
+            .with_virtual_drive(None if path_to_os else virtual_drive)
             .with_display(not headless)
             .with_network(False)
             .with_smbios(
