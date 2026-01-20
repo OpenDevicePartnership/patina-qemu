@@ -9,6 +9,10 @@ name: Build QEMU Platform Firmware
 description: Build a QEMU platform firmware using Stuart
 
 inputs:
+  command:
+    description: 'The action to perform: `build`, `flash`, or `all`'
+    required: false
+    default: 'all'
   platform-config:
     description: 'Path to the Stuart platform configuration file (.py)'
     required: true
@@ -31,14 +35,6 @@ inputs:
     description: 'Additional build arguments to pass to stuart_build'
     required: false
     default: ''
-  flash:
-    description: 'Whether to flash the built platform firmware image (if supported)'
-    required: false
-    default: 'false'
-  flash-only:
-    description: 'Whether to only flash the platform firmware image without building (if supported)'
-    required: false
-    default: 'false'
   log-identifier:
     description: 'Extra identifier to append to the log folder name if needed.'
     required: false
@@ -53,6 +49,15 @@ runs:
   using: composite
 
   steps:
+  - name: Validate command
+    id: validate
+    shell: bash
+    run: |
+      if [[ "${{ inputs.command }}" != "build" && "${{ inputs.command }}" != "flash" && "${{ inputs.command }}" != "all" ]]; then
+        echo "Invalid command: ${{ inputs.command }}. Must be one of: build, flash, all."
+        exit 1
+      fi
+
   - name: Create Temporary Directory
     id: tempdir
     shell: bash
@@ -82,7 +87,7 @@ runs:
   
   # Use the cache key to attempt to restore cached submodules
   - name: Cache submodules
-    if: ${{ inputs.flash-only == 'false' }}
+    if: ${{ inputs.command == 'all' || inputs.command == 'build' }}
     uses: actions/cache@v4
     with:
       path: .git/modules
@@ -90,7 +95,7 @@ runs:
 
   # Stuart setup should be slightly faster if we were able to restore the cache to .git/modules
   - name: Download required submodules (stuart_setup)
-    if: ${{ inputs.flash-only == 'false' }}
+    if: ${{ inputs.command == 'all' || inputs.command == 'build' }}
     shell: bash
     run: |
       stuart_setup -c ${{ inputs.platform-config }} ${{ steps.stuart.outputs.arguments }}
@@ -113,6 +118,7 @@ runs:
 
   # Download external dependencies
   - name: Download external dependencies (stuart_update)
+    if: ${{ inputs.command == 'all' || inputs.command == 'build' }}
     shell: bash
     run: |
       stuart_update -c ${{ inputs.platform-config }} ${{ steps.stuart.outputs.arguments }}
@@ -135,7 +141,7 @@ runs:
   
   # Build the platform, specify architecture if it is not empty
   - name: Build platform (stuart_build)
-    if: ${{ inputs.flash-only == 'false' }}
+    if: ${{ inputs.command == 'all' || inputs.command == 'build' }}
     shell: bash
     run: |
       stuart_build -c ${{ inputs.platform-config }} ${{ steps.stuart.outputs.arguments }} \
@@ -158,7 +164,7 @@ runs:
       fi
   
   - name: Flash platform (stuart_build --FLASHONLY)
-    if: ${{ inputs.flash != 'false' || inputs.flash-only != 'false' }}
+    if: ${{ inputs.command == 'all' || inputs.command == 'flash' }}
     shell: bash
     run: |
       stuart_build -c ${{ inputs.platform-config }} --FLASHONLY ${{ steps.stuart.outputs.arguments }} \

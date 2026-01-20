@@ -145,6 +145,7 @@ jobs:
         id: build-platform
         uses: ./.github/actions/build-platform
         with:
+          command: 'build'
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
@@ -156,6 +157,7 @@ jobs:
       - name: Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain}} ${{ matrix.architecture || '' }}
         uses: ./.github/actions/build-platform
         with:
+          command: 'flash'
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
