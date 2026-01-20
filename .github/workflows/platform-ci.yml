@@ -164,7 +164,6 @@ jobs:
           tool-chain: ${{ matrix.tool-chain }}
           # Only pass architecture if it is defined in the matrix
           architecture: ${{ matrix.architecture || '' }}
-          flash-only: 'true'
           stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} ${{ matrix.extra-args }}'
       
       - name: Publish Logs
