@@ -39,10 +39,10 @@ inputs:
     description: 'Whether to only flash the platform firmware image without building (if supported)'
     required: false
     default: 'false'
-  log-folder-name:
-    description: 'Name of the folder to store logs. This is not the path. Use the output variable to get the path.'
+  log-identifier:
+    description: 'Extra identifier to append to the log folder name if needed.'
     required: false
-    default: 'build-logs'
+    default: ''
 
 outputs:
   log-path:
@@ -53,18 +53,16 @@ runs:
   using: composite
 
   steps:
-  # Optional: Create a temporary directory for logs based on publish-logs input
   - name: Create Temporary Directory
     id: tempdir
     shell: bash
     run: |
-      # Create a temp dir to capture logs
-      if [ "${{ inputs.publish-logs }}" != "false" ]; then
-        mkdir -p "$RUNNER_TEMP"/${{ inputs.log-folder-name }}
-        echo "path="$RUNNER_TEMP"/${{ inputs.log-folder-name }}" >> $GITHUB_OUTPUT
-      else
-        echo "path=" >> $GITHUB_OUTPUT
+      LOG_FOLDER_NAME="build-logs"
+      if [ -n "${{ inputs.log-identifier }}" ]; then
+        LOG_FOLDER_NAME="${LOG_FOLDER_NAME}-${{ inputs.log-identifier }}"
       fi
+      mkdir -p "$RUNNER_TEMP"/$LOG_FOLDER_NAME
+      echo "path="$RUNNER_TEMP"/$LOG_FOLDER_NAME" >> $GITHUB_OUTPUT
 
   # Cannot use ENV in a composite action, so lets create our reusable argument string here
   - name: Setup Total Stuart arguments
@@ -170,12 +168,3 @@ runs:
       else
         echo "No matching log files found"
       fi
-
-  # Optional: Publish the logs as an artifact if the temporary directory was created
-  - name: Publish Logs
-    if: ${{ always() && steps.tempdir.outputs.path }}
-    uses: actions/upload-artifact@v4
-    with:
-      # Specify architecture if it is not empty
-      name: build-logs-${{ inputs.platform-name }}-${{ inputs.target }}-${{ inputs.tool-chain }}${{ inputs.architecture && format('-{0}', inputs.architecture) || '' }}
-      path: ${{ steps.tempdir.outputs.path }}
