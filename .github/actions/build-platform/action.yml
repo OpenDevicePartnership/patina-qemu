@@ -102,7 +102,14 @@ runs:
       TEMP_DIR: ${{ steps.tempdir.outputs.path }}
     run: |
       shopt -s globstar nullglob
-      mv Build/SETUP*.txt "$TEMP_DIR"
+      files=(Build/SETUP*.txt)
+
+      if ((${#files[@]})); then
+        echo "Moving ${#files[@]} log files"
+        mv "${files[@]}" "$TEMP_DIR"
+      else
+        echo "No matching log files found"
+      fi
 
   # Download external dependencies
   - name: Download external dependencies (stuart_update)
@@ -117,7 +124,14 @@ runs:
       TEMP_DIR: ${{ steps.tempdir.outputs.path }}
     run: |
       shopt -s globstar nullglob
-      mv Build/UPDATE*.txt "$TEMP_DIR"
+      files=(Build/UPDATE*.txt)
+
+      if ((${#files[@]})); then
+        echo "Moving ${#files[@]} log files"
+        mv "${files[@]}" "$TEMP_DIR"
+      else
+        echo "No matching log files found"
+      fi
   
   # Build the platform, specify architecture if it is not empty
   - name: Build platform (stuart_build)
