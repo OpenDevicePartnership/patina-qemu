@@ -148,7 +148,7 @@ runs:
       TEMP_DIR: ${{ steps.tempdir.outputs.path }}
     run: |
       shopt -s globstar nullglob
-      files=(**/BUILDLOG* **/BUILD_REPORT.TXT **/OVERRIDELOG.TXT)
+      files=(Build/**/BUILDLOG* Build/**/BUILD_REPORT.TXT Build/**/OVERRIDELOG.TXT)
 
       if ((${#files[@]})); then
         echo "Moving ${#files[@]} log files"
@@ -171,7 +171,7 @@ runs:
       TEMP_DIR: ${{ steps.tempdir.outputs.path }}
     run: |
       shopt -s globstar nullglob
-      files=(**/*Run.txt)
+      files=(Build/**/*Run.txt)
 
       if ((${#files[@]})); then
         echo "Moving ${#files[@]} log files"
