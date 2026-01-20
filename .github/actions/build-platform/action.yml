@@ -35,6 +35,10 @@ inputs:
     description: 'Whether to flash the built platform firmware image (if supported)'
     required: false
     default: 'false'
+  flash-only:
+    description: 'Whether to only flash the platform firmware image without building (if supported)'
+    required: false
+    default: 'false'
   publish-logs:
     description: 'Whether to publish build logs'
     required: false
@@ -75,6 +79,7 @@ runs:
   
   # Use the cache key to attempt to restore cached submodules
   - name: Cache submodules
+    if: ${{ inputs.flash-only == 'false' }}
     uses: actions/cache@v4
     with:
       path: .git/modules
@@ -82,6 +87,7 @@ runs:
 
   # Stuart setup should be slightly faster if we were able to restore the cache to .git/modules
   - name: Download required submodules (stuart_setup)
+    if: ${{ inputs.flash-only == 'false' }}
     shell: bash
     run: |
       stuart_setup -c ${{ inputs.platform-config }} ${{ steps.stuart.outputs.arguments }}
@@ -112,6 +118,7 @@ runs:
   
   # Build the platform, specify architecture if it is not empty
   - name: Build platform (stuart_build)
+    if: ${{ inputs.flash-only == 'false' }}
     shell: bash
     run: |
       stuart_build -c ${{ inputs.platform-config }} ${{ steps.stuart.outputs.arguments }} \
@@ -136,7 +143,7 @@ runs:
   
   # Optional: Flash the platform if requested
   - name: Flash platform (stuart_build --FLASHONLY)
-    if: ${{ inputs.flash != 'false' }}
+    if: ${{ inputs.flash != 'false' || inputs.flash-only != 'false' }}
     shell: bash
     run: |
       stuart_build -c ${{ inputs.platform-config }} --FLASHONLY ${{ steps.stuart.outputs.arguments }} \

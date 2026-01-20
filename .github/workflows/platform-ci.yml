@@ -141,7 +141,7 @@ jobs:
         run: pip install -r pip-requirements.txt
       
       # Run the build-platform action, which calls stuart_setup, stuart_update, and stuart_build
-      - name: Build and Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain}} ${{ matrix.architecture || '' }}
+      - name: Prepare and Build ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain}} ${{ matrix.architecture || '' }}
         uses: ./.github/actions/build-platform
         with:
           platform-config: ${{ matrix.config }}
@@ -150,9 +150,21 @@ jobs:
           tool-chain: ${{ matrix.tool-chain }}
           # Only pass architecture if it is defined in the matrix
           architecture: ${{ matrix.architecture || '' }}
-          flash: 'true'
           stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} ${{ matrix.extra-args }}'
+
+      - name: Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain}} ${{ matrix.architecture || '' }}
+        if: always()
+        uses: ./.github/actions/build-platform
+        with:
+          platform-config: ${{ matrix.config }}
+          platform-name: ${{ matrix.platform }}
+          target: ${{ matrix.target }}
+          tool-chain: ${{ matrix.tool-chain }}
+          # Only pass architecture if it is defined in the matrix
+          architecture: ${{ matrix.architecture || '' }}
+          flash-only: 'true'
           publish-logs: 'true'
+          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} ${{ matrix.extra-args }}'
 
   # A final job to indicate that all builds are complete. This allows the github required checks to
   # be targeted at a single job, instead of all the jobs in the matrix, which may change over time.
