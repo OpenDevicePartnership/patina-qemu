@@ -95,13 +95,13 @@ runs:
     run: |
       stuart_setup -c ${{ inputs.platform-config }} ${{ steps.stuart.outputs.arguments }}
   
-  # Optional: Move the setup log to the temporary directory if it was created
   - name: Move setup log
     if: always()
     shell: bash
     env:
       TEMP_DIR: ${{ steps.tempdir.outputs.path }}
     run: |
+      shopt -s globstar nullglob
       mv Build/SETUP*.txt "$TEMP_DIR"
 
   # Download external dependencies
@@ -110,13 +110,13 @@ runs:
     run: |
       stuart_update -c ${{ inputs.platform-config }} ${{ steps.stuart.outputs.arguments }}
   
-  # Optional: Move the update log to the temporary directory if it was created
   - name: Move update log
     if: always()
     shell: bash
     env:
       TEMP_DIR: ${{ steps.tempdir.outputs.path }}
     run: |
+      shopt -s globstar nullglob
       mv Build/UPDATE*.txt "$TEMP_DIR"
   
   # Build the platform, specify architecture if it is not empty
@@ -127,7 +127,6 @@ runs:
       stuart_build -c ${{ inputs.platform-config }} ${{ steps.stuart.outputs.arguments }} \
       $([[ -n "${{ inputs.architecture }}" ]] && echo " -a ${{ inputs.architecture }}")
   
-  # Optional: Move the build logs to the temporary directory if it was created
   - name: Move build log
     if: always()
     shell: bash
@@ -144,7 +143,6 @@ runs:
         echo "No matching log files found"
       fi
   
-  # Optional: Flash the platform if requested
   - name: Flash platform (stuart_build --FLASHONLY)
     if: ${{ inputs.flash != 'false' || inputs.flash-only != 'false' }}
     shell: bash
@@ -152,7 +150,6 @@ runs:
       stuart_build -c ${{ inputs.platform-config }} --FLASHONLY ${{ steps.stuart.outputs.arguments }} \
       $([[ -n "${{ inputs.architecture }}" ]] && echo " -a ${{ inputs.architecture }}")
 
-  # Optional: Move the run logs to the temporary directory if it was created
   - name: Move run log
     if: ${{ always() && inputs.flash }}
     shell: bash
