@@ -10,5 +10,3 @@
     "flags": ["set_build_var"],
     "var_name": "BLD_*_DXE_CORE_PATH"
 }
-
-
