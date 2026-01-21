@@ -36,7 +36,7 @@ jobs:
       artifact-name: ${{ matrix.artifact-name }}
   
   boot-with-os:
-    name: Boot QEMU with OS Image
+    name: Boot ${{ matrix.platform }} ${{ matrix.os-artifact }} ${{ matrix.target }} ${{ format('{0}', matrix.architecture) || '' }}
     needs: 
       - prepare-os-images
       - vars
