@@ -51,7 +51,7 @@ class QemuCommandBuilder:
 
         # Common initial arguments
         if self._architecture == QemuArchitecture.Q35:
-            # self._args.extend(["-debugcon", "stdio"])  # enable debug console
+            self._args.extend(["-debugcon", "stdio"])  # enable debug console
             self._args.extend(
                 ["-global", "ICH9-LPC.disable_s3=1"]
             )  # disable S3 sleep state
