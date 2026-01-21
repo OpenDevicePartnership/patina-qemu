@@ -1,0 +1,147 @@
+# A reusable workflow to prepare OS boot images for Linux and Windows
+#
+##
+# Copyright (c) Microsoft Corporation.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+name: "Prepare OS Boot Image"
+
+on:
+  workflow_call:
+    inputs:
+      image-url:
+        description: 'URL of the base cloud image'
+        required: true
+        type: string
+      artifact-name:
+        description: 'Name of the artifact to upload the prepared images as'
+        required: true
+        type: string
+
+env:
+  IMG: base.img
+  DISK_IMAGE: image.qcow2
+  DISK_IMAGE_VHDX: image.vhdx
+  SEED_ISO: seed.iso
+
+jobs:
+  build-linux-images:
+    name: Prepare ${{ inputs.artifact-name }} Boot Image
+
+    if: ${{ contains(inputs.artifact-name, 'ubuntu') }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y qemu-system-x86 qemu-system-aarch64 qemu-utils ovmf curl cloud-image-utils
+      
+      - name: Download Ubuntu IMG
+        run: |
+          curl -L "${{ inputs.image-url }}" -o "${{ env.IMG }}"
+
+      - name: Create QCOW2 Image
+        run: |
+          # Create the differential qcow2
+          qemu-img create -f qcow2 -b "${{ env.IMG }}" -F qcow2 "${{ env.DISK_IMAGE }}"
+
+          # Flatten it into a standalone qcow2
+          qemu-img convert -O qcow2 "${{ env.DISK_IMAGE }}" "${{ env.DISK_IMAGE }}-flat.qcow2"
+
+          # Use the flattened image for booting / uploading
+          mv "${{ env.DISK_IMAGE }}-flat.qcow2" "${{ env.DISK_IMAGE }}"
+                
+      - name: Make seed.iso
+        run: |
+          mkdir seed
+          echo "instance-id: ci-vm-$(date +%s)" > seed/meta-data
+          echo "#cloud-config" > seed/user-data
+          echo "power_state:" >> seed/user-data
+          echo "  mode: poweroff" >> seed/user-data
+          echo "  timeout: 1" >> seed/user-data
+          echo "  condition: True" >> seed/user-data
+
+      - name: Build seed ISO (cloud-init)
+        run: |
+          cloud-localds "${{ env.SEED_ISO }}" seed/user-data seed/meta-data
+      
+      - name: Publish Artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: |
+            ${{ env.DISK_IMAGE }}
+            ${{ env.SEED_ISO }}
+            
+  build-windows-images:
+    name: Prepare ${{ inputs.artifact-name }} Boot Image
+
+    if: ${{ contains(inputs.artifact-name, 'windows') }}
+
+    # Need to run on the appropriate architecture so we generate a valid shutdown.exe
+    runs-on: ${{ contains(inputs.artifact-name, 'aarch64') && 'windows-11-arm' || 'windows-latest' }}
+
+    env:
+      ARCHITECTURE: ${{ contains(inputs.artifact-name, 'aarch64') && 'arm64' || 'x64' }}
+
+    steps:
+      - name: Install Dependencies
+        run: |
+          choco install -y qemu
+          Install-Module -Name PS2EXE -Scope CurrentUser -Force
+  
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Prepare Shutdown EXE
+        id: shutdown-exe
+        run: |
+          $script = 'Stop-Computer -Force'
+          $scriptPath = "shutdown.ps1"
+          $exePath = "shutdown.exe"
+          
+          Set-Content -Path $scriptPath -Value $script -Encoding ASCII
+
+          Invoke-PS2EXE $scriptPath $exePath -noConsole -icon "$null"
+          
+          #set output path for this step
+          echo "exe-path=${exePath}" >> $GITHUB_OUTPUT
+
+      - name: Download Windows Validation OS image
+        run: |
+          Invoke-WebRequest -Uri "${{ inputs.image-url }}" -OutFile "${{ env.IMG }}"
+      
+      - name: Mount Image and run OS Builder
+        run: |
+          $mountResult = Mount-DiskImage -ImagePath (Get-Item $env:IMG).FullName -PassThru
+          $driveLetter = ($mountResult | Get-Volume).DriveLetter
+          Write-Host "Mounted ISO at ${driveLetter}:\"
+          echo "MOUNTED_DRIVE=${driveLetter}:\" >> $GITHUB_ENV
+
+          $cliPath = Join-Path "${driveLetter}:\" "ValidationOSImageBuilder\$env:ARCHITECTURE\ValidationOSImageBuilderCLI.exe"
+
+          $exePath = Join-Path "$env:GITHUB_WORKSPACE" "shutdown.exe"
+
+          & $cliPath -g -if vhdx -bt InternalDisk -sc "$exePath" -f powershell -f provisioning -o $env:GITHUB_WORKSPACE
+
+          # Log output VHDX folder recursivly
+          Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse
+      
+      - name: Convert to qcow2
+        run: |
+          $vhdxPath = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Filter *.vhdx -Recurse -File | Select-Object -First 1
+          Write-Host "Converting VHDX at $($vhdxPath.FullName) to QCOW2"
+
+          & "C:\Program Files\qemu\qemu-img.exe" convert -O qcow2 $($vhdxPath.FullName) "$env:GITHUB_WORKSPACE\${{ env.DISK_IMAGE }}"
+      
+      - name: Publish Artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: ${{ inputs.artifact-name }}
+          path: |
+            ${{ env.DISK_IMAGE }}
