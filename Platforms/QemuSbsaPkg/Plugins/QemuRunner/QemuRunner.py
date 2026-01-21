@@ -99,7 +99,6 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         output_path = QemuRunner.GetStr(env, "BUILD_OUTPUT_BASE")
         path_to_os = QemuRunner.GetStr(env, "PATH_TO_OS")
         path_to_seed = QemuRunner.GetStr(env, "PATH_TO_SEED")
-        
         qemu_accelerator = QemuRunner.GetStr(env, "QEMU_ACCEL")
         qemu_executable_path = QemuRunner.GetStr(env, "QEMU_PATH")
         qemu_ext_dep_dir = QemuRunner.GetStr(env, "QEMU_DIR")
