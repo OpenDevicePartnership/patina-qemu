@@ -203,4 +203,4 @@ jobs:
         with:
           # Specify architecture if it is not empty
           name: build-logs-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.tool-chain }}${{ matrix.architecture && format('-{0}', matrix.architecture) || '' }}
-          path: ${{ steps.build-platform.outputs.log-path }}
+          path: ${{ steps.build-platform.outputs.log-path }}-${{ contains(matrix.os-artifact, 'windows') && 'windows' || 'ubuntu' }}
