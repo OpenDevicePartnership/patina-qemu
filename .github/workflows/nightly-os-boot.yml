@@ -25,16 +25,16 @@ jobs:
     strategy:
       matrix:
         include:
-          # - img-url: ${{ needs.vars.outputs.ubuntu-x64-image }}
-          #   artifact-name: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
-          # - img-url: ${{ needs.vars.outputs.ubuntu-aarch64-image }}
-          #   artifact-name: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
+          - img-url: ${{ needs.vars.outputs.ubuntu-x64-image }}
+            artifact-name: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+          - img-url: ${{ needs.vars.outputs.ubuntu-aarch64-image }}
+            artifact-name: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
           - img-url: ${{ needs.vars.outputs.windows-x64-image }}
             artifact-name: ${{ needs.vars.outputs.windows-x64-artifact }}
           - img-url: ${{ needs.vars.outputs.windows-aarch64-image }}
             artifact-name: ${{ needs.vars.outputs.windows-aarch64-artifact }}
 
-    uses: ./.github/workflows/prepare-os-image.yml
+    uses: ./.github/workflows/prepare-images.yml
     with:
       image-url: ${{ matrix.img-url }}
       artifact-name: ${{ matrix.artifact-name }}
