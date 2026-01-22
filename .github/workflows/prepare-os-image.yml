@@ -22,7 +22,6 @@ on:
 env:
   IMG: base.img
   DISK_IMAGE: image.qcow2
-  DISK_IMAGE_VHDX: image.vhdx
   SEED_ISO: seed.iso
 
 jobs:

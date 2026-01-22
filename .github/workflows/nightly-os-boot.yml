@@ -51,7 +51,7 @@ jobs:
       image: ${{ needs.vars.outputs.container-image }}
       options: --security-opt seccomp=unconfined
     
-    timeout-minutes: 20
+    timeout-minutes: 30
     
     env:
       OS_BOOT_ARTIFACTS_PATH: ./os-boot-artifacts
@@ -60,50 +60,50 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # # Q35 DEBUG X64 UBUNTU
-          # - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-          #   target: 'DEBUG'
-          #   tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
-          #   platform: 'Q35'
-          #   os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
-          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # # Q35 RELEASE X64 UBUNTU
-          # - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-          #   target: 'RELEASE'
-          #   tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
-          #   platform: 'Q35'
-          #   os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
-          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # # Q35 DEBUG IA32,X64 UBUNTU
-          # - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-          #   target: 'DEBUG'
-          #   tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
-          #   architecture: 'IA32,X64'
-          #   platform: 'Q35'
-          #   os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
-          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # # Q35 RELEASE IA32,X64 UBUNTU
-          # - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-          #   target: 'RELEASE'
-          #   tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
-          #   architecture: 'IA32,X64'
-          #   platform: 'Q35'
-          #   os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
-          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # # SBSA DEBUG UBUNTU
-          # - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
-          #   target: 'DEBUG'
-          #   tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
-          #   platform: 'SBSA'
-          #   os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
-          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # # SBSA RELEASE UBUNTU
-          # - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
-          #   target: 'RELEASE'
-          #   tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
-          #   platform: 'SBSA'
-          #   os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
-          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+          # Q35 DEBUG X64 UBUNTU
+          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+            target: 'DEBUG'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            platform: 'Q35'
+            os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+          # Q35 RELEASE X64 UBUNTU
+          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+            target: 'RELEASE'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            platform: 'Q35'
+            os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+          # Q35 DEBUG IA32,X64 UBUNTU
+          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+            target: 'DEBUG'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            architecture: 'IA32,X64'
+            platform: 'Q35'
+            os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+          # Q35 RELEASE IA32,X64 UBUNTU
+          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+            target: 'RELEASE'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            architecture: 'IA32,X64'
+            platform: 'Q35'
+            os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+          # SBSA DEBUG UBUNTU
+          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+            target: 'DEBUG'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            platform: 'SBSA'
+            os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
+            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+          # SBSA RELEASE UBUNTU
+          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+            target: 'RELEASE'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            platform: 'SBSA'
+            os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
+            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
           # Q35 DEBUG X64 WINDOWS
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'DEBUG'
@@ -111,9 +111,39 @@ jobs:
             platform: 'Q35'
             os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+          # Q35 RELEASE X64 WINDOWS
+          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+            target: 'RELEASE'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            platform: 'Q35'
+            os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
+            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+          # Q35 DEBUG IA32,X64 WINDOWS
+          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+            target: 'DEBUG'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            architecture: 'IA32,X64'
+            platform: 'Q35'
+            os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
+            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+          # Q35 RELEASE IA32,X64 WINDOWS
+          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+            target: 'RELEASE'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            architecture: 'IA32,X64'
+            platform: 'Q35'
+            os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
+            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
           # SBSA DEBUG WINDOWS
           - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
             target: 'DEBUG'
+            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
+            platform: 'SBSA'
+            os-artifact: ${{ needs.vars.outputs.windows-aarch64-artifact }}
+            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+          # SBSA RELEASE WINDOWS
+          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+            target: 'RELEASE'
             tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             platform: 'SBSA'
             os-artifact: ${{ needs.vars.outputs.windows-aarch64-artifact }}
