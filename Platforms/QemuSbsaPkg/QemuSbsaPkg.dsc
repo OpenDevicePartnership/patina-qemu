@@ -1188,7 +1188,8 @@
   #
   MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
   MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
-  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  # MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
+  PatinaPkg/AcpiSdtDxe/AcpiSdtDxe.inf
   QemuSbsaPkg/AcpiTables/AcpiTables.inf
   QemuSbsaPkg/SbsaQemuAcpiDxe/SbsaQemuAcpiDxe.inf
 
