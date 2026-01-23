@@ -133,7 +133,8 @@ jobs:
 
           $hash = (Get-FileHash -Path "${{ env.IMG }}" -Algorithm SHA256).Hash
           Write-Host "Downloaded image SHA256: $hash" 
-          Write-Host "sha=$hash" >> $GITHUB_OUTPUT
+
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "sha=$hash"
       
       - name: Cache Windows cloud image
         id: cache
