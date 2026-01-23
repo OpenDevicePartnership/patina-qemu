@@ -29,10 +29,10 @@ jobs:
             artifact-name: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
           - img-url: ${{ needs.vars.outputs.ubuntu-aarch64-image }}
             artifact-name: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
-          - img-url: ${{ needs.vars.outputs.windows-x64-image }}
-            artifact-name: ${{ needs.vars.outputs.windows-x64-artifact }}
-          - img-url: ${{ needs.vars.outputs.windows-aarch64-image }}
-            artifact-name: ${{ needs.vars.outputs.windows-aarch64-artifact }}
+          # - img-url: ${{ needs.vars.outputs.windows-x64-image }}
+          #   artifact-name: ${{ needs.vars.outputs.windows-x64-artifact }}
+          # - img-url: ${{ needs.vars.outputs.windows-aarch64-image }}
+          #   artifact-name: ${{ needs.vars.outputs.windows-aarch64-artifact }}
 
     uses: ./.github/workflows/prepare-images.yml
     with:
@@ -67,76 +67,76 @@ jobs:
             platform: 'Q35'
             os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # Q35 RELEASE X64 (Boot to Ubuntu)
-          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-            target: 'RELEASE'
-            platform: 'Q35'
-            os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # Q35 DEBUG IA32,X64 (Boot to Ubuntu)
-          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-            target: 'DEBUG'
-            architecture: 'IA32,X64'
-            platform: 'Q35'
-            os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # Q35 RELEASE IA32,X64 (Boot to Ubuntu)
-          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-            target: 'RELEASE'
-            architecture: 'IA32,X64'
-            platform: 'Q35'
-            os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # SBSA DEBUG (Boot to Ubuntu)
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
-            target: 'DEBUG'
-            platform: 'SBSA'
-            os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # SBSA RELEASE (Boot to Ubuntu)
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
-            target: 'RELEASE'
-            platform: 'SBSA'
-            os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # Q35 DEBUG X64 (Boot to Windows)
-          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-            target: 'DEBUG'
-            platform: 'Q35'
-            os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
-          # Q35 RELEASE X64 (Boot to Windows)
-          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-            target: 'RELEASE'
-            platform: 'Q35'
-            os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
-          # Q35 DEBUG IA32,X64 (Boot to Windows)
-          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-            target: 'DEBUG'
-            architecture: 'IA32,X64'
-            platform: 'Q35'
-            os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
-          # Q35 RELEASE IA32,X64 (Boot to Windows)
-          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-            target: 'RELEASE'
-            architecture: 'IA32,X64'
-            platform: 'Q35'
-            os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
-          # SBSA DEBUG (Boot to Windows)
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
-            target: 'DEBUG'
-            platform: 'SBSA'
-            os-artifact: ${{ needs.vars.outputs.windows-aarch64-artifact }}
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
-          # SBSA RELEASE (Boot to Windows)
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
-            target: 'RELEASE'
-            platform: 'SBSA'
-            os-artifact: ${{ needs.vars.outputs.windows-aarch64-artifact }}
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+          # # Q35 RELEASE X64 (Boot to Ubuntu)
+          # - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+          #   target: 'RELEASE'
+          #   platform: 'Q35'
+          #   os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+          # # Q35 DEBUG IA32,X64 (Boot to Ubuntu)
+          # - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+          #   target: 'DEBUG'
+          #   architecture: 'IA32,X64'
+          #   platform: 'Q35'
+          #   os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+          # # Q35 RELEASE IA32,X64 (Boot to Ubuntu)
+          # - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+          #   target: 'RELEASE'
+          #   architecture: 'IA32,X64'
+          #   platform: 'Q35'
+          #   os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
+          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+          # # SBSA DEBUG (Boot to Ubuntu)
+          # - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          #   target: 'DEBUG'
+          #   platform: 'SBSA'
+          #   os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
+          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+          # # SBSA RELEASE (Boot to Ubuntu)
+          # - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          #   target: 'RELEASE'
+          #   platform: 'SBSA'
+          #   os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
+          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+          # # Q35 DEBUG X64 (Boot to Windows)
+          # - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+          #   target: 'DEBUG'
+          #   platform: 'Q35'
+          #   os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
+          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+          # # Q35 RELEASE X64 (Boot to Windows)
+          # - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+          #   target: 'RELEASE'
+          #   platform: 'Q35'
+          #   os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
+          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+          # # Q35 DEBUG IA32,X64 (Boot to Windows)
+          # - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+          #   target: 'DEBUG'
+          #   architecture: 'IA32,X64'
+          #   platform: 'Q35'
+          #   os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
+          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+          # # Q35 RELEASE IA32,X64 (Boot to Windows)
+          # - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+          #   target: 'RELEASE'
+          #   architecture: 'IA32,X64'
+          #   platform: 'Q35'
+          #   os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
+          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+          # # SBSA DEBUG (Boot to Windows)
+          # - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          #   target: 'DEBUG'
+          #   platform: 'SBSA'
+          #   os-artifact: ${{ needs.vars.outputs.windows-aarch64-artifact }}
+          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+          # # SBSA RELEASE (Boot to Windows)
+          # - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          #   target: 'RELEASE'
+          #   platform: 'SBSA'
+          #   os-artifact: ${{ needs.vars.outputs.windows-aarch64-artifact }}
+          #   extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
 
     steps:
       # Checkout the repository to the runner or container

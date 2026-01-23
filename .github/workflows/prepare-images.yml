@@ -33,16 +33,39 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Download image checksum
+        id: checksum
+        run: |
+          img_url=${{ inputs.image-url }}
+          img_name=$(basename "${img_url}")
+          checksum_url="${img_url%/*}/SHA256SUMS"
+
+          img_sha=$(curl -fsSL "${checksum_url}" | awk -v f="*${img_name}" '$2==f {print $1}')
+
+          [ -n "${img_sha}" ] || (echo "Failed to retrieve image checksum" >&2; exit 1)
+
+          echo "sha=${img_sha}" >> $GITHUB_OUTPUT
+      
+      - name: Cache Ubuntu cloud image
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ inputs.artifact-name }}-${{ steps.checksum.outputs.sha }}
+
       - name: Install Dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           sudo apt update
           sudo apt install -y qemu-system-x86 qemu-system-aarch64 qemu-utils ovmf curl cloud-image-utils
       
       - name: Download Ubuntu IMG
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           curl -L "${{ inputs.image-url }}" -o "${{ env.IMG }}"
 
       - name: Create QCOW2 Image
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           # Create the differential qcow2
           qemu-img create -f qcow2 -b "${{ env.IMG }}" -F qcow2 "${{ env.DISK_IMAGE }}"
@@ -54,6 +77,7 @@ jobs:
           mv "${{ env.DISK_IMAGE }}-flat.qcow2" "${{ env.DISK_IMAGE }}"
                 
       - name: Make seed.iso
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           mkdir seed
           echo "instance-id: ci-vm-$(date +%s)" > seed/meta-data
@@ -64,16 +88,24 @@ jobs:
           echo "  condition: True" >> seed/user-data
 
       - name: Build seed ISO (cloud-init)
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           cloud-localds "${{ env.SEED_ISO }}" seed/user-data seed/meta-data
+      
+      - name: Move to artifacts directory
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir artifacts
+          mv "${{ env.DISK_IMAGE }}" artifacts/
+          mv "${{ env.SEED_ISO }}" artifacts/
       
       - name: Publish Artifacts
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-name }}
           path: |
-            ${{ env.DISK_IMAGE }}
-            ${{ env.SEED_ISO }}
+            artifacts/${{ env.DISK_IMAGE }}
+            artifacts/${{ env.SEED_ISO }}
             
   build-windows-images:
     name: Prepare Windows Boot Image
