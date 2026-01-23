@@ -200,5 +200,6 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-name }}
+          retention-days: 1
           path: |
             artifacts/${{ env.DISK_IMAGE }}
