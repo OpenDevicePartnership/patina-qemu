@@ -18,7 +18,7 @@ jobs:
     uses: ./.github/workflows/constants.yml
   
   prepare-os-images:
-    name: Prepare OS Boot Image ${{ matrix.artifact-name}}
+    name: Prepare OS Boot Image ${{ matrix.artifact-name }}
 
     needs: vars
 
@@ -202,5 +202,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           # Specify architecture if it is not empty
-          name: build-logs-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.tool-chain }}${{ matrix.architecture && format('-{0}', matrix.architecture) || '' }}
-          path: ${{ steps.build-platform.outputs.log-path }}-${{ contains(matrix.os-artifact, 'windows') && 'windows' || 'ubuntu' }}
+          name: build-logs-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.tool-chain }}-${{ matrix.architecture && format('-{0}', matrix.architecture) || '' }}--${{ contains(matrix.os-artifact, 'windows') && 'windows' || 'ubuntu' }}
+          path: ${{ steps.build-platform.outputs.log-path }}
