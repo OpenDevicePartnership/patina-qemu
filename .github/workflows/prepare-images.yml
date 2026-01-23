@@ -25,8 +25,8 @@ env:
   SEED_ISO: seed.iso
 
 jobs:
-  build-linux-images:
-    name: Prepare ${{ inputs.artifact-name || 'No' }} Boot Image
+  build-ubuntu-images:
+    name: Prepare Ubuntu Boot Image
 
     if: ${{ contains(inputs.artifact-name, 'ubuntu') }}
 
@@ -76,7 +76,7 @@ jobs:
             ${{ env.SEED_ISO }}
             
   build-windows-images:
-    name: Prepare ${{ inputs.artifact-name }} Boot Image
+    name: Prepare Windows Boot Image
 
     if: ${{ contains(inputs.artifact-name, 'windows') }}
 
@@ -95,7 +95,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: 6.0.x
+          dotnet-version: 6.0.x # 6.0.0 is specifically required for the VOS Image Builder CLI.
 
       - name: Prepare Shutdown EXE
         id: shutdown-exe
@@ -107,9 +107,7 @@ jobs:
           Set-Content -Path $scriptPath -Value $script -Encoding ASCII
 
           Invoke-PS2EXE $scriptPath $exePath -noConsole -icon "$null"
-          
-          #set output path for this step
-          echo "exe-path=${exePath}" >> $GITHUB_OUTPUT
+          Write-Host "Shutdown EXE created at $env:GITHUB_WORKSPACE\$exePath"
 
       - name: Download Windows Validation OS image
         run: |
@@ -120,16 +118,13 @@ jobs:
           $mountResult = Mount-DiskImage -ImagePath (Get-Item $env:IMG).FullName -PassThru
           $driveLetter = ($mountResult | Get-Volume).DriveLetter
           Write-Host "Mounted ISO at ${driveLetter}:\"
-          echo "MOUNTED_DRIVE=${driveLetter}:\" >> $GITHUB_ENV
 
           $cliPath = Join-Path "${driveLetter}:\" "ValidationOSImageBuilder\$env:ARCHITECTURE\ValidationOSImageBuilderCLI.exe"
 
           $exePath = Join-Path "$env:GITHUB_WORKSPACE" "shutdown.exe"
 
+          # We need the powershell and provisioning packages to be able to run our shutdown executable.
           & $cliPath -g -if vhdx -bt InternalDisk -sc "$exePath" -f powershell -f provisioning -o $env:GITHUB_WORKSPACE
-
-          # Log output VHDX folder recursivly
-          Get-ChildItem -Path $env:GITHUB_WORKSPACE -Recurse
       
       - name: Convert to qcow2
         run: |
@@ -137,6 +132,7 @@ jobs:
           Write-Host "Converting VHDX at $($vhdxPath.FullName) to QCOW2"
 
           & "C:\Program Files\qemu\qemu-img.exe" convert -O qcow2 $($vhdxPath.FullName) "$env:GITHUB_WORKSPACE\${{ env.DISK_IMAGE }}"
+          Write-Host "QCOW2 image created at $env:GITHUB_WORKSPACE\${{ env.DISK_IMAGE }}"
       
       - name: Publish Artifacts
         uses: actions/upload-artifact@v6
