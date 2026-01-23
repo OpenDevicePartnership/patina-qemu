@@ -1,5 +1,11 @@
 # A reusable workflow to prepare OS boot images for Linux and Windows
 #
+# This action first checks the cache for an existing prepared image based on the checksum of the
+# base image. If not found, it downloads the base image, prepares it for OS boot testing, and
+# uploads the prepared image as an artifact for use in subsequent jobs. The retention date for the
+# published artifact is set to 1 day, as the actual storing of the prepared image is handled by the
+# cache.
+#
 ##
 # Copyright (c) Microsoft Corporation.
 #
@@ -103,6 +109,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-name }}
+          retention-days: 1
           path: |
             artifacts/${{ env.DISK_IMAGE }}
             artifacts/${{ env.SEED_ISO }}
@@ -119,17 +126,36 @@ jobs:
       ARCHITECTURE: ${{ contains(inputs.artifact-name, 'aarch64') && 'arm64' || 'x64' }}
 
     steps:
+      - name: Download Windows Validation OS image and checksum'
+        id: checksum
+        run: |
+          Invoke-WebRequest -Uri "${{ inputs.image-url }}" -OutFile "${{ env.IMG }}"
+
+          $hash = (Get-FileHash -Path "${{ env.IMG }}" -Algorithm SHA256).Hash
+          Write-Host "Downloaded image SHA256: $hash" 
+          Write-Host "sha=$hash" >> $GITHUB_OUTPUT
+      
+      - name: Cache Windows cloud image
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts
+          key: ${{ inputs.artifact-name }}-${{ steps.checksum.outputs.sha }}
+
       - name: Install Dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           choco install -y qemu
           Install-Module -Name PS2EXE -Scope CurrentUser -Force
   
       - name: Setup .NET
+        if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: 6.0.x # 6.0.0 is specifically required for the WVOS Image Builder CLI.
 
       - name: Prepare Shutdown EXE
+        if: steps.cache.outputs.cache-hit != 'true'
         id: shutdown-exe
         run: |
           $script = 'Stop-Computer -Force'
@@ -140,12 +166,9 @@ jobs:
 
           Invoke-PS2EXE $scriptPath $exePath -noConsole -icon "$null"
           Write-Host "Shutdown EXE created at $env:GITHUB_WORKSPACE\$exePath"
-
-      - name: Download Windows Validation OS image
-        run: |
-          Invoke-WebRequest -Uri "${{ inputs.image-url }}" -OutFile "${{ env.IMG }}"
       
       - name: Mount Image and run OS Builder
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           $mountResult = Mount-DiskImage -ImagePath (Get-Item $env:IMG).FullName -PassThru
           $driveLetter = ($mountResult | Get-Volume).DriveLetter
@@ -159,6 +182,7 @@ jobs:
           & $cliPath -g -if vhdx -bt InternalDisk -sc "$exePath" -f powershell -f provisioning -o $env:GITHUB_WORKSPACE
       
       - name: Convert to qcow2
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           $vhdxPath = Get-ChildItem -Path $env:GITHUB_WORKSPACE -Filter *.vhdx -Recurse -File | Select-Object -First 1
           Write-Host "Converting VHDX at $($vhdxPath.FullName) to QCOW2"
@@ -166,9 +190,15 @@ jobs:
           & "C:\Program Files\qemu\qemu-img.exe" convert -O qcow2 $($vhdxPath.FullName) "$env:GITHUB_WORKSPACE\${{ env.DISK_IMAGE }}"
           Write-Host "QCOW2 image created at $env:GITHUB_WORKSPACE\${{ env.DISK_IMAGE }}"
       
+      - name: Move to artifacts directory
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir artifacts
+          mv "${{ env.DISK_IMAGE }}" artifacts/
+      
       - name: Publish Artifacts
         uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.artifact-name }}
           path: |
-            ${{ env.DISK_IMAGE }}
+            artifacts/${{ env.DISK_IMAGE }}
