@@ -1,5 +1,8 @@
 # A workflow to build the platform(s) in this repository and boots them with the specified OS images.
 #
+# Please refer to [Platforms/Docs/Common/regression-testing.md](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/Docs/Common/regression-testing.md)
+# for more information on regression testing performed in this repository, including OS boot tests.
+#
 ##
 # Copyright (c) Microsoft Corporation.
 #
@@ -9,7 +12,7 @@ name: "Nightly OS Boot Test"
 
 on:
   schedule:
-    - cron: '0 2 * * *'  # Runs daily at 02:00 UTC
+    - cron: '0 6 * * *'  # Runs daily at 06:00 UTC
   workflow_dispatch:
   
 jobs:

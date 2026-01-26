@@ -139,3 +139,6 @@ For more options or details about building in your native environment or integra
 [Rust Integration](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/docs/Rust_Integration.md)
 or [Build Details](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/docs/Build_Details.md).
 
+## Platform Validation Testing
+
+This repository contains scheduled github workflows to detect regressions in firmware. See [Platforms/Docs/Common/regression-testing.md](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/Docs/Common/regression-testing.md).
