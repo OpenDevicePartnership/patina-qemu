@@ -1,0 +1,66 @@
+## @file
+#  ACPI Table Protocol Driver
+#
+#  This driver initializes ACPI tables (Rsdp, Rsdt and Xsdt) and produces UEFI/PI
+#  services to install/uninstall/manage ACPI tables.
+#
+#  Copyright (c) 2006 - 2021, Intel Corporation. All rights reserved.<BR>
+#  Copyright (c) 2016, Linaro Ltd. All rights reserved.<BR>
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = AcpiSdtDxe
+  MODULE_UNI_FILE                = AcpiSdtDxe.uni
+  FILE_GUID                      = 43DEF5B1-1BDD-4013-8108-34575B565753
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+
+  ENTRY_POINT                    = InitializeAcpiSdtDxe
+
+#
+# The following information is for reference only and not required by the build tools.
+#
+#  VALID_ARCHITECTURES           = IA32 X64 EBC
+#
+
+[Sources]
+  AcpiSdt.h
+  AcpiSdt.c
+  Aml.c
+  AmlString.c
+  AmlOption.c
+  AmlChild.c
+  AmlNamespace.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  PatinaPkg/PatinaPkg.dec
+  QemuPkg/QemuPkg.dec
+
+[LibraryClasses]
+  UefiBootServicesTableLib
+  MemoryAllocationLib
+  UefiDriverEntryPoint
+  BaseMemoryLib
+  UefiLib
+  DebugLib
+  BaseLib
+  PcdLib
+  HobLib
+
+[Pcd]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiExposedTableVersions    ## CONSUMES
+
+[Protocols]
+  gEfiAcpiSdtProtocolGuid                       ## PRODUCES
+  gAcpiGetProtocolGuid                          ## CONSUMES
+
+[Depex]
+  gAcpiGetProtocolGuid
+
+[UserExtensions.TianoCore."ExtraFiles"]
+  AcpiTableDxeExtra.uni

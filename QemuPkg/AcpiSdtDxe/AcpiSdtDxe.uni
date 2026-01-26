@@ -1,0 +1,13 @@
+// /** @file
+// AcpiTableDxe Module Localized Abstract and Description Content
+//
+// Copyright (c) 2012 - 2018, Intel Corporation. All rights reserved.<BR>
+//
+// SPDX-License-Identifier: BSD-2-Clause-Patent
+//
+// **/
+
+
+#string STR_MODULE_ABSTRACT             #language en-US "ACPI SDT Protocol Driver"
+
+#string STR_MODULE_DESCRIPTION          #language en-US "This driver initializes and produces the ACPI SDT protocol."
