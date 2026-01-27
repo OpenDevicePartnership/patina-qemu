@@ -4,8 +4,8 @@ This repository performs comprehensive scheduled testing against the default bra
 paths in firmware. The below sections will contain different tests (nightly, weekly, etc.) being performed. Not all
 tests have been implemented yet. See below to know if a test is implemented or not:
 
-- [x] Means that a testing is in place.
-- [ ] Means that testing is **not** in place.
+- [x] Means that the regression tests are implemented and enabled.
+- [ ] Means that the regression tests are **not** implemented or enabled.
 
 ## OS Boot Validation
 
