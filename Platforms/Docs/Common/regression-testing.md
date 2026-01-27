@@ -54,6 +54,21 @@ from the initial breakpoint.
 - [ ] Q35 debugger connection boot
 - [ ] SBSA debugger connection boot
 
+## Hibernation
+
+While hibernation is not strictly a UEFI feature, its implementation is highly dependent on the memory layout provided
+by firmware via the UEFI memory map. Successful hibernation requires that runtime memory regions remain stable across
+boots. Historically, even minor firmware changes have broken hibernation, demonstrating how sensitive and error-prone
+this path can be.
+
+To validate hibernation support, tests are implemented that repeatedly boot the operating system, extract the UEFI
+memory map from logs, and compare it against the previous boot to ensure memory layout stability. Each iteration then
+performs a hibernate-resume cycle. This process is repeated multiple times to detect nondeterministic firmware behavior
+that could cause resume failures.
+
+- [ ] Q35 hibernate resume
+- [ ] SBSA hibernate resume
+
 ## Self-Certification Tests (SCTs)
 
 SCTs are the de-facto way to validate a platform's firmware implementation is compliant with the UEFI specification.
