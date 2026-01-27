@@ -1,8 +1,8 @@
 /** @file
  * TODO
  */
-#ifndef __ACPI_GET_H___
-#define __ACPI_GET_H___
+#ifndef ACPI_GET_H_
+#define ACPI_GET_H_
 
 #include <Protocol/AcpiSystemDescriptionTable.h>
 
@@ -17,4 +17,4 @@ typedef struct _ACPI_GET_PROTOCOL {
 
 extern EFI_GUID  gAcpiGetProtocolGuid;
 
-#endif // __ACPI_GET_H___
+#endif // ACPI_GET_H_
