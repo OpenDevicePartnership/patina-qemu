@@ -1,5 +1,8 @@
 # Demonstration of Patina in a QEMU UEFI Platform Build
 
+[![CI](https://github.com/OpenDevicePartnership/patina-qemu/actions/workflows/platform-ci.yml/badge.svg)](https://github.com/OpenDevicePartnership/patina-qemu/actions/workflows/platform-ci.yml)
+[![Nightly Regression Tests](https://github.com/OpenDevicePartnership/patina-qemu/actions/workflows/nightly-os-boot.yml/badge.svg?event=schedule)](https://github.com/OpenDevicePartnership/patina-qemu/actions/workflows/nightly-os-boot.yml)
+
 The primary purpose of this repository is to demonstrate integrating code from the Open Device Partnership's Patina project
 into a UEFI platform build and is meant to be a "first stop" for developers exploring ODP and the Patina Boot Firmware. It
 contains a permanent fork of [OvmfPkg](https://github.com/tianocore/edk2/tree/HEAD/OvmfPkg) from EDK II with changes based
@@ -139,3 +142,6 @@ For more options or details about building in your native environment or integra
 [Rust Integration](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/docs/Rust_Integration.md)
 or [Build Details](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/docs/Build_Details.md).
 
+## Platform Validation Testing
+
+This repository contains scheduled github workflows to detect regressions in firmware. See [Platforms/Docs/Common/regression-testing.md](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/Docs/Common/regression-testing.md).

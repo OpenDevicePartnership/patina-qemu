@@ -126,7 +126,7 @@ jobs:
       ARCHITECTURE: ${{ contains(inputs.artifact-name, 'aarch64') && 'arm64' || 'x64' }}
 
     steps:
-      - name: Download Windows Validation OS image and checksum'
+      - name: Download Windows Validation OS image and checksum
         id: checksum
         run: |
           Invoke-WebRequest -Uri "${{ inputs.image-url }}" -OutFile "${{ env.IMG }}"
