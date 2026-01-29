@@ -183,6 +183,9 @@ class QemuCommandBuilder:
         if self._usb_mouse_added:
             self._logger.debug("USB mouse already added, skipping")
             return self
+        
+        if not self._usb_controller_added:
+            self = self.with_usb_controller()
 
         self._usb_mouse_added = True
         self._args.extend(["-device", "usb-mouse,id=input0,bus=usb.0,port=1"])
@@ -193,6 +196,9 @@ class QemuCommandBuilder:
         if self._usb_keyboard_added:
             self._logger.debug("USB keyboard already added, skipping")
             return self
+        
+        if not self._usb_controller_added:
+            self = self.with_usb_controller()
 
         self._usb_keyboard_added = True
         self._args.extend(["-device", "usb-kbd,id=input1,bus=usb.0,port=2"])
@@ -202,6 +208,9 @@ class QemuCommandBuilder:
         """Add USB storage device"""
         if not drive_file:
             return self
+        
+        if not self._usb_controller_added:
+            self = self.with_usb_controller()
 
         # Auto-generate unique ID if not provided
         if not drive_id:
@@ -273,47 +282,59 @@ class QemuCommandBuilder:
         self._args.extend(["-m", str(size_mb)])
         return self
 
-    def with_os_storage(self, path_to_os):
-        """Configure OS storage (VHD, QCOW2, or ISO)"""
-        if not path_to_os:
+    def with_storage(self, path: os.PathLike, device: str):
+        """Attaches storage to a device to be accessible by QEMU.
+        
+        The `path` suffix must be `.vhd`, `.qcow2`, or `.iso`.
+        The `device` must be `cdrom`, `ssd`, `hdd`, or `usb`.
+        
+        Note: SSD is only supported on Q35.
+        Note: HDD is only supported on SBSA.
+
+        Args:
+            path (os.PathLike): Path to the storage.
+            device (str): The device to attach this storage to.
+
+        Raises:
+            Exception: The combination of architecture, path, and device are not supported.
+        """
+        if not path:
             return self
-
-        self._logger.debug(f"Configuring OS storage: {path_to_os}")
-
-        file_extension = Path(path_to_os).suffix.lower().replace('"', "")
-
-        storage_format = {
+        
+        self._logger.debug(f"Configuring storage: {path}")
+        
+        path = Path(path)
+        device = device.lower()
+        
+        format = {
             ".vhd": "raw",
             ".qcow2": "qcow2",
-            ".iso": "iso",
-        }.get(file_extension)
-
-        if storage_format is None:
-            raise Exception(f"Unknown OS storage type: {path_to_os}")
-
-        if storage_format == "iso":
-            self._args.extend(["-cdrom", f"{path_to_os}"])
+            ".iso": "iso"
+        }.get(path.suffix)
+        
+        if device == "cdrom" and format == "iso":
+            self._args.extend(["-cdrom", f"{str(path)}"])
+        elif device == "usb":
+            self = self.with_usb_storage(path, drive_format = format)
+        elif device == "ssd" and self._architecture == QemuArchitecture.Q35:
+            self._args.extend([
+                "-drive",
+                f"file={path},format={format},if=none,id=os_nvme",
+                "-device",
+                "nvme,serial=nvme-1,drive=os_nvme",
+            ])
+        elif device == "hdd" and self._architecture == QemuArchitecture.SBSA:
+            self._args.extend([
+                "-drive",
+                f"file={path},format={format},if=none,id=os_disk",
+                "-device",
+                "ahci,id=ahci",
+                "-device",
+                "ide-hd,drive=os_disk,bus=ahci.0",
+            ])
         else:
-            if self._architecture == QemuArchitecture.Q35:
-                self._args.extend(
-                    [
-                        "-drive",
-                        f"file={path_to_os},format={storage_format},if=none,id=os_nvme",
-                        "-device",
-                        "nvme,serial=nvme-1,drive=os_nvme",
-                    ]
-                )
-            elif self._architecture == QemuArchitecture.SBSA:
-                self._args.extend(
-                    [
-                        "-drive",
-                        f"file={path_to_os},format={storage_format},if=none,id=os_disk",
-                        "-device",
-                        "ahci,id=ahci",
-                        "-device",
-                        "ide-hd,drive=os_disk,bus=ahci.0",
-                    ]
-                )
+            raise Exception(f"Unsupported storage combination: {device} && {format} && {self._architecture}")
+            
         return self
 
     def with_network(self, enabled=True, forward_ports=None, use_virtio=False):

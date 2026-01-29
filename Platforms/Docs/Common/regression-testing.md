@@ -19,10 +19,10 @@ ways such as booting from an internal drive, from a USB drive, and from a PXE se
 - [x] SBSA Internal Drive Windows Validation OS boot
 - [x] SBSA Internal Drive Ubuntu 24.04 Server OS boot
 
-- [ ] Q35 USB Drive Windows Validation OS boot
-- [ ] Q35 USB Drive Ubuntu 24.04 Server OS boot
-- [ ] SBSA USB Drive Windows Validation OS boot
-- [ ] SBSA USB Drive Ubuntu 24.04 Server OS boot
+- [x] Q35 USB Drive Windows Validation OS boot
+- [x] Q35 USB Drive Ubuntu 24.04 Server OS boot
+- [x] SBSA USB Drive Windows Validation OS boot
+- [x] SBSA USB Drive Ubuntu 24.04 Server OS boot
 
 - [ ] Q35 PXE Windows Validation OS boot
 - [ ] Q35 PXE Ubuntu 24.04 Server OS boot
@@ -84,6 +84,12 @@ Boot performance is an important aspect of platform firmware and thus must be mo
 performance does not degrade over time. Performance tracking is performed by the EDKII performance measurement protocol
 and can be retrieved via the operating system via the FBPT. Due to this, we can boot to the operating system, retrieve
 the boot measurements and publish the results.
+
+Performance monitoring happens in two parts. On a weekly schedule, a workflow runs to gather the current performance
+measurements and produce them as an artifact. A second workflow runs when a pull request is created that updates the
+Patina QEMU DXE Core external dependency. This workflow will perform the same performance measurements, but will
+additionally compare it against the most recent performance measurements from the scheduled run and comment on the
+pull request with the performance changes.
 
 - [ ] Q35 Release Performance Measurement tracking
 - [ ] SBSA Release Performance Measurement tracking
