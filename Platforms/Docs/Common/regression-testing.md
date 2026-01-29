@@ -85,5 +85,11 @@ performance does not degrade over time. Performance tracking is performed by the
 and can be retrieved via the operating system via the FBPT. Due to this, we can boot to the operating system, retrieve
 the boot measurements and publish the results.
 
+Performance monitoring happens in two parts. On a weekly schedule, a workflow runs to gather the current performance
+measurements and produce them as an artifact. A second workflow runs when a pull request is created that updates the
+Patina QEMU DXE Core external dependency. This workflow will perform the same performance measurements, but will
+additionally compare it against the most recent performance measurements from the scheduled run and comment on the
+pull request with the performance changes.
+
 - [ ] Q35 Release Performance Measurement tracking
 - [ ] SBSA Release Performance Measurement tracking
