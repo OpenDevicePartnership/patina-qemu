@@ -296,7 +296,6 @@ class QemuCommandBuilder:
             device (str): The device to attach this storage to.
 
         Raises:
-            Exception: The provided `path` has an unsupported file extension.
             Exception: The combination of architecture, path, and device are not supported.
         """
         if not path:
@@ -312,9 +311,6 @@ class QemuCommandBuilder:
             ".qcow2": "qcow2",
             ".iso": "iso"
         }.get(path.suffix)
-        
-        if not format:
-            raise Exception(f"Unknown storage type: {path}")
         
         if device == "cdrom" and format == "iso":
             self._args.extend(["-cdrom", f"{str(path)}"])
