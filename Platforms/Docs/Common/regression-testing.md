@@ -19,10 +19,10 @@ ways such as booting from an internal drive, from a USB drive, and from a PXE se
 - [x] SBSA Internal Drive Windows Validation OS boot
 - [x] SBSA Internal Drive Ubuntu 24.04 Server OS boot
 
-- [ ] Q35 USB Drive Windows Validation OS boot
-- [ ] Q35 USB Drive Ubuntu 24.04 Server OS boot
-- [ ] SBSA USB Drive Windows Validation OS boot
-- [ ] SBSA USB Drive Ubuntu 24.04 Server OS boot
+- [x] Q35 USB Drive Windows Validation OS boot
+- [x] Q35 USB Drive Ubuntu 24.04 Server OS boot
+- [x] SBSA USB Drive Windows Validation OS boot
+- [x] SBSA USB Drive Ubuntu 24.04 Server OS boot
 
 - [ ] Q35 PXE Windows Validation OS boot
 - [ ] Q35 PXE Ubuntu 24.04 Server OS boot
