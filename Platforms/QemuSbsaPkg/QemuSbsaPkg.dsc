@@ -1030,7 +1030,7 @@
   MdeModulePkg/Universal/FvSimpleFileSystemDxe/FvSimpleFileSystemDxe.inf
   ArmPkg/Drivers/ArmPsciMpServicesDxe/ArmPsciMpServicesDxe.inf
   UefiTestingPkg/FunctionalSystemTests/MpManagement/Driver/MpManagement.inf
-  UefiTestingPkg/FunctionalSystemTests/MpManagement/App/MpManagementTestApp.inf
+  # UefiTestingPkg/FunctionalSystemTests/MpManagement/App/MpManagementTestApp.inf # NOT APPLICABLE FOR PATINA DXE CORE
 
   MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTableDxe/FirmwarePerformanceDxe.inf
   MsCorePkg/MuCryptoDxe/MuCryptoDxe.inf
