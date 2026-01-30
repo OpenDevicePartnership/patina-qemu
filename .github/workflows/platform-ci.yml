@@ -140,6 +140,7 @@ jobs:
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
           tool-chain: ${{ matrix.tool-chain }}
+          # Only pass architecture if it is defined in the matrix
           architecture: ${{ matrix.architecture || '' }}
           stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }}'
 
@@ -151,6 +152,7 @@ jobs:
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
           tool-chain: ${{ matrix.tool-chain }}
+          # Only pass architecture if it is defined in the matrix
           architecture: ${{ matrix.architecture || '' }}
           stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }}'
       
@@ -158,6 +160,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
+          # Specify architecture if it is not empty
           name: build-logs-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.tool-chain }}${{ matrix.architecture && format('-{0}', matrix.architecture) || '' }}
           path: ${{ steps.build-platform.outputs.log-path }}
 
