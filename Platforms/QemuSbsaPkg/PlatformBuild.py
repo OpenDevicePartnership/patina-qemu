@@ -966,7 +966,6 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
 
         if not virtual_drive.exists():
             virtual_drive.make_drive()
-
       
         # Move the requested files to the drive
         if file_regex:
@@ -982,7 +981,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
                 self.Helper.add_tests(virtual_drive, file_list, auto_run = run_tests, auto_shutdown = shutdown_after_run, paging_audit = run_paging_audit)
             else:
                 [virtual_drive.add_file(file) for file in file_list]
-            
+
         # Otherwise add an empty startup script
         else:
             virtual_drive.add_startup_script([], auto_shutdown=shutdown_after_run)
