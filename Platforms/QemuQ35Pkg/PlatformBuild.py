@@ -427,7 +427,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         output_base = self.env.GetValue("BUILD_OUTPUT_BASE")
         drive_path = self.env.GetValue("VIRTUAL_DRIVE_PATH")
         drive_size = int(self.env.GetValue("VIRTUAL_DRIVE_SIZE", 60))
-        run_paging_audit = False           
+        run_paging_audit = False
 
         # General debugging information for users
         if run_tests:
