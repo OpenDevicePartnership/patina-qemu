@@ -237,8 +237,8 @@ READ_LOCK_STATUS   = TRUE
   INF MdeModulePkg/Universal/HiiDatabaseDxe/HiiDatabaseDxe.inf
   INF MdeModulePkg/Universal/FvSimpleFileSystemDxe/FvSimpleFileSystemDxe.inf
   INF ArmPkg/Drivers/ArmPsciMpServicesDxe/ArmPsciMpServicesDxe.inf
-  INF UefiTestingPkg/FunctionalSystemTests/MpManagement/Driver/MpManagement.inf
-  INF UefiTestingPkg/FunctionalSystemTests/MpManagement/App/MpManagementTestApp.inf
+  # INF UefiTestingPkg/FunctionalSystemTests/MpManagement/Driver/MpManagement.inf # NOT APPLICABLE FOR PATINA DXE CORE
+  # INF UefiTestingPkg/FunctionalSystemTests/MpManagement/App/MpManagementTestApp.inf # NOT APPLICABLE FOR PATINA DXE CORE
 
   !include $(SHARED_CRYPTO_PATH)/Driver/Bin/CryptoDriver.DXE.inc.fdf
 

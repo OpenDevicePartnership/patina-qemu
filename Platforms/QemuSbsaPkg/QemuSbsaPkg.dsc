@@ -1029,7 +1029,7 @@
   QemuSbsaPkg/QemuVideoDxe/QemuVideoDxe.inf
   MdeModulePkg/Universal/FvSimpleFileSystemDxe/FvSimpleFileSystemDxe.inf
   ArmPkg/Drivers/ArmPsciMpServicesDxe/ArmPsciMpServicesDxe.inf
-  UefiTestingPkg/FunctionalSystemTests/MpManagement/Driver/MpManagement.inf
+  # UefiTestingPkg/FunctionalSystemTests/MpManagement/Driver/MpManagement.inf # NOT APPLICABLE FOR PATINA DXE CORE
   # UefiTestingPkg/FunctionalSystemTests/MpManagement/App/MpManagementTestApp.inf # NOT APPLICABLE FOR PATINA DXE CORE
 
   MdeModulePkg/Universal/Acpi/FirmwarePerformanceDataTableDxe/FirmwarePerformanceDxe.inf
