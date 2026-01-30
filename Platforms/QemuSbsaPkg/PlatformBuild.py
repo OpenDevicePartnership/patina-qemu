@@ -950,7 +950,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         # General debugging information for users
         if run_tests:
             if not file_regex:
-                logging.warning("Running tests, but no Tests specified. use TEST_REGEX to specify tests to run.")
+                logging.warning("Running tests, but no Tests specified. use FILE_REGEX to specify tests to run.")
 
             if not empty_drive:
                 logging.info("EMPTY_DRIVE=FALSE. Old files can persist, could effect test results.")
