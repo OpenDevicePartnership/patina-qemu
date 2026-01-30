@@ -972,7 +972,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         if file_regex:
             file_list = []
             for pattern in file_regex.split(","):
-                file_list.extend(Path(output_base, "X64").glob(pattern))
+                file_list.extend(Path(output_base, "AARCH64").glob(pattern))
 
             # If we are running tests, Use the helper to create a startup nsh that runs the test. Otherwise only add the files
             if run_tests:
