@@ -151,7 +151,7 @@ jobs:
   
       - name: Setup .NET
         if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 6.0.x # 6.0.0 is specifically required for the WVOS Image Builder CLI.
 
