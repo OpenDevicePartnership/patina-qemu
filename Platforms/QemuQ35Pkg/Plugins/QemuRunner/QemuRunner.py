@@ -96,7 +96,6 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         qemu_executable_path = QemuRunner.GetStr(env, "QEMU_PATH")
         qemu_ext_dep_dir = QemuRunner.GetStr(env, "QEMU_DIR")
         serial_port = QemuRunner.GetStr(env, "SERIAL_PORT", "50001")
-        shutdown_after_run = QemuRunner.GetBool(env, "SHUTDOWN_AFTER_RUN", False)
         smm_enabled = QemuRunner.GetBuildBool(env, "SMM_ENABLED", True)
         tpm_dev = QemuRunner.GetStr(env, "TPM_DEV")
         virtual_drive = QemuRunner.GetStr(env, "VIRTUAL_DRIVE_PATH")
@@ -158,7 +157,6 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             .with_gdb_server(gdb_server_port)
             .with_serial_port(serial_port)
             .with_monitor_port(monitor_port)
-            .with_shutdown_from_guest(shutdown_after_run)
         )
 
         if path_to_seed:

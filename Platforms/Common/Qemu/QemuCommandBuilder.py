@@ -56,11 +56,13 @@ class QemuCommandBuilder:
                 ["-global", "ICH9-LPC.disable_s3=1"]
             )  # disable S3 sleep state
             self._args.extend(
-                ["-global", f"isa-debugcon.iobase=0x402"]
+                ["-global", "isa-debugcon.iobase=0x402"]
             )  # debug console
             self._args.extend(
                 ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04"]
             )  # debug exit device
+        elif self._architecture == QemuArchitecture.SBSA:
+            self._args.extend(["-semihosting"])
 
     def with_rom_path(self, rom_dir):
         """Set ROM path for QEMU external dependency"""
@@ -571,14 +573,6 @@ class QemuCommandBuilder:
         if port:
             self._monitor_port_added = True
             self._args.extend(["-monitor", f"tcp:{ip}:{port},server,nowait"])
-        return self
-
-    def with_shutdown_from_guest(self, shutdown=True):
-        """Enable shutdown from guest via isa-debug-exit device"""
-
-        if shutdown and self._architecture == QemuArchitecture.Q35:
-            self._args.extend(["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04"])
-
         return self
 
     def with_custom(self, *args):
