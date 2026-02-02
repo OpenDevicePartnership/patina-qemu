@@ -968,8 +968,8 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
             virtual_drive.make_drive()
       
         # Move the requested files to the drive
+        file_list = []
         if file_regex:
-            file_list = []
             for pattern in file_regex.split(","):
                 file_list.extend(Path(output_base, "AARCH64").glob(pattern))
 
