@@ -105,19 +105,19 @@ jobs:
         run: |
           IMG_FILE="$(find Build -type f -name '*.img' -print -quit || true)"
 
-          if [[ -z "${IMG_FILE}" ]]; then
+          if [ -z "${IMG_FILE}" ]; then
             echo "::error::No .img file found under Build/"
             exit 1
           fi
 
           mcopy -n -i "$IMG_FILE" ::/${{ env.LOG_FILE }} .
 
-          if [[ ! -f ${{ env.LOG_FILE }} ]]; then
+          if [ ! -f ${{ env.LOG_FILE }} ]; then
             echo "::error file=${{ env.LOG_FILE }}::file does not exist. Advanced Logger test failed." >&2
             exit 1
           fi
          
-          if [[ $(wc -l < ${{ env.LOG_FILE }}) -eq 0 ]]; then
+          if [ $(wc -l < ${{ env.LOG_FILE }}) -eq 0 ]; then
             echo "::error file=${{ env.LOG_FILE }}::file is empty. Advanced Logger test failed." >&2
             exit 1
           fi
