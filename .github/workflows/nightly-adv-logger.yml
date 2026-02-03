@@ -1,0 +1,103 @@
+# A workflow to validate advanced logger workflows work as expected.
+#
+# Please refer to [Platforms/Docs/Common/regression-testing.md](https://github.com/OpenDevicePartnership/patina-qemu/tree/main/Platforms/Docs/Common/regression-testing.md)
+# for more information on regression testing performed in this repository, including Advanced Logger tests.
+#
+##
+# Copyright (c) Microsoft Corporation.
+#
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+name: Nightly Advanced Logger Test
+
+on:
+  schedule:
+    - cron: 0 7 * * *
+  workflow_dispatch:
+
+jobs:
+  vars:
+    name: Get Repository Constants
+    uses: ./.github/workflows/constants.yml
+
+  adv-logger-shell-test:
+    name: UEFI shell advanced logger flow
+    
+    needs: vars
+
+    runs-on: ubuntu-latest
+
+    container:
+      image: ${{ needs.vars.outputs.container-image }}
+      options: --security-opt seccomp=unconfined
+    
+    timeout-minutes: 30
+
+    env:
+      TOOL_CHAIN: ${{ needs.vars.outputs.linux-toolchain }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Q35 DEBUG
+          - config: Platforms/QemuQ35Pkg/PlatformBuild.py
+            target: DEBUG
+            platform: Q35
+          # Q35 RELEASE
+          - config: Platforms/QemuQ35Pkg/PlatformBuild.py
+            target: RELEASE
+            platform: Q35
+          # SBSA DEBUG
+          - config: Platforms/QemuQ35Pkg/PlatformBuild.py
+            target: DEBUG
+            platform: SBSA
+          # SBSA RELEASE
+          - config: Platforms/QemuQ35Pkg/PlatformBuild.py
+            target: RELEASE
+            platform: SBSA
+    steps:
+      # Checkout the repository to the runner or container
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      # Configure git for use in the container. Specifically needed for the FFA builds
+      - name: Container Configuration
+        run: |
+          git config --global --add safe.directory '*'
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+      
+      # Install the pip dependencies needed to run stuart for the platform(s)
+      - name: Install dependencies
+        run: pip install -r pip-requirements.txt
+      
+      # Run the build-platform action, which calls stuart_setup, stuart_update, and stuart_build
+      - name: Prepare and Build
+        id: build-platform  
+        uses: ./.github/actions/build-platform
+        with:
+          command: 'build'
+          platform-config: ${{ matrix.config }}
+          platform-name: ${{ matrix.platform }}
+          target: ${{ matrix.target }}
+          tool-chain: ${{ env.TOOL_CHAIN }}
+          stuart-args: 'QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }}'
+      
+      - name: Run
+        uses: ./.github/actions/build-platform
+        with:
+          command: 'flash'
+          platform-config: ${{ matrix.config }}
+          platform-name: ${{ matrix.platform }}
+          target: ${{ matrix.target }}
+          tool-chain: ${{ env.TOOL_CHAIN }}
+          stuart-args: 'QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }}'
+     
+      - name: Publish Logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          # Specify architecture if it is not empty
+          name: build-logs-${{ matrix.platform }}-${{ matrix.target }}-${{ env.TOOL_CHAIN }}
+          path: ${{ steps.build-platform.outputs.log-path }}
