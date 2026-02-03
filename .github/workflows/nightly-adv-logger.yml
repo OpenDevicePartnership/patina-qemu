@@ -117,10 +117,14 @@ jobs:
             exit 1
           fi
          
-          if [ $(wc -l < ${{ env.LOG_FILE }}) -eq 0 ]; then
+          line_count=$(wc -l < "${{ env.LOG_FILE }}")
+
+          if [ "${line_count}" -eq 0 ]; then
             echo "::error file=${{ env.LOG_FILE }}::file is empty. Advanced Logger test failed." >&2
             exit 1
           fi
+
+          echo "Advanced Logger output line count: ${line_count}"
 
       - name: Publish Logs
         if: always()
