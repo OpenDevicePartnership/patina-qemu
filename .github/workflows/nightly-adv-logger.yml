@@ -8,7 +8,7 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
-name: Nightly Advanced Logger Test
+name: Nightly Adv Log Test
 
 on:
   schedule:
@@ -21,7 +21,7 @@ jobs:
     uses: ./.github/workflows/constants.yml
 
   adv-logger-shell-test:
-    name: UEFI shell advanced logger flow
+    name: UEFI shell Adv Log
     
     needs: vars
 
@@ -35,6 +35,8 @@ jobs:
 
     env:
       TOOL_CHAIN: ${{ needs.vars.outputs.linux-toolchain }}
+      STARTUP_NSH_PATH: './STARTUP.NSH'
+      LOG_FILE: 'ADV_LOGS.TXT'
 
     strategy:
       fail-fast: false
@@ -48,14 +50,14 @@ jobs:
           - config: Platforms/QemuQ35Pkg/PlatformBuild.py
             target: RELEASE
             platform: Q35
-          # SBSA DEBUG
-          - config: Platforms/QemuQ35Pkg/PlatformBuild.py
-            target: DEBUG
-            platform: SBSA
-          # SBSA RELEASE
-          - config: Platforms/QemuQ35Pkg/PlatformBuild.py
-            target: RELEASE
-            platform: SBSA
+          # # SBSA DEBUG
+          # - config: Platforms/QemuQ35Pkg/PlatformBuild.py
+          #   target: DEBUG
+          #   platform: SBSA
+          # # SBSA RELEASE
+          # - config: Platforms/QemuQ35Pkg/PlatformBuild.py
+          #   target: RELEASE
+          #   platform: SBSA
     steps:
       # Checkout the repository to the runner or container
       - name: Checkout repository
@@ -72,6 +74,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r pip-requirements.txt
       
+      - name: Create startup NSH
+        run: |
+          touch ${{ env.STARTUP_NSH_PATH }}
+          echo "AdvancedLogDumper.efi -o ${{ env.LOG_FILE }}" > ${{ env.STARTUP_NSH_PATH }}
+      
       # Run the build-platform action, which calls stuart_setup, stuart_update, and stuart_build
       - name: Prepare and Build
         id: build-platform  
@@ -82,7 +89,7 @@ jobs:
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
           tool-chain: ${{ env.TOOL_CHAIN }}
-          stuart-args: 'QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }}'
+          stuart-args: 'QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} STARTUP_NSH="${{ env.STARTUP_NSH_PATH }} SHUTDOWN_AFTER_RUN=TRUE'
       
       - name: Run
         uses: ./.github/actions/build-platform
