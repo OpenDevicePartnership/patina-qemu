@@ -100,7 +100,17 @@ jobs:
           target: ${{ matrix.target }}
           tool-chain: ${{ env.TOOL_CHAIN }}
           stuart-args: 'QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} STARTUP_NSH="${{ env.STARTUP_NSH_PATH }}" SHUTDOWN_AFTER_RUN=TRUE'
-     
+
+      - name: Extract log dump
+        run: |
+          IMG_FILE=$(IMG_FILE=$(find Build/* -type f -name "*.img" -print -quit))
+          mcopy -i $IMG_FILE ::/${{ env.LOG_FILE }} .
+
+          if [[ ! -f "${{ env.LOG_FILE }}" || $(wc -l < "${{ env.LOG_FILE }}" -eq 0 )]]; then
+            echo "::error file=${{ env.LOG_FILE }}::file does not exist or is empty. Advanced Logger test failed." >&2
+            exit 1
+          fi
+
       - name: Publish Logs
         if: always()
         uses: actions/upload-artifact@v6
