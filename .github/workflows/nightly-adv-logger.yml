@@ -51,11 +51,11 @@ jobs:
             target: RELEASE
             platform: Q35
           # SBSA DEBUG
-          - config: Platforms/QemuQ35Pkg/PlatformBuild.py
+          - config: Platforms/QemuSbsaPkg/PlatformBuild.py
             target: DEBUG
             platform: SBSA
           # SBSA RELEASE
-          - config: Platforms/QemuQ35Pkg/PlatformBuild.py
+          - config: Platforms/QemuSbsaPkg/PlatformBuild.py
             target: RELEASE
             platform: SBSA
     steps:

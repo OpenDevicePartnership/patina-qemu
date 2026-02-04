@@ -359,8 +359,9 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         Env = namedtuple('Env', ['name', 'default', 'description'])
 
         return [
-            Env("FILE_REGEX", None, "Comma delimited list of regexes for files to be included in the shell."),
+            Env("FILE_REGEX", "", "Comma delimited list of regexes for files to be included in the shell."),
             Env("RUN_TESTS", "FALSE", "Treats any files specified via FILE_REGEX as tests, running them and reporting JUNIT results."),
+            Env("STARTUP_NSH", "", "UEFI Shell Startup script to run if specified (Not compatible with `RUN_TESTS==TRUE`)."),
             Env("EMPTY_DRIVE", "FALSE", "Whether to empty the virtual drive used by the shell before running."),
             Env("SHUTDOWN_AFTER_RUN", "FALSE", "Whether or not to shutdown after the startup nsh runs."),
         ]
@@ -941,6 +942,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         shutdown_after_run = (self.env.GetValue("SHUTDOWN_AFTER_RUN").upper() == "TRUE")
         empty_drive = (self.env.GetValue("EMPTY_DRIVE").upper() == "TRUE")
         file_regex = self.env.GetValue("FILE_REGEX")
+        startup_nsh = self.env.GetValue("STARTUP_NSH")
 
         # Other configurable values
         output_base = self.env.GetValue("BUILD_OUTPUT_BASE")
@@ -967,24 +969,29 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         if not virtual_drive.exists():
             virtual_drive.make_drive()
       
-        # Move the requested files to the drive
+        # Glob files if requested
         file_list = []
         if file_regex:
             for pattern in file_regex.split(","):
                 file_list.extend(Path(output_base, "AARCH64").glob(pattern))
 
-            # If we are running tests, Use the helper to create a startup nsh that runs the test. Otherwise only add the files
-            if run_tests:
-                if any("DxePagingAuditTestApp.efi" in os.path.basename(test) for test in file_list):
-                    run_paging_audit = True
+        # If we are running tests, Use the helper to create a startup nsh that runs the test. Otherwise only add the files
+        if run_tests:
+            if any("DxePagingAuditTestApp.efi" in os.path.basename(test) for test in file_list):
+                run_paging_audit = True
 
-                self.Helper.add_tests(virtual_drive, file_list, auto_run = run_tests, auto_shutdown = shutdown_after_run, paging_audit = run_paging_audit)
-            else:
-                [virtual_drive.add_file(file) for file in file_list]
+            self.Helper.add_tests(virtual_drive, file_list, auto_run = run_tests, auto_shutdown = shutdown_after_run, paging_audit = run_paging_audit)
 
-        # Otherwise add an empty startup script
+        # if a startup nsh was specified, insert files and startup script
+        elif startup_nsh:
+            lines = Path(startup_nsh).read_text().splitlines()
+            virtual_drive.add_startup_script(lines, auto_shutdown=shutdown_after_run)
+            [virtual_drive.add_file(file) for file in file_list]
+
+        # Otherwise just add the files and add an empty startup script (possibly shutdown after run)
         else:
             virtual_drive.add_startup_script([], auto_shutdown=shutdown_after_run)
+            [virtual_drive.add_file(file) for file in file_list]
 
         # Get the version number (repo release)
         outstream = StringIO()
