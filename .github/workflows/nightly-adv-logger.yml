@@ -130,6 +130,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          # Specify architecture if it is not empty
           name: build-logs-${{ matrix.platform }}-${{ matrix.target }}-${{ env.TOOL_CHAIN }}
           path: ${{ steps.build-platform.outputs.log-path }}
