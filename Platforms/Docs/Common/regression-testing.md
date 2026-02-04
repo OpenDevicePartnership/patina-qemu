@@ -41,6 +41,8 @@ during boot. Since it is not common to need to pull logs off of a device (Thanks
 debugger), it can take time to notice if this functionality is broken. This nightly test ensures that the platform boot
 logs exist and are retrievable from windows systems once booted to the operating system.
 
+- [x] Q35 advanced logger boot log gathering via UEFI application
+- [x] SBSA advanced logger boot log gathering via UEFI application
 - [ ] Q35 advanced logger boot log gathering via Windows Validation OS
 - [ ] SBSA advanced logger boot log gathering via Windows Validation OS
 
