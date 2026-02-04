@@ -126,6 +126,8 @@ jobs:
 
           echo "Advanced Logger output line count: ${line_count}"
 
+          mv ${{ env.LOG_FILE }} ${{ steps.build-platform.outputs.log-path }}
+
       - name: Publish Logs
         if: always()
         uses: actions/upload-artifact@v6
