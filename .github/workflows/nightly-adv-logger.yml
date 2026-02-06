@@ -118,7 +118,7 @@ jobs:
 
           mcopy -n -i "$IMG_FILE" ::/${{ env.LOG_FILE }} .
           mcopy -n -i "$IMG_FILE" ::/UefiLogs/UEFI_Index.txt
-          mcopy -n -i "$IMG_FILE" ::/UEFI_Log1.txt
+          mcopy -n -i "$IMG_FILE" ::/UefiLogs/UEFI_Log1.txt
 
           if [ ! -f ${{ env.LOG_FILE }} ]; then
             echo "::error file=${{ env.LOG_FILE }}::file does not exist. Advanced Logger test failed." >&2
