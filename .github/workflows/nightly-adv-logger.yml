@@ -77,7 +77,11 @@ jobs:
       - name: Create startup NSH
         run: |
           touch ${{ env.STARTUP_NSH_PATH }}
-          echo "AdvancedLogDumper.efi -o ${{ env.LOG_FILE }}" > ${{ env.STARTUP_NSH_PATH }}
+          echo "if not exist UefiLogs then" >> ${{ env.STARTUP_NSH_PATH }}
+          echo "  mkdir UefiLogs" >> ${{ env.STARTUP_NSH_PATH }} 
+          echo "  reset" >> ${{ env.STARTUP_NSH_PATH }}
+          echo "endif" >> ${{ env.STARTUP_NSH_PATH }}
+          echo "AdvancedLogDumper.efi -o ${{ env.LOG_FILE }}" >> ${{ env.STARTUP_NSH_PATH }}
       
       # Run the build-platform action, which calls stuart_setup, stuart_update, and stuart_build
       - name: Prepare and Build
@@ -101,7 +105,9 @@ jobs:
           tool-chain: ${{ env.TOOL_CHAIN }}
           stuart-args: 'QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} STARTUP_NSH="${{ env.STARTUP_NSH_PATH }}" SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*AdvancedLogDumper.efi'
 
-      - name: Extract log dump
+      # Extracts and validates the log dump from AdvancedLogDumper dumps logs from PEI and DXE
+      # Ensures the same logs are automatically placed in /UefiLogs/ folder by default
+      - name: Extract and validate log dump
         run: |
           IMG_FILE="$(find Build -type f -name '*.img' -print -quit || true)"
 
@@ -111,20 +117,58 @@ jobs:
           fi
 
           mcopy -n -i "$IMG_FILE" ::/${{ env.LOG_FILE }} .
+          mcopy -n -i "$IMG_FILE" ::/UefiLogs/UEFI_Index.txt
+          mcopy -n -i "$IMG_FILE" ::/UEFI_Log1.txt
 
           if [ ! -f ${{ env.LOG_FILE }} ]; then
             echo "::error file=${{ env.LOG_FILE }}::file does not exist. Advanced Logger test failed." >&2
             exit 1
           fi
-         
-          line_count=$(wc -l < "${{ env.LOG_FILE }}")
 
-          if [ "${line_count}" -eq 0 ]; then
-            echo "::error file=${{ env.LOG_FILE }}::file is empty. Advanced Logger test failed." >&2
+          found_pei=0
+          found_dxe=0
+          found_mcore=0
+          found_rtdxe=0
+          invalid=0
+          line_no=0
+
+          while IFS= read -r line; do
+            line_no=$((line_no + 1))
+
+            case "$line" in
+              *"[PEI  ]"*)
+                found_pei=1
+                ;;
+              *"[DXE  ]"*)
+                found_dxe=1
+                ;;
+              *"[MCORE]"*)
+                found_mcore=1
+                ;;
+              *"[RTDXE]"*)
+                found_rtdxe=1
+                ;;
+              *)
+                echo "::error file=${LOG_FILE},line=${line_no}::Invalid log line: $line"
+                failed=1
+                ;;
+            esac
+          done < "$LOG_FILE"
+
+          # Empty file check
+          if [ "$line_no" -eq 0 ]; then
+            echo "::error file=${LOG_FILE}::Log file is empty"
             exit 1
           fi
 
-          echo "Advanced Logger output line count: ${line_count}"
+          [ "$found_pei"   -eq 1 ] || { echo "::error file=${LOG_FILE}::Missing tag [PEI  ]"; failed=1; }
+          [ "$found_dxe"   -eq 1 ] || { echo "::error file=${LOG_FILE}::Missing tag [DXE  ]"; failed=1; }
+          [ "$found_mcore" -eq 1 ] || { echo "::error file=${LOG_FILE}::Missing tag [MCORE]"; failed=1; }
+          [ "$found_rtdxe" -eq 1 ] || { echo "::error file=${LOG_FILE}::Missing tag [RTDXE]"; failed=1; }
+
+          if [ "$failed" -ne 0 ]; then
+            exit 1
+          fi
 
           mv ${{ env.LOG_FILE }} ${{ steps.build-platform.outputs.log-path }}
 
