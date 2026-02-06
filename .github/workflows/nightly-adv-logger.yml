@@ -164,7 +164,7 @@ jobs:
           [ "$found_dxe"   -eq 1 ] || { echo "::error file=${LOG_FILE}::Missing tag [DXE  ]"; failed=1; }
           [ "$found_rtdxe" -eq 1 ] || { echo "::error file=${LOG_FILE}::Missing tag [RTDXE]"; failed=1; }
 
-          if [ "${{ matrix.platform }}" -eq "Q35"]
+          if [ "${{ matrix.platform }}" -eq "Q35"]; then
             [ "$found_pei"   -eq 1 ] || { echo "::error file=${LOG_FILE}::Missing tag [PEI  ]"; failed=1; }
             [ "$found_mcore" -eq 1 ] || { echo "::error file=${LOG_FILE}::Missing tag [MCORE]"; failed=1; }
           fi
