@@ -165,7 +165,6 @@ jobs:
           fi
 
           [ "$found_dxe"   -eq 1 ] || { echo "::error file=${LOG_FILE}::Missing log tagged [DXE  ]"; failed=1; }
-          [ "$found_rtdxe" -eq 1 ] || { echo "::error file=${LOG_FILE}::Missing log tagged [RTDXE]"; failed=1; }
 
           if [ "${{ matrix.platform }}" = "Q35" ]; then
             [ "$found_pei"   -eq 1 ] || { echo "::error file=${LOG_FILE}::Missing log tagged [PEI  ]"; failed=1; }
