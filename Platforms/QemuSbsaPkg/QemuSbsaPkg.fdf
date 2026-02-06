@@ -415,6 +415,8 @@ READ_LOCK_STATUS   = TRUE
 !endif
 !endif
 
+  INF  AdvLoggerPkg/AdvancedFileLogger/AdvancedFileLogger.inf
+
   #
   # Ramdisk support
   #
