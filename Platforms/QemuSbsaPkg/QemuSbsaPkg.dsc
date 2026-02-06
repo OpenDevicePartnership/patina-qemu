@@ -1094,6 +1094,8 @@
       JsonLiteParserLib|MsCorePkg/Library/JsonLiteParser/JsonLiteParser.inf
   }
 
+  AdvLoggerPkg/AdvancedFileLogger/AdvancedFileLogger.inf
+
   # MfciDxe overrides
   MfciPkg/MfciDxe/MfciDxe.inf {
     <LibraryClasses>
