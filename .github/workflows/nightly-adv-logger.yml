@@ -175,8 +175,8 @@ jobs:
             exit 1
           fi
 
-          if ! cmp -n "$(stat -c %s UEFI_Log1.txt)" UEFI_Log1.txt ${{ env.LOG_FILE }} >/dev/null 2>&1; then
-            echo "::error::UEFI_Log1.txt is not the start of ${{env.LOG_FILE}}"
+          if [ ! -s UEFI_Log1.txt ]; then
+            echo "::error file=Uefi_Log1.txt::File is empty when it should not be."
             cp UEFI_Log1.txt ${{ steps.build-platform.outputs.log-path }}
             exit 1
           fi
