@@ -103,12 +103,17 @@ InitializeMemoryConfiguration (
     // otherwise we cannot boot Linux
     DxeSettings.ImageProtectionPolicy.Fields.BlockImagesWithoutNxFlag = 0;
 
+    // Patina does not currently support page/pool guard, so disable them to avoid shell tests from expecting them
+    DxeSettings.HeapGuardPolicy.Fields.UefiPageGuard = 0;
+    DxeSettings.HeapGuardPolicy.Fields.UefiPoolGuard = 0;
+
     BuildGuidDataHob (
       &gDxeMemoryProtectionSettingsGuid,
       &DxeSettings,
       sizeof (DxeSettings)
       );
   }
+
   NewBase = 0;
   NewSize = 0;
 
@@ -116,10 +121,12 @@ InitializeMemoryConfiguration (
   if (DeviceTreeBase == NULL) {
     PANIC ("Device Tree Base Address is not set. Cannot continue without a valid Device Tree Blob.\n");
   }
+
   // Make sure we have a valid device tree blob
   if (fdt_check_header (DeviceTreeBase) != 0) {
     PANIC ("Device Tree Blob header is not valid. Cannot continue without a valid Device Tree Blob.\n");
   }
+
   // Look for the lowest memory node
   for (Prev = 0; ; Prev = Node) {
     Node = fdt_next_node (DeviceTreeBase, Prev, NULL);
@@ -168,7 +175,7 @@ InitializeMemoryConfiguration (
     EfiBootServicesData
     );
 
-    // Make sure the start of DRAM matches our expectation
+  // Make sure the start of DRAM matches our expectation
   if (FixedPcdGet64 (PcdSystemMemoryBase) != NewBase) {
     PANIC ("System Memory Base Mismatch.\n");
   }
@@ -248,12 +255,12 @@ ArmPlatformGetVirtualMemoryMap (
 {
   ARM_MEMORY_REGION_DESCRIPTOR  *VirtualMemoryTable;
 
-  UINT64      TpmBase;
-  UINT32      TpmSize;
+  UINT64  TpmBase;
+  UINT32  TpmSize;
 
   EFI_PHYSICAL_ADDRESS  UefiMemoryBase;
   UINT64                UefiMemorySize;
-  EFI_STATUS           Status;
+  EFI_STATUS            Status;
 
   TpmBase = PcdGet64 (PcdTpmBaseAddress);
   TpmSize = PcdGet32 (PcdTpmCrbRegionSize);

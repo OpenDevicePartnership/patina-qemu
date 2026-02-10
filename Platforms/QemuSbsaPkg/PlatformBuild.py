@@ -320,7 +320,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         self.env.SetValue("ARM_TFA_PATH", str(Path(self.GetWorkspaceRoot()) / "Silicon" / "Arm" / "TFA"), "Platform hardcoded")
         self.env.SetValue("ARM_HAF_PATH", str(Path(self.GetWorkspaceRoot()) / "Silicon" / "Arm" / "HAF"), "Platform hardcoded")
         self.env.SetValue("BLD_*_QEMU_CORE_NUM", "4", "Default")
-        self.env.SetValue("BLD_*_MEMORY_PROTECTION", "FALSE", "Default")
+        self.env.SetValue("BLD_*_MEMORY_PROTECTION", "TRUE", "Default")
         # Include the MFCI test cert by default, override on the commandline with "BLD_*_SHIP_MODE=TRUE" if you want the retail MFCI cert
         self.env.SetValue("BLD_*_SHIP_MODE", "FALSE", "Default")
         self.env.SetValue("CONF_AUTOGEN_INCLUDE_PATH", self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuSbsaPkg", "Include"), "Platform Defined")

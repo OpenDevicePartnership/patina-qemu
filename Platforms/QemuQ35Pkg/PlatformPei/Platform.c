@@ -844,6 +844,10 @@ InitializePlatform (
     // otherwise we cannot boot Linux
     DxeSettings.ImageProtectionPolicy.Fields.BlockImagesWithoutNxFlag = 0;
 
+    // Patina does not currently support page/pool guard, so disable them to avoid shell tests from expecting them
+    DxeSettings.HeapGuardPolicy.Fields.UefiPageGuard = 0;
+    DxeSettings.HeapGuardPolicy.Fields.UefiPoolGuard = 0;
+
     BuildGuidDataHob (
       &gDxeMemoryProtectionSettingsGuid,
       &DxeSettings,

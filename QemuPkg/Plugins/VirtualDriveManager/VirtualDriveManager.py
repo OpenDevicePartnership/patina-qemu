@@ -504,7 +504,13 @@ class VirtualDriveManager(IUefiHelperPlugin):
                                                    "PagingAudit", "Windows", "PagingReportGenerator.py")
         report_output_dir.mkdir(exist_ok=True)
         for file in paging_audit_data_files:
-            drive.get_file(file, os.path.join(report_output_dir, file))
+            try:
+                drive.get_file(file, os.path.join(report_output_dir, file))
+            except:
+                # We want to attempt to generate the report even if some of the data files are missing. This is the
+                # case on Patina where GuardPage.dat is not generated
+                logger.error("Exception is expected and can be ignored")
+                continue
         output_audit = os.path.join(report_output_dir, "pagingaudit.html")
         output_debug = os.path.join(report_output_dir, "pagingauditdebug.txt")
         cmd = "python"
