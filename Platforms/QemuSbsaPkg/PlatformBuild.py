@@ -60,7 +60,6 @@ class CommonPlatform():
         "Common/PATINA_EDK2",
         "Silicon/Arm/MU_TIANO",
         "Silicon/Arm/TFA",
-        "Features/DEBUGGER",
         "Features/DFCI",
         "Features/CONFIG",
         "Features/FFA",
@@ -125,7 +124,6 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
             RequiredSubmodule("Silicon/Arm/MU_TIANO", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Silicon/Arm/TFA", True),
             RequiredSubmodule("Silicon/Arm/HAF", True),
-            RequiredSubmodule("Features/DEBUGGER", True),
             RequiredSubmodule("Features/DFCI", True),
             RequiredSubmodule("Features/CONFIG", True),
             RequiredSubmodule("Features/FFA", True),
@@ -968,7 +966,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
 
         if not virtual_drive.exists():
             virtual_drive.make_drive()
-      
+
         # Glob files if requested
         file_list = []
         if file_regex:

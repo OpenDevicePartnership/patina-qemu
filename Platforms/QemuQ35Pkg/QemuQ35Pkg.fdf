@@ -267,8 +267,6 @@ INF  PolicyServicePkg/PolicyService/Pei/PolicyPei.inf
 INF  QemuQ35Pkg/ConfigKnobs/ConfigKnobs.inf
 INF  OemPkg/OemConfigPolicyCreatorPei/OemConfigPolicyCreatorPei.inf
 
-INF  DebuggerFeaturePkg/DebugConfigPei/DebugConfigPei.inf
-
 !include $(SHARED_CRYPTO_PATH)/Driver/Bin/CryptoDriver.PEI.inc.fdf
 
 ################################################################################

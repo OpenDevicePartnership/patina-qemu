@@ -55,7 +55,6 @@ class CommonPlatform():
         "Common/MU_TIANO",
         "Common/MU_OEM_SAMPLE",
         "Common/PATINA_EDK2",
-        "Features/DEBUGGER",
         "Features/DFCI",
         "Features/CONFIG",
         "Features/MM_SUPV"
@@ -140,7 +139,6 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
             RequiredSubmodule("Common/MU_TIANO", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Common/MU_OEM_SAMPLE", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Common/PATINA_EDK2", False, ".pytool/CISettings.py"),
-            RequiredSubmodule("Features/DEBUGGER", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Features/DFCI", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Features/CONFIG", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Features/MM_SUPV", False, ".pytool/CISettings.py"),
@@ -417,7 +415,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         empty_drive = (self.env.GetValue("EMPTY_DRIVE").upper() == "TRUE")
         file_regex = self.env.GetValue("FILE_REGEX")
         startup_nsh = self.env.GetValue("STARTUP_NSH")
-        
+
         # Other configurable values
         output_base = self.env.GetValue("BUILD_OUTPUT_BASE")
         drive_path = self.env.GetValue("VIRTUAL_DRIVE_PATH")
@@ -449,7 +447,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         if file_regex:
             for pattern in file_regex.split(","):
                 file_list.extend(Path(output_base, "X64").glob(pattern))
-        
+
         # If running tests, add the files and auto-generate a startup nsh
         if run_tests:
             if any("DxePagingAuditTestApp.efi" in os.path.basename(test) for test in file_list):

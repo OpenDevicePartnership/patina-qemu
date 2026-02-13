@@ -38,12 +38,6 @@
   # -D FLAG=VALUE
   #
 
-  #
-  # DXE_DBG_BRK will force the DXE debugger to break in as early as possible and wait indefinitely
-  #
-!ifndef DXE_DBG_BRK
-  DEFINE DXE_DBG_BRK = FALSE
-!endif
 !ifndef TPM_ENABLE
   DEFINE TPM_ENABLE                     = FALSE
 !endif
@@ -318,11 +312,6 @@
   PlatformSmmProtectionsTestLib|UefiTestingPkg/Library/PlatformSmmProtectionsTestLibNull/PlatformSmmProtectionsTestLibNull.inf
   FmpDependencyLib|FmpDevicePkg/Library/FmpDependencyLib/FmpDependencyLib.inf
 
-  # Debugger Libraries
-  DebugTransportLib|QemuQ35Pkg/Library/DebugTransportSerialIoWrapperLib/DebugTransportSerialIoWrapperLib.inf
-  WatchdogTimerLib|DebuggerFeaturePkg/Library/WatchdogTimerLibNull/WatchdogTimerLibNull.inf
-  TransportLogControlLib|DebuggerFeaturePkg/Library/TransportLogControlLibNull/TransportLogControlLibNull.inf
-
   AmdSvsmLib|UefiCpuPkg/Library/AmdSvsmLibNull/AmdSvsmLibNull.inf
 
   # Platform Runtime Mechanism (PRM) libraries
@@ -459,7 +448,7 @@
   HobLib                  |MdePkg/Library/DxeCoreHobLib/DxeCoreHobLib.inf
   MemoryAllocationLib     |MdeModulePkg/Library/DxeCoreMemoryAllocationLib/DxeCoreMemoryAllocationLib.inf
   ExtractGuidedSectionLib |MdePkg/Library/DxeExtractGuidedSectionLib/DxeExtractGuidedSectionLib.inf
-  DebugAgentLib           |DebuggerFeaturePkg/Library/DebugAgent/DebugAgentDxe.inf
+  DebugAgentLib           |MdeModulePkg/Library/DebugAgentLibNull/DebugAgentLibNull.inf
   RngLib                  |MdeModulePkg/Library/BaseRngLibTimerLib/BaseRngLibTimerLib.inf
 
 [LibraryClasses.common.DXE_RUNTIME_DRIVER]
@@ -783,23 +772,6 @@
 
   # CMOS region is 128 bytes
   gMsWheaPkgTokenSpaceGuid.PcdMsWheaReportEarlyStorageCapacity|0x80
-
-  ## Controls the debug configuration flags.
-  # Bit 0 - Controls whether the debugger will break in on initialization.
-  # Bit 1 - Controls whether the DXE debugger is enabled.
-  # Bit 2 - Controls whether the MM debugger is enabled.
-  # Bit 3 - Disables the debuggers periodic polling for a requested break-in.
-  # if BLD_*_DXE_DBG_BRK=TRUE, the debugger will have an initial break in, but will break in, otherwise it only will
-  # on exceptions
-!if $(DXE_DBG_BRK) == TRUE
-  DebuggerFeaturePkgTokenSpaceGuid.PcdDebugConfigFlags|0x3
-!else
-  DebuggerFeaturePkgTokenSpaceGuid.PcdDebugConfigFlags|0x2
-!endif
-
-  # Set the debugger timeout to wait forever. This only takes effect if Bit 0 of PcdDebugConfigFlags is set
-  # to 1, which by default it is not. Using BLD_*_DXE_DBG_BRK=TRUE will set this to 1.
-  DebuggerFeaturePkgTokenSpaceGuid.PcdInitialBreakpointTimeoutMs|0
 
   #
   # The NumberOfPages values below are ad-hoc. They are updated sporadically at
@@ -1539,8 +1511,6 @@ QemuQ35Pkg/ResetVector/ResetVector.inf
       # producer of config data
       NULL|QemuQ35Pkg/Library/Q35ConfigDataLib/Q35ConfigDataLib.inf
   }
-
-  DebuggerFeaturePkg/DebugConfigPei/DebugConfigPei.inf
 
 ################################################################################
 #
