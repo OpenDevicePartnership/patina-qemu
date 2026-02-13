@@ -349,7 +349,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_exec, QemuArchitecture.SBSA)
             .with_cpu(core_count=4)
-            .with_machine(smm_enabled=True)
+            .with_machine()
             .with_memory(8192 if args.os else 2048)
             .with_firmware(code_fd, var_store)
             .with_rom_path(rom_path)

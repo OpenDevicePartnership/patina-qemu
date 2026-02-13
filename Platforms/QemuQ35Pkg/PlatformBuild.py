@@ -318,9 +318,6 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         # Note: This has no impact if CodeQL is not active/enabled.
         self.env.SetValue("STUART_CODEQL_AUDIT_ONLY", "true", "Platform Defined")
 
-        # Enabled all of the SMM modules
-        self.env.SetValue("BLD_*_SMM_ENABLED", "TRUE", "Default")
-
         # Enable performance tracing.
         self.env.SetValue("BLD_*_PERF_TRACE_ENABLE", "FALSE", "Disable performance tracing by default.")
 

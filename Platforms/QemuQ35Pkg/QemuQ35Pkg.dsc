@@ -585,8 +585,8 @@
   gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerLocator|TRUE
   gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerAutoWrapEnable|TRUE
 
-  gQemuPkgTokenSpaceGuid.PcdSmmSmramRequire|$(SMM_ENABLED)
-  gUefiQemuQ35PkgTokenSpaceGuid.PcdStandaloneMmEnable|$(SMM_ENABLED)
+  gQemuPkgTokenSpaceGuid.PcdSmmSmramRequire|TRUE
+  gUefiQemuQ35PkgTokenSpaceGuid.PcdStandaloneMmEnable|TRUE
   gUefiCpuPkgTokenSpaceGuid.PcdCpuHotPlugSupport|FALSE
 
   gQemuPkgTokenSpaceGuid.PcdEnableMemoryProtection|$(MEMORY_PROTECTION)
@@ -683,10 +683,6 @@
   gEfiMdePkgTokenSpaceGuid.PcdPciExpressBaseAddress|0xB0000000
   gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber|$(QEMU_CORE_NUM)
 
-!if $(SMM_ENABLED) == FALSE
-  gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvModeEnable|TRUE
-!endif
-
   # Use profile index 1
   gOemPkgTokenSpaceGuid.PcdActiveProfileIndex|0x1
 
@@ -753,13 +749,8 @@
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIMemoryNVS|0x80
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIReclaimMemory|0x20
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiReservedMemoryType|0x510
-!if $(SMM_ENABLED) == FALSE
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesCode|0x200
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesData|0x700
-!else
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesCode|0x100
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesData|0x700
-!endif
 
   #
   # Network Pcds
@@ -1261,12 +1252,6 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
       NULL|MdeModulePkg/Library/VarCheckPolicyLib/VarCheckPolicyLibStandaloneMm.inf
   }
   MdeModulePkg/Universal/Variable/RuntimeDxe/VariableSmmRuntimeDxe.inf
-
-  #
-  # Variable driver stack (NO SMM)
-  #
-  MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteDxe.inf
-  MdeModulePkg/Universal/Variable/RuntimeDxe/VariableRuntimeDxe.inf
 
   #
   # TPM support

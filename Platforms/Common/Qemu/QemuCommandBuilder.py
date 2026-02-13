@@ -78,7 +78,7 @@ class QemuCommandBuilder:
         self._args.extend(["-L", f"{str(Path(rom_dir))}"])
         return self
 
-    def with_machine(self, smm_enabled=True, accel=None):
+    def with_machine(self, accel=None):
         """Configure machine type with SMM and acceleration"""
         if self._machine_added:
             self._logger.debug("Machine already configured, skipping")
@@ -86,8 +86,7 @@ class QemuCommandBuilder:
 
         self._machine_added = True
         if self._architecture == QemuArchitecture.Q35:
-            smm = "on" if smm_enabled else "off"
-            machine_config = f"q35,smm={smm}"
+            machine_config = f"q35,smm=on"
 
             if accel:
                 accel_lower = accel.lower()
@@ -98,8 +97,7 @@ class QemuCommandBuilder:
         elif self._architecture == QemuArchitecture.SBSA:
             self._args.extend(["-machine", "sbsa-ref"])
 
-        if smm_enabled:
-            self._args.extend(
+        self._args.extend(
                 ["-global", "driver=cfi.pflash01,property=secure,value=on"]
             )
 
