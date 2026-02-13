@@ -44,7 +44,7 @@ The `ExdiGdbSrv.dll` in WinDbg acts as a GDB client.
 - Download and install [Windbg](https://learn.microsoft.com/windows-hardware/drivers/debugger/)
 - Verify `ExdiGdbSrv.dll` and `exdiConfigData.xml` were installed into the
   `C:\Program Files\WindowsApps\Microsoft.WinDbg.Fast_1.xxxxxxxxx\amd64` directory
-- Download the latest release of the UEFI WinDbg Extension from [mu_feature_debugger releases](https://github.com/microsoft/mu_feature_debugger/releases/latest)
+- Download the latest release of the UEFI WinDbg Extension from [uefi_debug_tools releases](https://github.com/microsoft/uefi_debug_tools/releases/latest)
 - Extract its contents to: `%LOCALAPPDATA%\Dbg\EngineExtensions\`
 
 ---
