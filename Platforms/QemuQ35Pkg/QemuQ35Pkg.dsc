@@ -123,11 +123,11 @@
 
   # Boot and Boot Policy
   UefiBootManagerLib       |MdeModulePkg/Library/UefiBootManagerLib/UefiBootManagerLib.inf
-  MsBootPolicyLib          |OemPkg/Library/MsBootPolicyLib/MsBootPolicyLib.inf
-  DeviceBootManagerLib     |OemPkg/Library/DeviceBootManagerLib/DeviceBootManagerLib.inf
+  MsBootPolicyLib          |QemuPkg/Library/MsBootPolicyLibQemu/MsBootPolicyLib.inf
+  DeviceBootManagerLib     |QemuPkg/Library/DeviceBootManagerLibQemu/DeviceBootManagerLib.inf
   MsAltBootLib             |OemPkg/Library/MsAltBootLib/MsAltBootLib.inf # interfaces with alternate boot variable
   MsBootOptionsLib         |QemuPkg/Library/MsBootOptionsLibQemu/MsBootOptionsLib.inf # attached to BdsDxe to implement Microsoft extensions to UefiBootManagerLib.
-  MsBootManagerSettingsLib |OemPkg/Library/MsBootManagerSettingsDxeLib/MsBootManagerSettingsDxeLib.inf
+  MsBootManagerSettingsLib |PcBdsPkg/Library/BootManagerSettingsDxeLibNull/BootManagerSettingsDxeLibNull.inf
 
   # UI and graphics
   BmpSupportLib            |MdeModulePkg/Library/BaseBmpSupportLib/BaseBmpSupportLib.inf
@@ -266,27 +266,9 @@
   HandleParsingLib |ShellPkg/Library/UefiHandleParsingLib/UefiHandleParsingLib.inf
   BcfgCommandLib   |ShellPkg/Library/UefiShellBcfgCommandLib/UefiShellBcfgCommandLib.inf
 
-  # DFCI / XML / JSON Libraries
-  DfciUiSupportLib                  |QemuPkg/Library/DfciUiSupportLib/DfciUiSupportLib.inf # Supports DFCI Groups.
-  DfciV1SupportLib                  |DfciPkg/Library/DfciV1SupportLibNull/DfciV1SupportLibNull.inf # Backwards compatibility with DFCI V1 functions.
-  DfciDeviceIdSupportLib            |QemuPkg/Library/DfciDeviceIdSupportLib/DfciDeviceIdSupportLib.inf
-  DfciGroupLib                      |DfciPkg/Library/DfciGroupLibNull/DfciGroups.inf
-  DfciRecoveryLib                   |DfciPkg/Library/DfciRecoveryLib/DfciRecoveryLib.inf
-  SwmDialogsLib                     |MsGraphicsPkg/Library/SwmDialogsLib/SwmDialogs.inf
-   # Zero Touch is part of DFCI
-  ZeroTouchSettingsLib              |ZeroTouchPkg/Library/ZeroTouchSettings/ZeroTouchSettings.inf
-   # Libraries that understands the MsXml Settings Schema and providers helper functions
-  DfciXmlIdentitySchemaSupportLib   |DfciPkg/Library/DfciXmlIdentitySchemaSupportLib/DfciXmlIdentitySchemaSupportLib.inf
-  DfciXmlDeviceIdSchemaSupportLib   |DfciPkg/Library/DfciXmlDeviceIdSchemaSupportLib/DfciXmlDeviceIdSchemaSupportLib.inf
-  DfciXmlSettingSchemaSupportLib    |DfciPkg/Library/DfciXmlSettingSchemaSupportLib/DfciXmlSettingSchemaSupportLib.inf
-  DfciXmlPermissionSchemaSupportLib |DfciPkg/Library/DfciXmlPermissionSchemaSupportLib/DfciXmlPermissionSchemaSupportLib.inf
-  DfciSettingChangedNotificationLib |DfciPkg/Library/DfciSettingChangedNotificationLib/DfciSettingChangedNotificationLibNull.inf
-
-   #XML libraries
-  XmlTreeQueryLib                   |XmlSupportPkg/Library/XmlTreeQueryLib/XmlTreeQueryLib.inf
-  XmlTreeLib                        |XmlSupportPkg/Library/XmlTreeLib/XmlTreeLib.inf
-   # Json parser
-  JsonLiteParserLib |MsCorePkg/Library/JsonLiteParser/JsonLiteParser.inf
+  #XML libraries
+  XmlTreeQueryLib          |XmlSupportPkg/Library/XmlTreeQueryLib/XmlTreeQueryLib.inf
+  XmlTreeLib               |XmlSupportPkg/Library/XmlTreeLib/XmlTreeLib.inf
 
   # Qemu specific libraries
   QemuFwCfgLib             |QemuQ35Pkg/Library/QemuFwCfgLib/QemuFwCfgDxeLib.inf
@@ -464,7 +446,6 @@
   PlatformBmPrintScLib|QemuPkg/Library/PlatformBmPrintScLib/PlatformBmPrintScLib.inf
   QemuLoadImageLib|QemuQ35Pkg/Library/GenericQemuLoadImageLib/GenericQemuLoadImageLib.inf
   MpInitLib|UefiCpuPkg/Library/MpInitLib/DxeMpInitLib.inf
-  UpdateFacsHardwareSignatureLib|OemPkg/Library/UpdateFacsHardwareSignatureLib/UpdateFacsHardwareSignatureLib.inf
   PcdDatabaseLoaderLib|MdeModulePkg/Library/PcdDatabaseLoaderLib/Dxe/PcdDatabaseLoaderLibDxe.inf
   CapsuleLib|MdeModulePkg/Library/DxeCapsuleLibFmp/DxeCapsuleLib.inf
   PolicyLib|PolicyServicePkg/Library/DxePolicyLib/DxePolicyLib.inf
@@ -896,28 +877,12 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   #########################################
   # DXE Phase modules
   #########################################
-  # Reads smbios type 3 to determine volume button state.
-  QemuPkg/FrontPageButtons/FrontPageButtons.inf
-
-  # Application that presents and manages FrontPage.
-  OemPkg/FrontPage/FrontPage.inf
-
-  # Application that presents & manages the Boot Menu Setup on Front Page.
-  OemPkg/BootMenu/BootMenu.inf
-
   PcBdsPkg/MsBootPolicy/MsBootPolicy.inf
 
   # Apply Variable Policy to Load Option UEFI Variables
   MsCorePkg/LoadOptionVariablePolicyDxe/LoadOptionVariablePolicyDxe.inf
 
   MdeModulePkg/Universal/BootManagerPolicyDxe/BootManagerPolicyDxe.inf
-
-  # AuthManager provides authentication for DFCI. AuthManagerNull passes out a consistent token to allow the rest
-  # of FrontPage to be developed and tested while RngLib or other parts of the authentication process are being developed.
-  DfciPkg/IdentityAndAuthManager/IdentityAndAuthManagerDxe.inf
-
-  # Processes ingoing and outgoing DFCI settings requests.
-  DfciPkg/DfciManager/DfciManager.inf
 
   # Manages windows and fonts to be drawn by the RenderingEngine.
   MsGraphicsPkg/SimpleWindowManagerDxe/SimpleWindowManagerDxe.inf
@@ -1189,24 +1154,8 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   #    Tcg2PhysicalPresenceLib|SecurityPkg/Library/SmmTcg2PhysicalPresenceLib/SmmTcg2PhysicalPresenceLib.inf
   # }
   # SecurityPkg/Tcg/MemoryOverwriteControl/TcgMor.inf
-  DfciPkg/SettingsManager/SettingsManagerDxe.inf {
-    #Platform should add all it settings libs here
-    <LibraryClasses>
-      NULL|ZeroTouchPkg/Library/ZeroTouchSettings/ZeroTouchSettings.inf
-      NULL|DfciPkg/Library/DfciSettingsLib/DfciSettingsLib.inf
-      #NULL|DfciPkg/Library/DfciPasswordProvider/DfciPasswordProvider.inf
-      NULL|DfciPkg/Library/DfciVirtualizationSettings/DfciVirtualizationSettings.inf
-      NULL|DfciPkg/Library/DfciWpbtSettingLib/DfciWpbtSetting.inf
-      NULL|DfciPkg/Library/DfciAssetTagSettingLib/DfciAssetTagSetting.inf
-      DfciSettingPermissionLib|DfciPkg/Library/DfciSettingPermissionLib/DfciSettingPermissionLib.inf
-      NULL|OemPkg/Library/MsBootManagerSettingsDxeLib/MsBootManagerSettingsDxeLib.inf
-      NULL|OemPkg/Library/MsSecureBootModeSettingLib/MsSecureBootModeSettingLib.inf
-    <PcdsFeatureFlag>
-      gDfciPkgTokenSpaceGuid.PcdSettingsManagerInstallProvider|TRUE
-  }
   MdeModulePkg/Universal/EsrtFmpDxe/EsrtFmpDxe.inf
   MsCorePkg/AcpiRGRT/AcpiRgrt.inf
-  DfciPkg/Application/DfciMenu/DfciMenu.inf
 
   MsGraphicsPkg/PrintScreenLogger/PrintScreenLogger.inf
   SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
@@ -1221,8 +1170,6 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
 !if $(BUILD_UNIT_TESTS) == TRUE
 
   AdvLoggerPkg/UnitTests/LineParser/LineParserTestApp.inf
-  DfciPkg/UnitTests/DeviceIdTest/DeviceIdTestApp.inf
-  # DfciPkg/UnitTests/DfciVarLockAudit/UEFI/DfciVarLockAuditTestApp.inf # DOESN'T PRODUCE OUTPUT
   FmpDevicePkg/Test/UnitTest/Library/FmpDependencyLib/FmpDependencyLibUnitTestApp.inf
   !if $(TARGET) == DEBUG
     # VARIABLE POLICY MUST BE UNLOCKED FOR THE TEST TO RUN (POLICY CAN ONLY REMAIN UNLOCKED ON DEBUG BUILDS)

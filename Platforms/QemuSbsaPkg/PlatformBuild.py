@@ -60,7 +60,6 @@ class CommonPlatform():
         "Common/PATINA_EDK2",
         "Silicon/Arm/MU_TIANO",
         "Silicon/Arm/TFA",
-        "Features/DFCI",
         "Features/FFA",
     )
 
@@ -123,7 +122,6 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
             RequiredSubmodule("Silicon/Arm/MU_TIANO", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Silicon/Arm/TFA", True),
             RequiredSubmodule("Silicon/Arm/HAF", True),
-            RequiredSubmodule("Features/DFCI", True),
             RequiredSubmodule("Features/FFA", True),
         ]
 

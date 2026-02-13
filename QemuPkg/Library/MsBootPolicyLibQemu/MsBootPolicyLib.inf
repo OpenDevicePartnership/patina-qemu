@@ -1,0 +1,35 @@
+## @file
+# Library that platform implemented to determine boot type
+#
+# Copyright (c) Microsoft Corporation.
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = MsBootPolicyLib
+  FILE_GUID                      = EA308FCC-2068-42BE-803A-AE8225626C69
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = MsBootPolicyLib|DXE_DRIVER UEFI_APPLICATION
+  CONSTRUCTOR                    = MsBootPolicyLibConstructor
+
+[Sources]
+  MsBootPolicyLib.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  PcBdsPkg/PcBdsPkg.dec
+  MsCorePkg/MsCorePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  DebugLib
+  DevicePathLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  MsPlatformDevicesLib
+
+[Pcd]
+  gPcBdsPkgTokenSpaceGuid.PcdBdsBootPolicy

@@ -55,7 +55,6 @@ class CommonPlatform():
         "Common/MU_TIANO",
         "Common/MU_OEM_SAMPLE",
         "Common/PATINA_EDK2",
-        "Features/DFCI",
         "Features/MM_SUPV"
     )
 
@@ -138,7 +137,6 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
             RequiredSubmodule("Common/MU_TIANO", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Common/MU_OEM_SAMPLE", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Common/PATINA_EDK2", False, ".pytool/CISettings.py"),
-            RequiredSubmodule("Features/DFCI", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Features/MM_SUPV", False, ".pytool/CISettings.py"),
         ]
 

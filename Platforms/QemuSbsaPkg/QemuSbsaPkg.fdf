@@ -312,13 +312,6 @@ READ_LOCK_STATUS   = TRUE
   INF OemPkg/DeviceStateDxe/DeviceStateDxe.inf
 
   #
-  # Frontpages
-  #
-  # INF OemPkg/FrontpageButtonsVolumeUp/FrontpageButtonsVolumeUp.inf
-  INF OemPkg/FrontPage/FrontPage.inf
-  INF OemPkg/BootMenu/BootMenu.inf
-
-  #
   # MFCI support
   #
   INF MfciPkg/MfciDxe/MfciDxe.inf
@@ -432,20 +425,6 @@ READ_LOCK_STATUS   = TRUE
   INF  AdvLoggerPkg/Application/AdvancedLogDumper/AdvancedLogDumper.inf
 
   #
-  # DFCI support
-  #
-  INF  DfciPkg/SettingsManager/SettingsManagerDxe.inf
-  INF  DfciPkg/Application/DfciMenu/DfciMenu.inf
-  INF  DfciPkg/IdentityAndAuthManager/IdentityAndAuthManagerDxe.inf
-  INF  DfciPkg/DfciManager/DfciManager.inf
-  FILE FREEFORM = PCD(gDfciPkgTokenSpaceGuid.PcdDfciTimerFile) {
-      SECTION RAW = DfciPkg/Include/Resources/DfciWorking.bmp
-  }
-  FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
-      SECTION RAW = ZeroTouchPkg/Certs/ZeroTouch/ZtdRecovery.cer
-  }
-
-  #
   # Unit Test
   #
   !if $(BUILD_UNIT_TESTS) == TRUE
@@ -459,24 +438,6 @@ READ_LOCK_STATUS   = TRUE
   FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdLogoFile) {
     SECTION RAW = Logo/patina_boot_logo.bmp
     SECTION UI = "Logo"
-  }
-  FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdFrontPageLogoFile) {
-    SECTION RAW = OemPkg/FrontPage/Resources/FrontpageLogo.bmp
-  }
-  FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdLowBatteryFile) {
-    SECTION RAW = OemPkg/FrontPage/Resources/LBAT.bmp
-  }
-  FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdThermalFile) {
-    SECTION RAW = OemPkg/FrontPage/Resources/THOT.bmp
-  }
-  FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdVolumeUpIndicatorFile) {
-    SECTION RAW = OemPkg/FrontPage/Resources/VolumeUp.bmp
-  }
-  FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdFirmwareSettingsIndicatorFile) {
-    SECTION RAW = OemPkg/FrontPage/Resources/FirmwareSettings.bmp
-  }
-  FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdBootFailIndicatorFile ) {
-    SECTION RAW = OemPkg/FrontPage/Resources/NoBoot.bmp
   }
 
 ################################################################################

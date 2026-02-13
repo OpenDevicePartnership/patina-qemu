@@ -494,7 +494,6 @@ INF  MmSupervisorPkg/Drivers/MmSupervisorRing3Performance/MmSupervisorRing3Perfo
 # INF  SecurityPkg/Tcg/MemoryOverwriteControl/TcgMor.inf
 INF  MdeModulePkg/Universal/EsrtFmpDxe/EsrtFmpDxe.inf
 INF  MdeModulePkg/Bus/Usb/UsbMouseAbsolutePointerDxe/UsbMouseAbsolutePointerDxe.inf
-INF  DfciPkg/Application/DfciMenu/DfciMenu.inf
 INF  MsGraphicsPkg/PrintScreenLogger/PrintScreenLogger.inf
 INF  SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
 INF  MsCorePkg/AcpiRGRT/AcpiRgrt.inf
@@ -529,24 +528,11 @@ INF PrmPkg/PrmLoaderDxe/PrmLoaderDxe.inf
 # PRM SSDT Installation Driver
 INF PrmPkg/PrmSsdtInstallDxe/PrmSsdtInstallDxe.inf
 
-FILE FREEFORM = PCD(gDfciPkgTokenSpaceGuid.PcdDfciTimerFile) {
-    SECTION RAW = DfciPkg/Include/Resources/DfciWorking.bmp
-}
-FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
-    SECTION RAW = ZeroTouchPkg/Certs/ZeroTouch/ZtdRecovery.cer
-}
-
-  INF DfciPkg/IdentityAndAuthManager/IdentityAndAuthManagerDxe.inf
-  INF DfciPkg/SettingsManager/SettingsManagerDxe.inf
   INF MsGraphicsPkg/MsUiTheme/Dxe/MsUiThemeProtocol.inf
   INF MsGraphicsPkg/RenderingEngineDxe/RenderingEngineDxe.inf
   INF MsGraphicsPkg/DisplayEngineDxe/DisplayEngineDxe.inf
-  INF OemPkg/BootMenu/BootMenu.inf
-  INF QemuPkg/FrontPageButtons/FrontPageButtons.inf
-  INF OemPkg/FrontPage/FrontPage.inf
   INF PcBdsPkg/MsBootPolicy/MsBootPolicy.inf
   INF MdeModulePkg/Universal/BootManagerPolicyDxe/BootManagerPolicyDxe.inf
-  INF DfciPkg/DfciManager/DfciManager.inf
   INF MfciPkg/MfciDxe/MfciDxe.inf
   INF MsGraphicsPkg/OnScreenKeyboardDxe/OnScreenKeyboardDxe.inf
   INF MsGraphicsPkg/SimpleWindowManagerDxe/SimpleWindowManagerDxe.inf
@@ -561,24 +547,6 @@ FILE FREEFORM = PCD(gZeroTouchPkgTokenSpaceGuid.PcdZeroTouchCertificateFile) {
   FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdLogoFile) {
     SECTION RAW = Logo/patina_boot_logo.bmp
     SECTION UI = "Logo"
-  }
-  FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdFrontPageLogoFile) {
-    SECTION RAW = OemPkg/FrontPage/Resources/FrontpageLogo.bmp
-  }
-  FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdLowBatteryFile) {
-    SECTION RAW = OemPkg/FrontPage/Resources/LBAT.bmp
-  }
-  FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdThermalFile) {
-    SECTION RAW = OemPkg/FrontPage/Resources/THOT.bmp
-  }
-  FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdVolumeUpIndicatorFile) {
-    SECTION RAW = OemPkg/FrontPage/Resources/VolumeUp.bmp
-  }
-  FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdFirmwareSettingsIndicatorFile) {
-    SECTION RAW = OemPkg/FrontPage/Resources/FirmwareSettings.bmp
-  }
-  FILE FREEFORM = PCD(gOemPkgTokenSpaceGuid.PcdBootFailIndicatorFile ) {
-    SECTION RAW = OemPkg/FrontPage/Resources/NoBoot.bmp
   }
   FILE FREEFORM = gMmSupervisorPolicyFileGuid {
     SECTION RAW = $(POLICY_BIN_PATH)

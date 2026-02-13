@@ -263,13 +263,13 @@
   ResetUtilityLib|MdeModulePkg/Library/ResetUtilityLib/ResetUtilityLib.inf
   HwResetSystemLib|ArmPkg/Library/ArmPsciResetSystemLib/ArmPsciResetSystemLib.inf
   FltUsedLib|MdePkg/Library/FltUsedLib/FltUsedLib.inf
-  DeviceBootManagerLib|OemPkg/Library/DeviceBootManagerLib/DeviceBootManagerLib.inf
+  DeviceBootManagerLib|QemuPkg/Library/DeviceBootManagerLibQemu/DeviceBootManagerLib.inf
   MsPlatformDevicesLib|QemuSbsaPkg/Library/MsPlatformDevicesLibQemuSbsa/MsPlatformDevicesLib.inf
   MsNetworkDependencyLib|PcBdsPkg/Library/MsNetworkDependencyLib/MsNetworkDependencyLib.inf
   MsBootOptionsLib|QemuPkg/Library/MsBootOptionsLibQemu/MsBootOptionsLib.inf
   ConsoleMsgLib|PcBdsPkg/Library/ConsoleMsgLibNull/ConsoleMsgLibNull.inf
-  MsBootPolicyLib|OemPkg/Library/MsBootPolicyLib/MsBootPolicyLib.inf
-  MsBootManagerSettingsLib|OemPkg/Library/MsBootManagerSettingsDxeLib/MsBootManagerSettingsDxeLib.inf
+  MsBootPolicyLib|QemuPkg/Library/MsBootPolicyLibQemu/MsBootPolicyLib.inf
+  MsBootManagerSettingsLib|PcBdsPkg/Library/BootManagerSettingsDxeLibNull/BootManagerSettingsDxeLibNull.inf
   MsPlatformPowerCheckLib|PcBdsPkg/Library/MsPlatformPowerCheckLibNull/MsPlatformPowerCheckLibNull.inf
   ThermalServicesLib|PcBdsPkg/Library/ThermalServicesLibNull/ThermalServicesLibNull.inf
   PowerServicesLib|PcBdsPkg/Library/PowerServicesLibNull/PowerServicesLibNull.inf
@@ -311,26 +311,9 @@
   MsAltBootLib             |OemPkg/Library/MsAltBootLib/MsAltBootLib.inf
   MsPlatformEarlyGraphicsLib|MsGraphicsPkg/Library/MsEarlyGraphicsLibNull/Dxe/MsEarlyGraphicsLibNull.inf
 
-  # DFCI / XML / JSON Libraries
-  DfciUiSupportLib                  |DfciPkg/Library/DfciUiSupportLibNull/DfciUiSupportLibNull.inf # Supports DFCI Groups.
-  DfciV1SupportLib                  |DfciPkg/Library/DfciV1SupportLibNull/DfciV1SupportLibNull.inf # Backwards compatibility with DFCI V1 functions.
-  DfciDeviceIdSupportLib            |OemPkg/Library/DfciDeviceIdSupportLib/DfciDeviceIdSupportLib.inf
-  DfciGroupLib                      |DfciPkg/Library/DfciGroupLibNull/DfciGroups.inf
-  DfciRecoveryLib                   |DfciPkg/Library/DfciRecoveryLib/DfciRecoveryLib.inf
-   # Zero Touch is part of DFCI
-  ZeroTouchSettingsLib              |ZeroTouchPkg/Library/ZeroTouchSettings/ZeroTouchSettings.inf
-   # Libraries that understands the MsXml Settings Schema and providers helper functions
-  DfciXmlIdentitySchemaSupportLib   |DfciPkg/Library/DfciXmlIdentitySchemaSupportLib/DfciXmlIdentitySchemaSupportLib.inf
-  DfciXmlDeviceIdSchemaSupportLib   |DfciPkg/Library/DfciXmlDeviceIdSchemaSupportLib/DfciXmlDeviceIdSchemaSupportLib.inf
-  DfciXmlSettingSchemaSupportLib    |DfciPkg/Library/DfciXmlSettingSchemaSupportLib/DfciXmlSettingSchemaSupportLib.inf
-  DfciXmlPermissionSchemaSupportLib |DfciPkg/Library/DfciXmlPermissionSchemaSupportLib/DfciXmlPermissionSchemaSupportLib.inf
-  DfciSettingChangedNotificationLib |DfciPkg/Library/DfciSettingChangedNotificationLib/DfciSettingChangedNotificationLibNull.inf
-
-   #XML libraries
-  XmlTreeQueryLib                   |XmlSupportPkg/Library/XmlTreeQueryLib/XmlTreeQueryLib.inf
-  XmlTreeLib                        |XmlSupportPkg/Library/XmlTreeLib/XmlTreeLib.inf
-   # Json parser
-  JsonLiteParserLib |MsCorePkg/Library/JsonLiteParser/JsonLiteParser.inf
+  #XML libraries
+  XmlTreeQueryLib          |XmlSupportPkg/Library/XmlTreeQueryLib/XmlTreeQueryLib.inf
+  XmlTreeLib               |XmlSupportPkg/Library/XmlTreeLib/XmlTreeLib.inf
 
   # TPM Libraries
   OemTpm2InitLib          |SecurityPkg/Library/OemTpm2InitLibNull/OemTpm2InitLib.inf
@@ -401,7 +384,6 @@
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
   ReportStatusCodeLib|MdeModulePkg/Library/DxeReportStatusCodeLib/DxeReportStatusCodeLib.inf
   PcdDatabaseLoaderLib|MdeModulePkg/Library/PcdDatabaseLoaderLib/Dxe/PcdDatabaseLoaderLibDxe.inf
-  UpdateFacsHardwareSignatureLib|OemPkg/Library/UpdateFacsHardwareSignatureLib/UpdateFacsHardwareSignatureLib.inf
   PolicyLib|PolicyServicePkg/Library/DxePolicyLib/DxePolicyLib.inf
   MuArmGicExLib|MsCorePkg/Library/MuArmGicExLib/MuArmGicExLib.inf
 
@@ -707,9 +689,6 @@
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange|TRUE
 
-  # The GUID of Frontpage.inf from MU_OEM_SAMPLE: 4042708A-0F2D-4823-AC60-0D77B3111889
-  gQemuPkgTokenSpaceGuid.PcdUIApplicationFile|{ 0x8A, 0x70, 0x42, 0x40, 0x2D, 0x0F, 0x23, 0x48, 0xAC, 0x60, 0x0D, 0x77, 0xB3, 0x11, 0x18, 0x89 }
-
   #
   # The maximum physical I/O addressability of the processor, set with
   # BuildCpuHob().
@@ -966,15 +945,6 @@
       PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
   }
 
-  # Spoofs button press to automatically boot to FrontPage.
-  OemPkg/FrontpageButtonsVolumeUp/FrontpageButtonsVolumeUp.inf
-
-  # Application that presents and manages FrontPage.
-  OemPkg/FrontPage/FrontPage.inf
-
-  # Application that presents & manages the Boot Menu Setup on Front Page.
-  OemPkg/BootMenu/BootMenu.inf
-
   # Manages windows and fonts to be drawn by the RenderingEngine.
   MsGraphicsPkg/SimpleWindowManagerDxe/SimpleWindowManagerDxe.inf
   # Produces EfiGraphicsOutputProtocol to draw graphics to the screen.
@@ -1004,33 +974,6 @@
   MsGraphicsPkg/PrintScreenLogger/PrintScreenLogger.inf
   SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
   AdvLoggerPkg/Application/AdvancedLogDumper/AdvancedLogDumper.inf
-
-  #
-  # DFCI support
-  #
-  # AuthManager provides authentication for DFCI. AuthManagerNull passes out a consistent token to allow the rest
-  # of FrontPage to be developed and tested while RngLib or other parts of the authentication process are being developed.
-  DfciPkg/IdentityAndAuthManager/IdentityAndAuthManagerDxe.inf
-
-  # Processes ingoing and outgoing DFCI settings requests.
-  DfciPkg/DfciManager/DfciManager.inf
-
-  DfciPkg/SettingsManager/SettingsManagerDxe.inf {
-    #Platform should add all it settings libs here
-    <LibraryClasses>
-      NULL|ZeroTouchPkg/Library/ZeroTouchSettings/ZeroTouchSettings.inf
-      NULL|DfciPkg/Library/DfciSettingsLib/DfciSettingsLib.inf
-      #NULL|DfciPkg/Library/DfciPasswordProvider/DfciPasswordProvider.inf
-      NULL|DfciPkg/Library/DfciVirtualizationSettings/DfciVirtualizationSettings.inf
-      NULL|DfciPkg/Library/DfciWpbtSettingLib/DfciWpbtSetting.inf
-      NULL|DfciPkg/Library/DfciAssetTagSettingLib/DfciAssetTagSetting.inf
-      DfciSettingPermissionLib|DfciPkg/Library/DfciSettingPermissionLib/DfciSettingPermissionLib.inf
-      NULL|OemPkg/Library/MsBootManagerSettingsDxeLib/MsBootManagerSettingsDxeLib.inf
-      NULL|OemPkg/Library/MsSecureBootModeSettingLib/MsSecureBootModeSettingLib.inf
-    <PcdsFeatureFlag>
-      gDfciPkgTokenSpaceGuid.PcdSettingsManagerInstallProvider|TRUE
-  }
-  DfciPkg/Application/DfciMenu/DfciMenu.inf
 
   MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf
   MdeModulePkg/Universal/DriverHealthManagerDxe/DriverHealthManagerDxe.inf
@@ -1146,8 +1089,6 @@
 !if $(BUILD_UNIT_TESTS) == TRUE
 
   AdvLoggerPkg/UnitTests/LineParser/LineParserTestApp.inf
-  DfciPkg/UnitTests/DeviceIdTest/DeviceIdTestApp.inf
-  # DfciPkg/UnitTests/DfciVarLockAudit/UEFI/DfciVarLockAuditTestApp.inf # DOESN'T PRODUCE OUTPUT
   FmpDevicePkg/Test/UnitTest/Library/FmpDependencyLib/FmpDependencyLibUnitTestApp.inf
   !if $(TARGET) == DEBUG
     # VARIABLE POLICY MUST BE UNLOCKED FOR THE TEST TO RUN (POLICY CAN ONLY REMAIN UNLOCKED ON DEBUG BUILDS)
