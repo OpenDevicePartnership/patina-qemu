@@ -265,18 +265,25 @@ jobs:
         run: |
           capture_file="capture.json"
           validator_log="validator_output.txt"
-
+          exit_code=0
+          
           if [ "${{ matrix.platform }}" = "SBSA" ]; then
             chmod +x "${DXE_READINESS_TOOL_PATH}/validator/linux/dxe_readiness_validator_x86_64"
-            "${DXE_READINESS_TOOL_PATH}/validator/linux/dxe_readiness_validator_x86_64" -f "$capture_file" 2>&1 | tee "$validator_log"
+            "${DXE_READINESS_TOOL_PATH}/validator/linux/dxe_readiness_validator_x86_64" -f "$capture_file" 2>&1 | tee "$validator_log" || exit_code=$?
           elif [ "${{ matrix.platform }}" = "Q35" ]; then
-            "${DXE_READINESS_TOOL_PATH}/validator/windows/dxe_readiness_validator_x86_64.exe" -f "$capture_file" 2>&1 | tee "$validator_log"
+            "${DXE_READINESS_TOOL_PATH}/validator/windows/dxe_readiness_validator_x86_64.exe" -f "$capture_file" 2>&1 | tee "$validator_log" || exit_code=$?
           fi
+          
+          # Save exit code for use in PR comment workflow
+          echo "$exit_code" > validator_exit_code.txt
+          
+          # Exit with the original exit code (allows workflow to continue but tracks failure)
+          exit $exit_code
 
       # Publish the logs as an artifact
       - name: Publish Logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           # Specify architecture if it is not empty
           name: readiness-logs-${{ matrix.tool-chain }}-${{ matrix.platform && format('{0}-', matrix.platform) || '' }}${{ github.run_id }}
@@ -285,6 +292,26 @@ jobs:
             capture.json
             validator_output.txt
 
+      - name: 📁 Save PR Metadata and Report
+        if: github.event_name == 'pull_request' && always()
+        shell: bash
+        run: |
+          mkdir -p pr-data
+          echo "${{ github.event.pull_request.number }}" > pr-data/pr_number.txt
+          echo "${{ github.base_ref }}" > pr-data/base_ref.txt
+          echo "${{ github.head_ref }}" > pr-data/head_ref.txt
+          cp validator_output.txt pr-data/validator_output_${{ matrix.platform }}.txt
+          cp validator_exit_code.txt pr-data/validator_exit_code_${{ matrix.platform }}.txt
+
+      # Upload readiness report data for use in PR comment
+      - name: Upload PR Data and Report
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: readiness-report-data-${{ matrix.platform }}
+          path: pr-data/
+          retention-days: 1
+          
   publish-release-assets:
     needs: build
     if: github.event_name == 'release'

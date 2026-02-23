@@ -26,6 +26,20 @@ from Platforms.Common.Qemu.QemuCommandBuilder import QemuArchitecture
 SCRIPT_DIR = Path(__file__).resolve().parent
 
 
+def _create_shutdown_drive(dest_dir: Path) -> Path:
+    """Creates a directory containing a startup.nsh script that shuts down the system.
+
+    Args:
+        dest_dir (Path): Directory to create startup.nsh in.
+
+    Returns:
+        Path: Path to the directory containing startup.nsh.
+    """
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    (dest_dir / "startup.nsh").write_text("reset -s\n")
+    return dest_dir
+
+
 def _parse_arguments() -> argparse.Namespace:
     """
     Parses command-line arguments for building and running Rust DXE Core.
@@ -34,9 +48,11 @@ def _parse_arguments() -> argparse.Namespace:
         --patina-dxe-core-repo (Path): Path to the QEMU Rust bin repository. Default is "../patina-dxe-core-qemu".
         --fw-patch-repo (Path): Path to the firmware patch repository. Default is "../patina-fw-patcher".
         --build-target (str): Build target, either DEBUG or RELEASE. Default is "DEBUG".
+        --no-build (bool): Skip building the Rust DXE Core and use the pre-built binary. Default is False.
         --platform (str): QEMU platform such as Q35. Default is "Q35".
         --toolchain (str): Toolchain to use for building. Default is "VS2022".
         --features (str): Feature set to pass to patina-dxe-core-qemu build
+        --core-count (int): Number of QEMU CPU cores. Default is 2.
 
     Returns:
         argparse.Namespace: Parsed command-line arguments.
@@ -146,11 +162,40 @@ def _parse_arguments() -> argparse.Namespace:
         help="Feature set for patina-dxe-core-qemu build",
     )
     parser.add_argument(
+        "--no-build",
+        "-n",
+        action="store_true",
+        default=False,
+        help="Skip building the Rust DXE Core and use the pre-built binary at "
+        "the expected output path in the repository that builds the binary. "
+        "For example, the binary in the target binary directory relative to "
+        "--patina-dxe-core-repo.",
+    )
+    parser.add_argument(
         "--monitor-port",
         "-m",
         type=int,
         default=None,
         help="Port to use for QEMU monitor communication.",
+    )
+    parser.add_argument(
+        "--core-count",
+        type=int,
+        default=2,
+        help="Number of QEMU CPU cores.",
+    )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        default=False,
+        help="Run QEMU without a display (headless mode).",
+    )
+    parser.add_argument(
+        "--shutdown-after-run",
+        action="store_true",
+        default=False,
+        help="Mount a virtual drive containing a startup.nsh that issues `reset -s`, causing "
+        "UEFI Shell to shut down automatically on boot. Useful for automated/CI runs.",
     )
 
     args = parser.parse_args()
@@ -182,6 +227,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             - qemu_path: The path to the QEMU installation (None uses default).
             - patina_dxe_core_repo: The path to the patina-dxe-core-qemu repo.
             - ref_fd: The path to the file to use as a reference for patching.
+            - skip_build: Whether to skip building the Rust DXE Core.
             - toolchain: The toolchain used for building (e.g. VS2022).
     """
     if args.platform == "Q35":
@@ -254,7 +300,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_exec, QemuArchitecture.Q35)
-            .with_cpu(core_count=4)
+            .with_cpu(core_count=args.core_count)
             .with_machine()
             .with_memory(8192 if args.os else 2048)
             .with_firmware(code_fd, var_store)
@@ -262,12 +308,18 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             .with_usb_controller()
             .with_usb_mouse()
             .with_storage(args.os, 'SSD')
-            .with_display()
+            .with_display(not args.headless)
             .with_network(enabled=False)
             .with_gdb_server(args.gdb_port)
             .with_serial_port(args.serial_port)
             .with_monitor_port(args.monitor_port)
         )
+
+        if args.shutdown_after_run:
+            shutdown_drive = _create_shutdown_drive(
+                SCRIPT_DIR / "Build" / "shutdown_drive"
+            )
+            qemu_cmd_builder = qemu_cmd_builder.with_virtual_drive(str(shutdown_drive))
 
         patch_cmd = [
             "python",
@@ -348,7 +400,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_exec, QemuArchitecture.SBSA)
-            .with_cpu(core_count=4)
+            .with_cpu(core_count=args.core_count)
             .with_machine()
             .with_memory(8192 if args.os else 2048)
             .with_firmware(code_fd, var_store)
@@ -357,12 +409,18 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             .with_usb_mouse()
             .with_usb_keyboard()
             .with_storage(args.os, 'HDD')
-            .with_display()
+            .with_display(not args.headless)
             .with_network(enabled=False)
             .with_gdb_server(args.gdb_port)
             .with_serial_port(args.serial_port)
             .with_monitor_port(args.monitor_port)
         )
+
+        if args.shutdown_after_run:
+            shutdown_drive = _create_shutdown_drive(
+                SCRIPT_DIR / "Build" / "shutdown_drive"
+            )
+            qemu_cmd_builder = qemu_cmd_builder.with_virtual_drive(str(shutdown_drive))
 
         patch_cmd = [
             "python",
@@ -397,6 +455,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         "qemu_cmd": [executable] + qemu_args,
         "patina_dxe_core_repo": args.patina_dxe_core_repo,
         "ref_fd": ref_fd,
+        "skip_build": args.no_build,
         "toolchain": args.toolchain,
     }
 
@@ -413,6 +472,7 @@ def _print_configuration(settings: Dict[str, Path]) -> None:
             - 'fw_patch_repo': Path to the patina-fw-patcher repo.
             - 'qemu_cmd': The command to run QEMU with the specified settings.
             - 'patina_dxe_core_repo': Path to the patina-dxe-core-qemu repo.
+            - 'skip_build': Whether the build step is being skipped.
             - 'toolchain': The toolchain being used.
     """
     logging.info("== Current Configuration ==")
@@ -426,6 +486,7 @@ def _print_configuration(settings: Dict[str, Path]) -> None:
     logging.info(f" - FW Patch Repo: {settings['fw_patch_repo']}")
     logging.info(f" - Build Target: {settings['build_target']}")
     logging.info(f" - Toolchain: {settings['toolchain']}")
+    logging.info(f" - Skip Build: {settings['skip_build']}")
     logging.info(f" - QEMU Command Line: {settings['qemu_cmd']}")
 
 
@@ -490,8 +551,17 @@ def _run_qemu(settings: Dict[str, Path]) -> None:
         if std_handle != 0:
             if not kernel32.GetConsoleMode(std_handle, ctypes.byref(original_mode)):
                 std_handle = None
+
+    # Known benign QEMU exit codes:
+    #   0xC00000FD (STATUS_STACK_OVERFLOW)   - QEMU on Windows after guest reset -s
+    #   33                                   - QEMU isa-debug-exit success value
+    BENIGN_QEMU_EXIT_CODES = {0xC00000FD, 33}
+
     try:
         subprocess.run(settings["qemu_cmd"], check=True)
+    except subprocess.CalledProcessError as e:
+        if e.returncode not in BENIGN_QEMU_EXIT_CODES:
+            raise
     finally:
         if os.name == "nt" and std_handle and original_mode.value:
             # Restore the console mode for Windows as QEMU garbles it
@@ -527,13 +597,15 @@ def main() -> None:
     _print_configuration(settings)
 
     try:
-        if not settings["custom_efi"]:
+        if not settings["custom_efi"] and not settings["skip_build"]:
             build_start_time = timeit.default_timer()
             _build_rust_dxe_core(settings)
             build_end_time = timeit.default_timer()
             logging.info(
                 f"Rust DXE Core Build Time: {build_end_time - build_start_time:.2f} seconds.\n"
             )
+        elif settings["skip_build"]:
+            logging.info("[1]. Skipping build, using pre-built binary.\n")
 
         _patch_rust_binary(settings)
         end_time = timeit.default_timer()

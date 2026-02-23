@@ -1,0 +1,106 @@
+
+# @file comment-pr.yml
+#
+# GitHub Actions workflow to post comment(s) on PRs.
+#
+# This workflow runs access to secrets.
+# It waits for the platform-ci.yml workflow to complete and posts the comment.
+#
+# Copyright (c) Microsoft Corporation.
+# SPDX-License-Identifier: Apache-2.0
+
+name: PR Comments
+
+on:
+  workflow_run:
+    workflows: ["Platform CI"]
+    types:
+      - completed
+
+jobs:
+  comment:
+    name: Post PR Comment
+    runs-on: ubuntu-latest
+    if: >
+      (github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success')
+
+    steps:
+      - name: Download Q35 Readiness Report Data
+        uses: actions/download-artifact@v7
+        with:
+          name: readiness-report-data-Q35
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: Download SBSA Readiness Report Data
+        uses: actions/download-artifact@v7
+        with:
+          name: readiness-report-data-SBSA
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+
+      - name: 📖 Read PR Metadata
+        id: pr-data
+        shell: bash
+        run: |
+          echo "pr_number=$(cat pr_number.txt)" >> $GITHUB_OUTPUT
+          echo "base_ref=$(cat base_ref.txt)" >> $GITHUB_OUTPUT
+          echo "head_ref=$(cat head_ref.txt)" >> $GITHUB_OUTPUT
+
+      - name: Generate Token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.PATINA_AUTOMATION_APPLICATION_ID }}
+          private-key: ${{ secrets.PATINA_AUTOMATION_APPLICATION_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Check for Failures and Post Readiness Report as PR Comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.pr-data.outputs.pr_number }}
+        shell: bash
+        run: |
+          # Check if any validator reported failures via exit code
+          Q35_EXIT_CODE=$(cat validator_exit_code_Q35.txt 2>/dev/null || echo "0")
+          SBSA_EXIT_CODE=$(cat validator_exit_code_SBSA.txt 2>/dev/null || echo "0")
+          
+          if [ "$Q35_EXIT_CODE" = "0" ] && [ "$SBSA_EXIT_CODE" = "0" ]; then
+            echo "No failures detected (Q35 exit: $Q35_EXIT_CODE, SBSA exit: $SBSA_EXIT_CODE). Skipping PR comment."
+            exit 0
+          fi
+          
+          echo "Failures detected (Q35 exit: $Q35_EXIT_CODE, SBSA exit: $SBSA_EXIT_CODE). Posting PR comment."
+          
+          # Combine both platform reports with a hidden marker for comment identification
+          COMMENT_MARKER="<!-- readiness-report-comment -->"
+          echo "$COMMENT_MARKER" > combined_report.txt
+          echo "## Q35 Readiness Report" >> combined_report.txt
+          cat validator_output_Q35.txt >> combined_report.txt
+          echo "" >> combined_report.txt
+          echo "## SBSA Readiness Report" >> combined_report.txt
+          cat validator_output_SBSA.txt >> combined_report.txt
+          
+          COMMENT_BODY=$(cat combined_report.txt)
+          
+          # Check for existing comment with our marker and update it, or create new
+          EXISTING_COMMENT_ID=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | contains("<!-- readiness-report-comment -->")) | .id' \
+            | head -n 1)
+          
+          if [ -n "$EXISTING_COMMENT_ID" ]; then
+            echo "Updating existing comment $EXISTING_COMMENT_ID"
+            gh api \
+              --method PATCH \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${{ github.repository }}/issues/comments/$EXISTING_COMMENT_ID" \
+              -f body="$COMMENT_BODY"
+          else
+            echo "Creating new comment"
+            gh pr comment "$PR_NUMBER" \
+              --repo ${{ github.repository }} \
+              --body "$COMMENT_BODY"
+          fi
