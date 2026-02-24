@@ -96,7 +96,6 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         qemu_executable_path = QemuRunner.GetStr(env, "QEMU_PATH")
         qemu_ext_dep_dir = QemuRunner.GetStr(env, "QEMU_DIR")
         serial_port = QemuRunner.GetStr(env, "SERIAL_PORT", "50001")
-        smm_enabled = QemuRunner.GetBuildBool(env, "SMM_ENABLED", True)
         tpm_dev = QemuRunner.GetStr(env, "TPM_DEV")
         virtual_drive = QemuRunner.GetStr(env, "VIRTUAL_DRIVE_PATH")
 
@@ -141,7 +140,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_executable_path, QemuArchitecture.Q35)
             .with_cpu(cpu_model, core_count)
-            .with_machine(smm_enabled, qemu_accelerator)
+            .with_machine(True, qemu_accelerator)
             .with_memory(8192 if path_to_os else 2048)
             .with_firmware(code_fd, var_store)
             .with_rom_path(rom_path)

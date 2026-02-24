@@ -86,8 +86,7 @@ class QemuCommandBuilder:
 
         self._machine_added = True
         if self._architecture == QemuArchitecture.Q35:
-            smm = "on" if smm_enabled else "off"
-            machine_config = f"q35,smm={smm}"
+            machine_config = "q35,smm=on"
 
             if accel:
                 accel_lower = accel.lower()
@@ -98,10 +97,9 @@ class QemuCommandBuilder:
         elif self._architecture == QemuArchitecture.SBSA:
             self._args.extend(["-machine", "sbsa-ref"])
 
-        if smm_enabled:
-            self._args.extend(
-                ["-global", "driver=cfi.pflash01,property=secure,value=on"]
-            )
+        self._args.extend(
+            ["-global", "driver=cfi.pflash01,property=secure,value=on"]
+        )
 
         return self
 
