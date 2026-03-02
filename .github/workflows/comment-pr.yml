@@ -27,14 +27,14 @@ jobs:
 
     steps:
       - name: Download Q35 Readiness Report Data
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: readiness-report-data-Q35
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
 
       - name: Download SBSA Readiness Report Data
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: readiness-report-data-SBSA
           github-token: ${{ secrets.GITHUB_TOKEN }}

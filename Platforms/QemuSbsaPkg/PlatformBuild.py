@@ -565,11 +565,11 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
             },
             "mssp-rust": {
                 "image": {
-                    "file": os.path.join(self.env.GetValue("SECURE_PARTITION_BINARIES"), "msft-sp.bin"),
+                    "file": self.env.GetValue("MSSP_RUST_BIN_FILE"),
                     "offset": "0x2000"
                 },
                 "pm": {
-                    "file": str(Path(__file__).parent / "fdts/qemu_sbsa_mssp_rust_config.dts"),
+                    "file": self.env.GetValue("MSSP_RUST_DTS_FILE"),
                     "offset": "0x1000"
                 },
                 "uuid": "AFF0C73B-47E7-4A5B-AFFC-0052305A6520",
@@ -866,6 +866,14 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         return 0
 
     def PlatformPostBuild(self):
+        # Set Default BIN and DTS paths if not on command prompt
+        self.env.SetValue( "MSSP_RUST_BIN_FILE",
+                            os.path.join(self.env.GetValue("SECURE_PARTITION_BINARIES"), "msft-sp.bin"),
+                            "Path for mssp-rust sp binary file")
+        self.env.SetValue( "MSSP_RUST_DTS_FILE", 
+                           str(Path(__file__).parent / "fdts/qemu_sbsa_mssp_rust_config.dts"),
+                           "Path for mssp-rust sp DTS file")
+
         if self.env.GetValue("HAF_TFA_BUILD") == "TRUE":
             ret = self.HafTfaBuild()
             if ret != 0:
