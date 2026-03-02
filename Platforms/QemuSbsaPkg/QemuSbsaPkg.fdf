@@ -342,10 +342,7 @@ READ_LOCK_STATUS   = TRUE
   #
   # SMBIOS Support
   #
-  INF MdeModulePkg/Universal/SmbiosDxe/SmbiosDxe.inf
   INF QemuSbsaPkg/SbsaQemuSmbiosDxe/SbsaQemuSmbiosDxe.inf
-  INF ArmPkg/Universal/Smbios/ProcessorSubClassDxe/ProcessorSubClassDxe.inf
-  INF ArmPkg/Universal/Smbios/SmbiosMiscDxe/SmbiosMiscDxe.inf
 
   #
   # ACPI Support

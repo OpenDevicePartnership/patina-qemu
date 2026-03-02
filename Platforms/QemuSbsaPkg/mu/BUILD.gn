@@ -57,5 +57,7 @@ aarch64_toolchains("secure_qemu_aarch64") {
     pl011_base_address = "0x60000000"
     plat_log_level = "LOG_LEVEL_VERBOSE"
     plat_num_virtual_interrupts_ids = 1024
+    plat_partition_max_uuids = 16
   }
 }
+

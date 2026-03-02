@@ -134,14 +134,14 @@ jobs:
 
       - name: Publish Logs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: build-logs-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.tool-chain }}
           path: ${{ steps.build-platform.outputs.log-path }}
 
       - name: Publish Q35 release binaries
         if: ${{ github.event_name == 'release' && matrix.platform == 'Q35' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-bin-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.tool-chain }}
           path: |
@@ -151,7 +151,7 @@ jobs:
 
       - name: Publish SBSA release binaries
         if: ${{ github.event_name == 'release' && matrix.platform == 'SBSA' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: release-bin-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.tool-chain }}
           path: |
@@ -283,7 +283,7 @@ jobs:
       # Publish the logs as an artifact
       - name: Publish Logs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           # Specify architecture if it is not empty
           name: readiness-logs-${{ matrix.tool-chain }}-${{ matrix.platform && format('{0}-', matrix.platform) || '' }}${{ github.run_id }}
@@ -306,7 +306,7 @@ jobs:
       # Upload readiness report data for use in PR comment
       - name: Upload PR Data and Report
         if: github.event_name == 'pull_request' && always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: readiness-report-data-${{ matrix.platform }}
           path: pr-data/
