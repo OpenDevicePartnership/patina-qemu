@@ -39,9 +39,12 @@ STATIC SMBIOS_HANDLE  mPhyMemArrayInfoType16Handle = SMBIOS_HANDLE_PI_RESERVED;
 
 /**
   SMBIOS data definition, TYPE16, Physical Memory Array
+
+  Note: The handle field is set to SMBIOS_HANDLE_PI_RESERVED so that the SMBIOS
+  service allocates the handle automatically. Do not use a fixed handle value.
 **/
 SMBIOS_TABLE_TYPE16  mPhyMemArrayInfoType16 = {
-  { EFI_SMBIOS_TYPE_PHYSICAL_MEMORY_ARRAY, sizeof (SMBIOS_TABLE_TYPE16), 0 },
+  { EFI_SMBIOS_TYPE_PHYSICAL_MEMORY_ARRAY, sizeof (SMBIOS_TABLE_TYPE16), SMBIOS_HANDLE_PI_RESERVED },
   MemoryArrayLocationSystemBoard,  // Location; (system board)
   MemoryArrayUseSystemMemory,      // Use; (system memory)
   MemoryErrorCorrectionUnknown,    // MemoryErrorCorrection; (unknown).
@@ -55,10 +58,10 @@ CHAR8                *mPhyMemArrayInfoType16Strings[] = {
 };
 
 /**
-  SMBIOS data definition, TYPE17, Physical Memory Array
+  SMBIOS data definition, TYPE17, Memory Device
 **/
 SMBIOS_TABLE_TYPE17  mMemDevInfoType17 = {
-  { EFI_SMBIOS_TYPE_MEMORY_DEVICE, sizeof (SMBIOS_TABLE_TYPE17), 0 },
+  { EFI_SMBIOS_TYPE_MEMORY_DEVICE, sizeof (SMBIOS_TABLE_TYPE17), SMBIOS_HANDLE_PI_RESERVED },
   0,                        // MemoryArrayHandle; should match SMBIOS_TABLE_TYPE16.Handle,
                             // initialized at runtime, refer to MemDevInfoUpdateSmbiosType17
   0xFFFE,                   // MemoryErrorInformationHandle; (not provided)
@@ -129,7 +132,7 @@ CHAR8                *mMemDevInfoType17Strings[] = {
 };
 
 SMBIOS_TABLE_TYPE19  mMemArrMapInfoType19 = {
-  { EFI_SMBIOS_TYPE_MEMORY_ARRAY_MAPPED_ADDRESS, sizeof (SMBIOS_TABLE_TYPE19), 0 },
+  { EFI_SMBIOS_TYPE_MEMORY_ARRAY_MAPPED_ADDRESS, sizeof (SMBIOS_TABLE_TYPE19), SMBIOS_HANDLE_PI_RESERVED },
   0,  // StartingAddress; initialized at runtime, refer to MemArrMapInfoUpdateSmbiosType19
   0,  // EndingAddress; initialized at runtime, refer to MemArrMapInfoUpdateSmbiosType19
   0,  // MemoryArrayHandle; should match SMBIOS_TABLE_TYPE16.Handle,
