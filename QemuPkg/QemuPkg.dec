@@ -97,7 +97,7 @@
   # is disabled, USB boot is moved to the last boot option. This is preferred
   # off by default as it results in a ~5 second boot delay if not booting from
   # a USB
-  gQemuPkgTokenSpaceGuid.PcdUsbBootBootPriority|FALSE|BOOLEAN|0x24
+  gQemuPkgTokenSpaceGuid.PcdUsbBootPriority|FALSE|BOOLEAN|0x24
 
 [Ppis]
   # PPI whose presence in the PPI database signals that the TPM base address

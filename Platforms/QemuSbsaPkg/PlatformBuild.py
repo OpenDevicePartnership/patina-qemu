@@ -319,6 +319,9 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         self.env.SetValue("MU_SCHEMA_DIR", self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuSbsaPkg", "CfgData"), "Platform Defined")
         self.env.SetValue("MU_SCHEMA_FILE_NAME", "QemuSbsaPkgCfgData.xml", "Platform Hardcoded")
         self.env.SetValue("HAF_TFA_BUILD", "FALSE", "Platform Hardcoded")
+        
+        if self.env.GetValue("OS_BOOT_DEVICE", "").upper() == "USB":
+            self.env.SetValue("BLD_*_USB_BOOT_PRIORITY", "TRUE", "Set due to OS_BOOT_DEVICE=USB")
 
         # SBSA build on Windows is currently not supported
         if os.name == 'nt':

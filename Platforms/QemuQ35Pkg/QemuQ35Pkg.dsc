@@ -592,7 +592,7 @@
   !endif
 
   !if $(USB_BOOT_PRIORITY) == TRUE
-    gQemuPkgTokenSpaceGuid.PcdUsbBootBootPriority|TRUE
+    gQemuPkgTokenSpaceGuid.PcdUsbBootPriority|TRUE
   !endif
 
 [PcdsPatchableInModule]
