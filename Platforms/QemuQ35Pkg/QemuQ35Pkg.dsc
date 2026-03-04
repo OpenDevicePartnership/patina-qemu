@@ -591,6 +591,10 @@
     gMmSupervisorPkgTokenSpaceGuid.PcdMmSupervisorTestEnable|TRUE
   !endif
 
+  !if $(USB_BOOT_PRIORITY) == TRUE
+    gQemuPkgTokenSpaceGuid.PcdUsbBootBootPriority|TRUE
+  !endif
+
 [PcdsPatchableInModule]
   gEfiMdePkgTokenSpaceGuid.PcdDebugPropertyMask|0x17
 

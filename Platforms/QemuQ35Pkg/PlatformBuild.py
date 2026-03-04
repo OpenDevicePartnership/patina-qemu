@@ -304,6 +304,9 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
                           "Platform Hardcoded"
         )
         self.env.SetValue('CONF_PROFILE_NAMES', "P0,P1", "Platform Hardcoded")
+        
+        if self.env.GetValue("OS_BOOT_DEVICE", "").upper() == "USB":
+            self.env.SetValue("BLD_*_USB_BOOT_PRIORITY", "TRUE", "Set due to OS_BOOT_DEVICE=USB")
 
         tool_chain_override_on_cmdline = any(arg.startswith("TOOL_CHAIN_TAG=") for arg in sys.argv)
         if not tool_chain_override_on_cmdline:

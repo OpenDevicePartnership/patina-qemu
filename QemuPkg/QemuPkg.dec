@@ -93,6 +93,12 @@
   gQemuPkgTokenSpaceGuid.PcdSmmSmramRequire|FALSE|BOOLEAN|0x22
   gQemuPkgTokenSpaceGuid.PcdEnableMemoryProtection|TRUE|BOOLEAN|0x23
 
+  ## This feature flag enables USB boot as the first boot option. When the flag
+  # is disabled, USB boot is moved to the last boot option. This is preferred
+  # off by default as it results in a ~5 second boot delay if not booting from
+  # a USB
+  gQemuPkgTokenSpaceGuid.PcdUsbBootBootPriority|FALSE|BOOLEAN|0x24
+
 [Ppis]
   # PPI whose presence in the PPI database signals that the TPM base address
   # has been discovered and recorded

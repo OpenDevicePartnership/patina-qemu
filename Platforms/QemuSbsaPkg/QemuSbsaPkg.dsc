@@ -506,6 +506,10 @@
   gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerAutoWrapEnable|TRUE
   gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerFixedInRAM|TRUE
 
+  !if $(USB_BOOT_PRIORITY) == TRUE
+    gQemuPkgTokenSpaceGuid.PcdUsbBootBootPriority|TRUE
+  !endif
+
 [PcdsFeatureFlag.AARCH64]
   #
   # Activate AcpiSdtProtocol

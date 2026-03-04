@@ -45,6 +45,7 @@
   gEfiFirmwareVolume2ProtocolGuid
 
 [FeaturePcd]
+  gQemuPkgTokenSpaceGuid.PcdUsbBootBootPriority
 
 [Pcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile
