@@ -150,7 +150,7 @@ InitializeMemoryConfiguration (
             DEBUG ((
               DEBUG_INFO,
               "%a: System RAM @ 0x%lx - 0x%lx\n",
-              __FUNCTION__,
+              __func__,
               CurBase,
               CurBase + CurSize - 1
               ));
@@ -164,7 +164,7 @@ InitializeMemoryConfiguration (
           DEBUG ((
             DEBUG_ERROR,
             "%a: Failed to parse FDT memory node\n",
-            __FUNCTION__
+            __func__
             ));
         }
       }
@@ -296,7 +296,7 @@ ArmPlatformGetVirtualMemoryMap (
                          );
 
   if (VirtualMemoryTable == NULL) {
-    DEBUG ((DEBUG_ERROR, "%a: Error: Failed AllocatePool()\n", __FUNCTION__));
+    DEBUG ((DEBUG_ERROR, "%a: Error: Failed AllocatePool()\n", __func__));
     return;
   }
 
@@ -318,7 +318,7 @@ ArmPlatformGetVirtualMemoryMap (
     "\tPhysicalBase: 0x%lX\n"
     "\tVirtualBase: 0x%lX\n"
     "\tLength: 0x%lX\n",
-    __FUNCTION__,
+    __func__,
     VirtualMemoryTable[0].PhysicalBase,
     VirtualMemoryTable[0].VirtualBase,
     VirtualMemoryTable[0].Length

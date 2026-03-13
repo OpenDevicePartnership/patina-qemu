@@ -378,7 +378,7 @@ DecompressMemFvs (
     DEBUG_VERBOSE,
     "%a: OutputBuffer@%p+0x%x ScratchBuffer@%p+0x%x "
     "PcdOvmfDecompressionScratchEnd=0x%x\n",
-    __FUNCTION__,
+    __func__,
     OutputBuffer,
     OutputBufferSize,
     ScratchBuffer,
@@ -492,7 +492,7 @@ DecompressMemFvs (
   DEBUG ((
     DEBUG_VERBOSE,
     "%a: Rust DXE FV OutputBuffer@%p+0x%x ScratchBuffer@%p+0x%x\n",
-    __FUNCTION__,
+    __func__,
     OutputBuffer,
     OutputBufferSize,
     ScratchBuffer,
