@@ -55,9 +55,7 @@ class CommonPlatform():
         "Platforms",
         "MU_BASECORE",
         "Common/MU",
-        "Common/MU_TIANO",
         "Common/PATINA_EDK2",
-        "Silicon/Arm/MU_TIANO",
         "Silicon/Arm/TFA",
         "Features/FFA",
     )
@@ -115,9 +113,7 @@ class SettingsManager(UpdateSettingsManager, SetupSettingsManager, PrEvalSetting
         return [
             RequiredSubmodule("MU_BASECORE", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Common/MU", False, ".pytool/CISettings.py"),
-            RequiredSubmodule("Common/MU_TIANO", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Common/PATINA_EDK2", False, ".pytool/CISettings.py"),
-            RequiredSubmodule("Silicon/Arm/MU_TIANO", False, ".pytool/CISettings.py"),
             RequiredSubmodule("Silicon/Arm/TFA", True),
             RequiredSubmodule("Silicon/Arm/HAF", True),
             RequiredSubmodule("Features/FFA", True),
@@ -323,11 +319,6 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         if self.env.GetValue("OS_BOOT_DEVICE", "").upper() == "USB":
             self.env.SetValue("BLD_*_USB_BOOT_PRIORITY", "TRUE", "Set due to OS_BOOT_DEVICE=USB")
 
-        # SBSA build on Windows is currently not supported
-        if os.name == 'nt':
-            logging.error("QEMU SBSA build on Windows is not currently supported")
-            logging.error("See issue: https://github.com/OpenDevicePartnership/patina-qemu/issues/121")
-            return -1
 
         tool_chain_override_on_cmdline = any(arg.startswith("TOOL_CHAIN_TAG=") for arg in sys.argv)
         if not tool_chain_override_on_cmdline:
@@ -554,18 +545,6 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
                 "owner": "Plat",
                 "size": "0x300000"
             },
-            "mssp": {
-                "image": {
-                    "file": str(op_fv / "BL32_AP_MS_SP.fd"),
-                    "offset": "0x10000"
-                },
-                "pm": {
-                    "file": str(Path(__file__).parent / "fdts/qemu_sbsa_mssp_config.dts"),
-                    "offset": "0x1000"
-                },
-                "uuid": "b8bcbd0c-8e8f-4ebe-99eb-3cbbdd0cd412",
-                "owner": "Plat"
-            },
             "mssp-rust": {
                 "image": {
                     "file": self.env.GetValue("MSSP_RUST_BIN_FILE"),
@@ -769,6 +748,9 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
             args = "CC=" + clang_exe
         elif self.env.GetValue("TOOL_CHAIN_TAG") == "GCC5":
             args = "CROSS_COMPILE=" + shell_environment.GetEnvironment().get_shell_var("GCC5_AARCH64_PREFIX")
+            args += " -j $(nproc)"
+        elif self.env.GetValue("TOOL_CHAIN_TAG") == "GCC":
+            args = "CROSS_COMPILE=" + shell_environment.GetEnvironment().get_shell_var("GCC_AARCH64_PREFIX")
             args += " -j $(nproc)"
         else:
             logging.error("Unsupported toolchain")

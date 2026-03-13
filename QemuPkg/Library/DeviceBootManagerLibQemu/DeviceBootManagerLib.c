@@ -239,7 +239,7 @@ DeviceBootManagerConstructor (
                   TPL_CALLBACK,
                   PostReadyToBoot,
                   NULL,
-                  &gEfiEventPostReadyToBootGuid,
+                  &gEfiEventAfterReadyToBootGuid,
                   &mPostReadyToBootEvent
                   );
   if (EFI_ERROR (Status)) {
