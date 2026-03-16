@@ -7,6 +7,8 @@
     "sha256": "06283bbcb9fbb1cd562f16007e93b4827bbe0f52582d7ed859e7e7ddf2e75b33",
     "internal_path": "/",
     "compression_type": "zip",
-    "flags": ["set_build_var"],
+    "flags": [
+        "set_build_var"
+    ],
     "var_name": "BLD_*_DXE_CORE_PATH"
 }
