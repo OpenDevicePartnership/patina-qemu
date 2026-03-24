@@ -897,11 +897,6 @@ class _Wizard:
             f"{str(self._settings.package_path / 'PlatformBuild.py')}",
             "--FlashRom",
         ]
-        if self._settings.package.upper() == "SBSA":
-            if platform.system() == "Windows":
-                command.append("TOOL_CHAIN_TAG=CLANGPDB")
-            else:
-                command.append("TOOL_CHAIN_TAG=GCC5")
 
         if self._settings.show_build_output:
             _Utils.run_cmd(

@@ -497,7 +497,6 @@ InitializeSbsaQemuAcpiDxe (
 
   // Get the number of CPUs
   NumCores = GetCpuCount ();
-  ASSERT (PcdGet32 (PcdCoreCount) == NumCores);
 
   // Check if ACPI Table Protocol has been installed
   Status = gBS->LocateProtocol (

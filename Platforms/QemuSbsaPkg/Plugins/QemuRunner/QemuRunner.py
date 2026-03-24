@@ -90,7 +90,6 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
 
         alt_boot_enable = QemuRunner.GetBool(env, "ALT_BOOT_ENABLE", False)
         boot_to_front_page = QemuRunner.GetBool(env, "BOOT_TO_FRONT_PAGE", False)
-        core_count = QemuRunner.GetBuildStr(env, "QEMU_CORE_NUM")
         cpu_model = QemuRunner.GetStr(env, "CPU_MODEL")
         executable = QemuRunner.GetStr(env, "QEMU_PATH")
         gdb_server_port = QemuRunner.GetStr(env, "GDB_SERVER")
@@ -134,7 +133,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         qemu_version = QemuRunner.QueryQemuVersion(qemu_executable_path)
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_executable_path, QemuArchitecture.SBSA)
-            .with_cpu(cpu_model, core_count)
+            .with_cpu(cpu_model, 4)
             .with_machine(qemu_accelerator)
             .with_memory(8192 if path_to_os else 2048)
             .with_firmware(code_fd, var_store)

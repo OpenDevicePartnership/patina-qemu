@@ -21,7 +21,7 @@ class Settings(CiSetupSettingsManager, CiBuildSettingsManager, UpdateSettingsMan
         self.ActualPackages = []
         self.ActualTargets = []
         self.ActualArchitectures = []
-        self.ActualToolChainTag = ""
+        self.ActualToolChainTag = "CLANGPDB"
 
     # ####################################################################################### #
     #                             Extra CmdLine configuration                                 #
@@ -112,16 +112,6 @@ class Settings(CiSetupSettingsManager, CiBuildSettingsManager, UpdateSettingsMan
 
         if self.rust_ci:
             scopes += ("rust-ci",)
-
-        self.ActualToolChainTag = shell_environment.GetBuildVars().GetValue("TOOL_CHAIN_TAG", "")
-
-        if GetHostInfo().os.upper() == "LINUX" and self.ActualToolChainTag.upper().startswith("GCC"):
-            if "AARCH64" in self.ActualArchitectures:
-                scopes += ("gcc_aarch64_linux",)
-            if "ARM" in self.ActualArchitectures:
-                scopes += ("gcc_arm_linux",)
-            if "RISCV64" in self.ActualArchitectures:
-                scopes += ("gcc_riscv64_unknown",)
 
         return scopes
 

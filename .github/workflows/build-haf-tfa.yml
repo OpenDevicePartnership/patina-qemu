@@ -70,7 +70,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          BIN_DIR="Build/QemuSbsaPkg/DEBUG_GCC5/HafTfaBins"
+          BIN_DIR="Build/QemuSbsaPkg/DEBUG_CLANGPDB/HafTfaBins"
           echo "Packaging binaries from ${BIN_DIR}"
           if [ ! -d "$BIN_DIR" ]; then
             echo "Binary directory not found: $BIN_DIR" >&2

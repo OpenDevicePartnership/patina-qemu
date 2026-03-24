@@ -32,7 +32,7 @@ jobs:
 
   # Builds the platform(s) in this repository as defined by the matrix.
   build:
-    name: Build ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain }}
+    name: Build ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
 
     needs: vars
 
@@ -50,35 +50,37 @@ jobs:
         include:
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'DEBUG'
-            tool-chain: ${{ needs.vars.outputs.windows-toolchain }}
             platform: 'Q35'
             os: 'windows-latest'
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'RELEASE'
-            tool-chain: ${{ needs.vars.outputs.windows-toolchain }}
             platform: 'Q35'
+            os: 'windows-latest'
+          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+            target: 'DEBUG'
+            platform: 'SBSA'
+            os: 'windows-latest'
+          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+            target: 'RELEASE'
+            platform: 'SBSA'
             os: 'windows-latest'
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'DEBUG'
-            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             platform: 'Q35'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'RELEASE'
-            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             platform: 'Q35'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
           - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
             target: 'DEBUG'
-            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             platform: 'SBSA'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
           - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
             target: 'RELEASE'
-            tool-chain: ${{ needs.vars.outputs.linux-toolchain }}
             platform: 'SBSA'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
@@ -111,7 +113,7 @@ jobs:
         uses: ./.github/actions/redirect-hafnium-urls
 
       # Run the build-platform action, which calls stuart_setup, stuart_update, and stuart_build
-      - name: Prepare and Build ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain}}
+      - name: Prepare and Build ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
         id: build-platform
         uses: ./.github/actions/build-platform
         with:
@@ -119,31 +121,29 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          tool-chain: ${{ matrix.tool-chain }}
-          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }}'
+          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE'
 
-      - name: Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain}}
+      - name: Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
         uses: ./.github/actions/build-platform
         with:
           command: 'flash'
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          tool-chain: ${{ matrix.tool-chain }}
-          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }}'
+          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE'
 
       - name: Publish Logs
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: build-logs-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.tool-chain }}
+          name: build-logs-${{ matrix.platform }}-${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
           path: ${{ steps.build-platform.outputs.log-path }}
 
       - name: Publish Q35 release binaries
         if: ${{ github.event_name == 'release' && matrix.platform == 'Q35' }}
         uses: actions/upload-artifact@v7
         with:
-          name: release-bin-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.tool-chain }}
+          name: release-bin-${{ matrix.platform }}-${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
           path: |
             Build/**/FV/QEMUQ35_CODE.fd
             Build/**/FV/QEMUQ35_VARS.fd
@@ -153,7 +153,7 @@ jobs:
         if: ${{ github.event_name == 'release' && matrix.platform == 'SBSA' }}
         uses: actions/upload-artifact@v7
         with:
-          name: release-bin-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.tool-chain }}
+          name: release-bin-${{ matrix.platform }}-${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
           path: |
             Build/**/FV/QEMU_EFI.fd
             Build/**/FV/SECURE_FLASH0.fd
@@ -161,7 +161,7 @@ jobs:
 
   # Runs the readiness tool.
   readiness:
-    name: Readiness ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain }}
+    name: Readiness ${{ matrix.platform }} ${{ matrix.target }}
     needs: vars
     runs-on: ${{ matrix.os }}
     container:
@@ -173,13 +173,11 @@ jobs:
         include:
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'DEBUG'
-            tool-chain: ${{ needs.vars.outputs.windows-toolchain }}
             platform: 'Q35'
             os: 'windows-latest'
             readiness: '${DXE_READINESS_TOOL_PATH}/capture/x86_64/qemu_dxe_readiness_capture.efi'
           - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
             target: 'DEBUG'
-            tool-chain:  ${{ needs.vars.outputs.linux-toolchain }}
             platform: 'SBSA'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
@@ -213,7 +211,7 @@ jobs:
         uses: ./.github/actions/redirect-hafnium-urls
 
       # Build with readiness tool
-      - name: Prepare and Build ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain}}
+      - name: Prepare and Build ${{ matrix.platform }} ${{ matrix.target }}
         id: build-platform
         uses: ./.github/actions/build-platform
         with:
@@ -221,20 +219,17 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          tool-chain: ${{ matrix.tool-chain }}
-          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} BLD_*_DXE_CORE_BINARY_OVERRIDE=${{ matrix.readiness }}'
+          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE QEMU_HEADLESS=TRUE BLD_*_DXE_CORE_BINARY_OVERRIDE=${{ matrix.readiness }}'
 
       # Run readiness tool (timeout expected - QEMU runs in dead loop until capture completes)
       # Using shell timeout so exit code 124 is not treated as failure
-      - name: Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.tool-chain}}
+      - name: Run ${{ matrix.platform }} ${{ matrix.target }}
         shell: bash
         run: |
           timeout 120s stuart_build -c ${{ matrix.config }} --FlashOnly \
             TARGET=${{ matrix.target }} \
-            TOOL_CHAIN_TAG=${{ matrix.tool-chain }} \
             QEMU_HEADLESS=TRUE \
             EMPTY_DRIVE=TRUE \
-            BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} \
             || [ $? -eq 124 ]
 
       # Extract json from build output
@@ -286,7 +281,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           # Specify architecture if it is not empty
-          name: readiness-logs-${{ matrix.tool-chain }}-${{ matrix.platform && format('{0}-', matrix.platform) || '' }}${{ github.run_id }}
+          name: readiness-logs-${{ matrix.platform && format('{0}-', matrix.platform) || '' }}${{ github.run_id }}
           path: |
             ${{ steps.build-platform.outputs.log-path }}
             capture.json

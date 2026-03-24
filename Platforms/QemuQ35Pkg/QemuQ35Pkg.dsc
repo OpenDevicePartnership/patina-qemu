@@ -681,7 +681,7 @@
   # On Q35 machine types that QEMU intends to support in the long term, QEMU
   # never lets the RAM below 4 GB exceed 2816 MB.
   gEfiMdePkgTokenSpaceGuid.PcdPciExpressBaseAddress|0xB0000000
-  gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber|$(QEMU_CORE_NUM)
+  gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber|4
 
   !if $(TARGET) == RELEASE
     gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerHdwPortDebugPrintErrorLevel|0x0
@@ -1422,22 +1422,16 @@ QemuQ35Pkg/ResetVector/ResetVector.inf
   !endif
 
   # Exception tables are required for stack walks in the debugger.
-  MSFT:*_*_X64_GENFW_FLAGS  = --keepexceptiontable
-  GCC:*_*_X64_GENFW_FLAGS   = --keepexceptiontable
+  *_*_X64_GENFW_FLAGS   = --keepexceptiontable
 
   #
   # Disable deprecated APIs.
   #
-  MSFT:*_*_*_CC_FLAGS = /D DISABLE_NEW_DEPRECATED_INTERFACES $(PERFORMANCE_OPTIONS)
-  GCC:*_*_*_CC_FLAGS = -D DISABLE_NEW_DEPRECATED_INTERFACES $(PERFORMANCE_OPTIONS)
+  *_CLANGPDB_*_CC_FLAGS = -D DISABLE_NEW_DEPRECATED_INTERFACES $(PERFORMANCE_OPTIONS)
 
-  MSFT:*_*_*_DLINK_FLAGS = /ALIGN:64
-  GCC:*_GCC5_*_DLINK_FLAGS = -z common-page-size=64
-  GCC:*_CLANGPDB_*_DLINK_FLAGS = /ALIGN:64 /FILEALIGN:64
+  *_CLANGPDB_*_DLINK_FLAGS = /ALIGN:64 /FILEALIGN:64
 
 # Force PE/COFF sections to be aligned at 4KB boundaries to support page level
 # protection of DXE_SMM_DRIVER/SMM_CORE modules
 [BuildOptions.common.EDKII.DXE_SMM_DRIVER, BuildOptions.common.EDKII.DXE_RUNTIME_DRIVER, BuildOptions.common.EDKII.SMM_CORE, BuildOptions.common.EDKII.DXE_DRIVER, BuildOptions.common.EDKII.DXE_CORE, BuildOptions.common.EDKII.UEFI_DRIVER, BuildOptions.common.EDKII.UEFI_APPLICATION, BuildOptions.common.EDKII.MM_CORE_STANDALONE, BuildOptions.common.EDKII.MM_STANDALONE]
-  MSFT:*_*_*_DLINK_FLAGS = /ALIGN:4096
-  GCC:*_GCC5_*_DLINK_FLAGS = -z common-page-size=0x1000
-  GCC:*_CLANGPDB_*_DLINK_FLAGS = /ALIGN:4096
+  *_CLANGPDB_*_DLINK_FLAGS = /ALIGN:4096

@@ -75,11 +75,6 @@ class CommonPlatform():
     def get_active_scopes() -> Tuple[str]:
         scopes = CommonPlatform.Scopes
 
-        actual_tool_chain_tag = shell_environment.GetBuildVars().GetValue(
-                "TOOL_CHAIN_TAG", ""
-            )
-        if actual_tool_chain_tag.upper().startswith("GCC"):
-            scopes += ("gcc_aarch64_linux",)
         return scopes
 
     # ####################################################################################### #
@@ -308,7 +303,6 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         self.env.SetValue("BUILDREPORT_TYPES", "PCD DEPEX FLASH BUILD_FLAGS LIBRARY FIXED_ADDRESS HASH", "Setting build report types")
         self.env.SetValue("ARM_TFA_PATH", str(Path(self.GetWorkspaceRoot()) / "Silicon" / "Arm" / "TFA"), "Platform hardcoded")
         self.env.SetValue("ARM_HAF_PATH", str(Path(self.GetWorkspaceRoot()) / "Silicon" / "Arm" / "HAF"), "Platform hardcoded")
-        self.env.SetValue("BLD_*_QEMU_CORE_NUM", "4", "Default")
         self.env.SetValue("BLD_*_MEMORY_PROTECTION", "TRUE", "Default")
         # Include the MFCI test cert by default, override on the commandline with "BLD_*_SHIP_MODE=TRUE" if you want the retail MFCI cert
         self.env.SetValue("BLD_*_SHIP_MODE", "FALSE", "Default")
@@ -316,14 +310,10 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         self.env.SetValue("MU_SCHEMA_DIR", self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuSbsaPkg", "CfgData"), "Platform Defined")
         self.env.SetValue("MU_SCHEMA_FILE_NAME", "QemuSbsaPkgCfgData.xml", "Platform Hardcoded")
         self.env.SetValue("HAF_TFA_BUILD", "FALSE", "Platform Hardcoded")
-
+        self.env.SetValue("TOOL_CHAIN_TAG", "CLANGPDB", "Platform Hardcoded")
+        
         if self.env.GetValue("OS_BOOT_DEVICE", "").upper() == "USB":
             self.env.SetValue("BLD_*_USB_BOOT_PRIORITY", "TRUE", "Set due to OS_BOOT_DEVICE=USB")
-
-
-        tool_chain_override_on_cmdline = any(arg.startswith("TOOL_CHAIN_TAG=") for arg in sys.argv)
-        if not tool_chain_override_on_cmdline:
-            self.env.SetValue("TOOL_CHAIN_TAG", "GCC5", f"Default GCC5 toolchain based on host OS ({os.name})")
 
         if self.Helper.generate_secureboot_pcds(self) != 0:
             logging.error("Failed to generate include PCDs")
@@ -703,27 +693,26 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         logging.info("Building TF-A")
 
         shell_environment.CheckpointBuildVars()  # checkpoint our config before we mess with it
-        if self.env.GetValue("TOOL_CHAIN_TAG") == "CLANGPDB":
-            if os.name == "nt":
-                # If this is a Windows build, we need to demolish the path and inject the VC variables of interest
-                # otherwise the build could pick up wrong tools
-                shell_environment.GetEnvironment().set_path("")
-                self.InjectVcVarsOfInterests(["LIB", "Path"])
+        if os.name == "nt":
+            # If this is a Windows build, we need to demolish the path and inject the VC variables of interest
+            # otherwise the build could pick up wrong tools
+            shell_environment.GetEnvironment().set_path("")
+            self.InjectVcVarsOfInterests(["LIB", "Path"])
 
-                clang_exe = "clang.exe"
-                choco_path = shell_environment.GetEnvironment().get_shell_var("CHOCOLATEYINSTALL")
-                shell_environment.GetEnvironment().insert_path(str(Path(choco_path) / "bin"))
-                shell_environment.GetEnvironment().insert_path(shell_environment.GetEnvironment().get_shell_var("CLANG_BIN"))
+            clang_exe = "clang.exe"
+            choco_path = shell_environment.GetEnvironment().get_shell_var("CHOCOLATEYINSTALL")
+            shell_environment.GetEnvironment().insert_path(str(Path(choco_path) / "bin"))
+            shell_environment.GetEnvironment().insert_path(shell_environment.GetEnvironment().get_shell_var("CLANG_BIN"))
 
-                # Need to build fiptool separately because the build system will override LIB with LIBC for firmware builds
-                cmd = "make"
-                args = " fiptool MAKEFLAGS= LIB=\"" + shell_environment.GetEnvironment().get_shell_var("LIB") + "\""
-                ret = RunCmd(cmd, args, workingdir=self.env.GetValue("ARM_TFA_PATH"))
-                if ret != 0:
-                    return ret
-                # Then we can make the firmware images with the fiptool built above
-            else:
-                clang_exe = "clang"
+            # Need to build fiptool separately because the build system will override LIB with LIBC for firmware builds
+            cmd = "make"
+            args = " fiptool MAKEFLAGS= LIB=\"" + shell_environment.GetEnvironment().get_shell_var("LIB") + "\""
+            ret = RunCmd(cmd, args, workingdir=self.env.GetValue("ARM_TFA_PATH"))
+            if ret != 0:
+                return ret
+            # Then we can make the firmware images with the fiptool built above
+        else:
+            clang_exe = "clang"
 
         # Specify the filename
         filename = Path(self.env.GetValue("BUILD_OUTPUT_BASE")) / "sp_layout.json"
@@ -745,23 +734,13 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
 
         # Second, put together the command to build the firmware.
         cmd = "make"
-        if self.env.GetValue("TOOL_CHAIN_TAG") == "CLANGPDB":
-            args = "CC=" + clang_exe
-        elif self.env.GetValue("TOOL_CHAIN_TAG") == "GCC5":
-            args = "CROSS_COMPILE=" + shell_environment.GetEnvironment().get_shell_var("GCC5_AARCH64_PREFIX")
-            args += " -j $(nproc)"
-        elif self.env.GetValue("TOOL_CHAIN_TAG") == "GCC":
-            args = "CROSS_COMPILE=" + shell_environment.GetEnvironment().get_shell_var("GCC_AARCH64_PREFIX")
-            args += " -j $(nproc)"
-        else:
-            logging.error("Unsupported toolchain")
-            return -1
+        args  = "CC=" + clang_exe
         args += " PLAT=" + self.env.GetValue("QEMU_PLATFORM").lower()
         args += " ARCH=" + self.env.GetValue("TARGET_ARCH").lower()
         args += " DEBUG=" + str(1 if self.env.GetValue("TARGET").lower() == 'debug' else 0)
         args += " ENABLE_SME_FOR_SWD=0 ENABLE_SVE_FOR_SWD=0 ENABLE_SME_FOR_NS=0 ENABLE_SVE_FOR_NS=0"
         args += f" SPD=spmd SPMD_SPM_AT_SEL2=1 SP_LAYOUT_FILE={filename}"
-        args += " ENABLE_FEAT_HCX=1 HOB_LIST=1 TRANSFER_LIST=1 LOG_LEVEL=40" # Features used by hypervisor
+        args += " ENABLE_FEAT_HCX=1 HOB_LIST=1 TRANSFER_LIST=1 LOG_LEVEL=40 CFLAGS='-Wno-error=c23-extensions' " # Features used by hypervisor
         # args += " FEATURE_DETECTION=1" # Enforces support for features enabled.
         args += f" BL32={str(haf_out / 'secure_qemu_aarch64_clang' / 'hafnium.bin')}"
         args += " all fip"

@@ -568,23 +568,6 @@
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesData|0x642
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiReservedMemoryType|0x505
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesCode|0x424
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiBootServicesCode|0x5DC
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiBootServicesData|0x2EE0
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiLoaderCode|0x14
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiLoaderData|0x0
-
-  #
-  # Enable strict image permissions for all images. (This applies
-  # only to images that were built with >= 4 KB section alignment.)
-  #
-#   gEfiMdeModulePkgTokenSpaceGuid.PcdImageProtectionPolicy|0x3
-
-  #
-  # Enable NX memory protection for all non-code regions, including OEM and OS
-  # reserved ones, with the exception of LoaderData regions, of which OS loaders
-  # (i.e., GRUB) may assume that its contents are executable.
-  #
-#   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeNxMemoryProtectionPolicy|0xC000000000007FD1
 
   gMsGraphicsPkgTokenSpaceGuid.PcdUiThemeInDxe|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerInBootOrder|FALSE
@@ -614,7 +597,7 @@
 
   # Size of the region used by UEFI in permanent memory (Reserved 64MB)
   gArmPlatformTokenSpaceGuid.PcdSystemMemoryUefiRegionSize|0x04000000
-  gArmPlatformTokenSpaceGuid.PcdCoreCount|$(QEMU_CORE_NUM)
+  gArmPlatformTokenSpaceGuid.PcdCoreCount|4
 
   #
   # ARM PrimeCell
@@ -1266,36 +1249,28 @@
 ###################################################################################################
 [BuildOptions]
   # Exception tables are required for stack walks in the debugger.
-  MSFT:*_*_AARCH64_GENFW_FLAGS  = --keepexceptiontable
-  GCC:*_*_AARCH64_GENFW_FLAGS   = --keepexceptiontable
+  *_CLANGPDB_AARCH64_GENFW_FLAGS   = --keepexceptiontable
 
   #
   # Disable deprecated APIs.
   #
-  RVCT:*_*_*_CC_FLAGS = -DDISABLE_NEW_DEPRECATED_INTERFACES
-  GCC:*_*_*_CC_FLAGS = -DDISABLE_NEW_DEPRECATED_INTERFACES
+  *_CLANGPDB_*_CC_FLAGS = -DDISABLE_NEW_DEPRECATED_INTERFACES
 
 !if $(TPM2_ENABLE) == TRUE
   #
   # Enable TPM2 support
   #
-  GCC:*_*_*_CC_FLAGS = -DTPM2_ENABLE
+  *_CLANGPDB_*_CC_FLAGS = -DTPM2_ENABLE
 !endif
 
 [BuildOptions.common.EDKII.SEC,BuildOptions.common.EDKII.MM_CORE_STANDALONE]
-  GCC:*_CLANGPDB_*_DLINK_FLAGS = /ALIGN:0x1000 /FILEALIGN:0x1000
+  *_CLANGPDB_*_DLINK_FLAGS = /ALIGN:0x1000 /FILEALIGN:0x1000
 
 [BuildOptions.common.EDKII.DXE_CORE,BuildOptions.common.EDKII.DXE_DRIVER,BuildOptions.common.EDKII.UEFI_DRIVER,BuildOptions.common.EDKII.UEFI_APPLICATION,BuildOptions.common.EDKII.MM_CORE_STANDALONE,BuildOptions.common.EDKII.MM_STANDALONE]
-  GCC:*_GCC5_*_DLINK_FLAGS = -z common-page-size=0x1000
-  GCC:*_GCC_*_DLINK_FLAGS = -z common-page-size=0x1000
-  GCC:*_CLANGPDB_*_DLINK_FLAGS = /ALIGN:0x1000
-  GCC:*_*_*_DLINK_XIPFLAGS = -z common-page-size=0x1000
+  *_CLANGPDB_*_DLINK_FLAGS = /ALIGN:0x1000
 
 [BuildOptions.common.EDKII.DXE_RUNTIME_DRIVER]
-  GCC:*_GCC5_AARCH64_DLINK_FLAGS = -z common-page-size=0x10000
-  GCC:*_GCC_AARCH64_DLINK_FLAGS = -z common-page-size=0x10000
-  GCC:*_CLANGPDB_AARCH64_DLINK_FLAGS = /ALIGN:0x10000
-  RVCT:*_*_ARM_DLINK_FLAGS = --scatter $(EDK_TOOLS_PATH)/Scripts/Rvct-Align4K.sct
+  *_CLANGPDB_AARCH64_DLINK_FLAGS = /ALIGN:0x10000
 
 [BuildOptions.AARCH64.EDKII.MM_CORE_STANDALONE,BuildOptions.AARCH64.EDKII.MM_STANDALONE]
-  GCC:*_*_*_CC_FLAGS = -mstrict-align -march=armv8-a
+  *_CLANGPDB_*_CC_FLAGS = -mstrict-align -march=armv8-a

@@ -288,30 +288,13 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         # Default turn on build reporting.
         self.env.SetValue("BUILDREPORTING", "TRUE", "Enabling build report")
         self.env.SetValue("BUILDREPORT_TYPES", "PCD DEPEX FLASH BUILD_FLAGS LIBRARY FIXED_ADDRESS HASH", "Setting build report types")
-        self.env.SetValue("BLD_*_QEMU_CORE_NUM", "4", "Default")
         self.env.SetValue("BLD_*_MEMORY_PROTECTION", "TRUE", "Default")
         # Include the MFCI test cert by default, override on the commandline with "BLD_*_SHIP_MODE=TRUE" if you want the retail MFCI cert
         self.env.SetValue("BLD_*_SHIP_MODE", "FALSE", "Default")
-        self.env.SetValue("CONF_AUTOGEN_INCLUDE_PATH", self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuQ35Pkg", "Include"), "Platform Defined")
-
-        self.env.SetValue('MU_SCHEMA_DIR', self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuQ35Pkg", "CfgData"), "Platform Defined")
-        self.env.SetValue('MU_SCHEMA_FILE_NAME', "QemuQ35PkgCfgData.xml", "Platform Hardcoded")
-        self.env.SetValue('CONF_PROFILE_PATHS',
-                          self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath('QemuQ35Pkg', 'CfgData', 'Profile0QemuQ35PkgCfgData.csv') + " " +
-                          self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath('QemuQ35Pkg', 'CfgData', 'Profile1QemuQ35PkgCfgData.csv'),
-                          "Platform Hardcoded"
-        )
-        self.env.SetValue('CONF_PROFILE_NAMES', "P0,P1", "Platform Hardcoded")
+        self.env.SetValue("TOOL_CHAIN_TAG", "CLANGPDB", "Platform Hardcoded")
         
         if self.env.GetValue("OS_BOOT_DEVICE", "").upper() == "USB":
             self.env.SetValue("BLD_*_USB_BOOT_PRIORITY", "TRUE", "Set due to OS_BOOT_DEVICE=USB")
-
-        tool_chain_override_on_cmdline = any(arg.startswith("TOOL_CHAIN_TAG=") for arg in sys.argv)
-        if not tool_chain_override_on_cmdline:
-            if os.name == 'nt':
-                self.env.SetValue("TOOL_CHAIN_TAG", "VS2022", f"Default VS2022 toolchain based on host OS ({os.name})")
-            else:
-                self.env.SetValue("TOOL_CHAIN_TAG", "GCC5", f"Default GCC5 toolchain based on host OS ({os.name})")
 
         # Globally set CodeQL failures to be ignored in this repo.
         # Note: This has no impact if CodeQL is not active/enabled.

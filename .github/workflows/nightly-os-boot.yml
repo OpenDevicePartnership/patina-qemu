@@ -209,7 +209,7 @@ jobs:
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
           tool-chain: ${{ env.TOOL_CHAIN }}
-          stuart-args: 'QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
+          stuart-args: 'QEMU_HEADLESS=TRUE ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
 
       - name: Run
         uses: ./.github/actions/build-platform
@@ -219,7 +219,7 @@ jobs:
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
           tool-chain: ${{ env.TOOL_CHAIN }}
-          stuart-args: 'QEMU_HEADLESS=TRUE BLD_*_QEMU_CORE_NUM=${{ needs.vars.outputs.qemu-core-count }} ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
+          stuart-args: 'QEMU_HEADLESS=TRUE ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
 
       - name: Publish Logs
         if: always()
