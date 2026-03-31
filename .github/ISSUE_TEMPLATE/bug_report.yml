@@ -64,7 +64,6 @@ body:
           - **Targets Impacted**: RELEASE, DEBUG, NO-TARGET, NOOPT...
       value: |
           - OS(s):
-          - Tool Chain(s):
           - Targets Impacted:
       render: markdown
     validations:
