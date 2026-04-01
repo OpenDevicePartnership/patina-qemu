@@ -247,9 +247,6 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         build_cmd = [
             "cargo",
-            "-Zunstable-options",
-            "-C",
-            str(args.patina_dxe_core_repo),
             "make",
         ]
 
@@ -260,7 +257,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         for p in args.crate_patch:
             build_cmd.append("--crate-patch ")
-            build_cmd.append(str(p))
+            build_cmd.append(str(p.resolve()))
 
         # if a serial port wasn't specified, use the default port so a debugger can be retroactively attached
         if args.serial_port is None:
@@ -349,9 +346,6 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         build_cmd = [
             "cargo",
-            "-Zunstable-options",
-            "-C",
-            str(args.patina_dxe_core_repo),
             "make",
         ]
 
@@ -362,7 +356,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         for p in args.crate_patch:
             build_cmd.append("--crate-patch ")
-            build_cmd.append(str(p))
+            build_cmd.append(str(p.resolve()))
 
         if args.qemu_path:
             qemu_exec = args.qemu_path
@@ -507,12 +501,14 @@ def _build_rust_dxe_core(settings: Dict[str, Path]) -> None:
     """
     logging.info("[1]. Building Rust DXE Core...\n")
 
-    env = os.environ.copy()
-    if "-Zunstable-options" in settings["build_cmd"]:
-        env["RUSTC_BOOTSTRAP"] = "1"
-
+    # Run from the patina-dxe-core-qemu directory so that rustup picks up its
+    # rust-toolchain.toml.
     try:
-        subprocess.run(settings["build_cmd"], check=True, env=env)
+        subprocess.run(
+            settings["build_cmd"],
+            check=True,
+            cwd=settings["patina_dxe_core_repo"],
+        )
     except subprocess.CalledProcessError as e:
         logging.error(f"Build failed with error #{e.returncode}.")
         sys.exit(e.returncode)
