@@ -92,7 +92,7 @@
 		 * Secure UART region.
 		 */
 		secure_uart {
-			base-address = <0x0 0x60040000>;
+			base-address = <0x0 0x60030000>;
 			pages-count = <0x1>;
 			attributes = <0x3>;
 		};
