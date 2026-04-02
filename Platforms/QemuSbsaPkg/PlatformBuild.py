@@ -744,8 +744,6 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         # args += " FEATURE_DETECTION=1" # Enforces support for features enabled.
         args += f" BL32={str(haf_out / 'secure_qemu_aarch64_clang' / 'hafnium.bin')}"
         args += " all fip"
-        args += f" QEMU_TB_FW_CONFIG_DTS={str(Path(__file__).parent / 'fdts/qemu_sbsa_tb_fw_config.dts')}"
-        args += f" QEMU_TOS_FW_CONFIG_DTS={str(Path(__file__).parent / 'fdts/qemu_sbsa_spmc_sp_manifest.dts')}"
 
         # Third, write a temp bash file to activate the virtual environment and build the firmware.
         temp_bash = Path(self.env.GetValue("BUILD_OUTPUT_BASE")) / "temp.sh"
