@@ -167,7 +167,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             )
             .with_tpm(tpm_dev)
             .with_gdb_server(gdb_server_port)
-            .with_serial_port(serial_port) # ["secure.log", "secure_mm.log"]
+            .with_serial_port(serial_port, log_files=["secure_mm.log"])
             .with_monitor_port(monitor_port)
         )
         
