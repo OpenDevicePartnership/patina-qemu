@@ -12,3 +12,4 @@ __pycache__/
 BuildConfig.conf
 tags/
 *secure_mm.log
+*secure.log
