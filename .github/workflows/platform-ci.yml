@@ -35,7 +35,7 @@ jobs:
     # Toggle the `if` condition to `true` when a Hafnium / TFA build must be built for PR
     # validation. This must remain `true` until the Hafnium and TFA external dependencies are
     # updated.
-    if: true
+    if: false
     uses: ./.github/workflows/build-haf-tfa.yml
 
   # Builds the platform(s) in this repository as defined by the matrix.
