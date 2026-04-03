@@ -65,7 +65,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: haf-tfa-binaries
-          path: Build/QemuSbsaPkg/DEBUG_GCC5/HafTfaBins
+          path: Build/QemuSbsaPkg/DEBUG_CLANGPDB/HafTfaBins
 
       - name: Install archive tools
         if: github.event_name == 'release'
