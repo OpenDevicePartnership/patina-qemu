@@ -18,6 +18,7 @@ on:
       - 'Platforms/QemuSbsaPkg/**'
       - 'Silicon/Arm/**'
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   build:
@@ -58,6 +59,13 @@ jobs:
 
       - name: Stuart Build
         run: python Platforms/QemuSbsaPkg/PlatformBuild.py HAF_TFA_BUILD=TRUE
+      
+      - name: Upload Bins as Artifacts
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: haf-tfa-binaries
+          path: Build/QemuSbsaPkg/DEBUG_GCC5/HafTfaBins
 
       - name: Install archive tools
         if: github.event_name == 'release'

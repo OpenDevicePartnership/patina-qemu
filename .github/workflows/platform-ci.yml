@@ -30,11 +30,21 @@ jobs:
     name: Get Repository Constants
     uses: OpenDevicePartnership/patina-devops/.github/workflows/qemu-constants.yml@main
 
+  build-haf-tfa:
+    name: Build Hafnium and Trusted Firmware-A
+    # Toggle the `if` condition to `true` when a Hafnium / TFA build must be built for PR
+    # validation. This must remain `true` until the Hafnium and TFA external dependencies are
+    # updated.
+    if: true
+    uses: ./.github/workflows/build-haf-tfa.yml
+
   # Builds the platform(s) in this repository as defined by the matrix.
   build:
     name: Build ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
 
-    needs: vars
+    needs: [vars, build-haf-tfa]
+
+    if: ${{ always() }}
 
     runs-on: ${{ matrix.os }}
 
@@ -89,6 +99,20 @@ jobs:
       # Checkout the repository to the runner or container
       - name: Checkout repository
         uses: actions/checkout@v6
+      
+      - name: Download HAF/TFA Build Artifacts
+        id: download-haf-tfa
+        if: needs.build-haf-tfa.result == 'success' && matrix.platform == 'SBSA'
+        uses: actions/download-artifact@v7
+        with:
+          name: haf-tfa-binaries
+          path: haf-tfa-binaries
+      
+      - name: Set HAF/TFA bins directory
+        id: haf-tfa
+        if: steps.download-haf-tfa.result == 'success'
+        shell: bash
+        run: echo "bins-dir=${GITHUB_WORKSPACE}/haf-tfa-firmware" >> $GITHUB_OUTPUT
 
       # Configure git for use in the container. Specifically needed for the FFA builds
       - name: Configure Git
@@ -122,6 +146,7 @@ jobs:
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
           stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE'
+          haf-tfa-bins-dir: ${{ steps.haf-tfa.outputs.bins-dir }}
 
       - name: Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
         uses: ./.github/actions/build-platform
@@ -131,6 +156,7 @@ jobs:
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
           stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE'
+          haf-tfa-bins-dir: ${{ steps.haf-tfa.outputs.bins-dir }}
 
       - name: Publish Logs
         if: always()

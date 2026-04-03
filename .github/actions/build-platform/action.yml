@@ -31,6 +31,10 @@ inputs:
     description: 'Additional build arguments to pass to stuart_build'
     required: false
     default: ''
+  haf-tfa-bins-dir:
+    description: 'Path to the directory containing the Hafnium and Trusted Firmware-A binaries to use for the build. If not specified, the action will look for the binaries in a default location.'
+    required: false
+    default: ''
   log-identifier:
     description: 'Extra identifier to append to the log folder name if needed.'
     required: false
@@ -71,6 +75,9 @@ runs:
     shell: bash
     run: |
       ARGS="TARGET=${{ inputs.target }} ${{ inputs.stuart-args }}"
+      if [[ -n "${{ inputs.haf-tfa-bins-dir }}" ]]; then
+        ARGS="${ARGS} HAF_TFA_BINS=${{ inputs.haf-tfa-bins-dir }}"
+      fi
       echo "arguments=$ARGS" >> $GITHUB_OUTPUT
 
   # Create a cache key based on the submodule hashes to speed up repeated builds
