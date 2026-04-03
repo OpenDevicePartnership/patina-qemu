@@ -32,7 +32,7 @@ inputs:
     required: false
     default: ''
   haf-tfa-bins-dir:
-    description: 'Path to the directory containing the Hafnium and Trusted Firmware-A binaries to use for the build. If not specified, the action will look for the binaries in a default location.'
+    description: 'Path to the directory containing the Hafnium and Trusted Firmware-A binaries to use for the build.'
     required: false
     default: ''
   log-identifier:
