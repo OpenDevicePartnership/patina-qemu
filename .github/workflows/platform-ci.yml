@@ -121,7 +121,7 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE HAF_TFA_BUILD=TRUE'
+          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE'
 
       - name: Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
         uses: ./.github/actions/build-platform
