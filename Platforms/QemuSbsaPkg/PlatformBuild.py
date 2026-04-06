@@ -33,7 +33,8 @@ cached_enivron = os.environ.copy()
 
 # This constant is used to indicate if the prebuilt HAF / TF-A binaries are in sync with the source code.
 # When the TF-A source code is updated in a way that is not compatible with the existing prebuilts, this should be set
-# to False, which ensures that
+# to False, which ensures that HAF / TF-A will be build from source if supported. On Windows, TF-A cannot be built from
+# source, so the platform build will be skipped with a warning.
 HAF_TFA_EXTDEP_BINS_CURRENT = False
 
 # Declare test whose failure will not return a non-zero exit code
