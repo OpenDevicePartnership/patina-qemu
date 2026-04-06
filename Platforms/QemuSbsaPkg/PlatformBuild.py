@@ -31,6 +31,11 @@ from edk2toollib.utility_functions import GetHostInfo
 
 cached_enivron = os.environ.copy()
 
+# This constant is used to indicate if the prebuilt HAF / TF-A binaries are in sync with the source code.
+# When the TF-A source code is updated in a way that is not compatible with the existing prebuilts, this should be set
+# to False, which ensures that
+HAF_TFA_EXTDEP_BINS_CURRENT = False
+
 # Declare test whose failure will not return a non-zero exit code
 FAILURE_EXEMPT_TESTS = {
     # example "PiValueTestApp.efi": datetime.datetime(3141, 5, 9, 2, 6, 53, 589793),
@@ -831,6 +836,21 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         return 0
 
     def PlatformPreBuild(self):
+        # If HAF/TF-A binaries are not in sync, and we are on Windows, exit without building the platform because we
+        # cannot compile TF-A on Windows. Otherwise, (if on Linux) we force the build of TF-A to ensure the binaries
+        # are in sync.
+        if not HAF_TFA_EXTDEP_BINS_CURRENT:
+            if GetHostInfo().os == "Windows":
+                logging.warning("Prebuilt TF-A binaries are no longer in sync with source code and cannot be built on Windows.")
+                logging.warning("Only linux hosts are currently supported until the prebuilts can be updated.")
+                logging.warning("Skipping build.")
+                self.SkipBuild = True
+                self.SkipPostBuild = True
+                self.FlashImage = False
+                return 0
+            else:
+                self.env.SetValue("HAF_TFA_BUILD", "TRUE", "Hardcoded due to TF-A prebuilts being out of date.")
+
         if self.env.GetValue("HAF_TFA_BUILD") == "TRUE":
             haf_repo = git.Repo(Path(self.GetWorkspaceRoot()) / "Silicon/Arm/HAF")
             try:
