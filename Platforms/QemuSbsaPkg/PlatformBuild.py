@@ -35,7 +35,7 @@ cached_enivron = os.environ.copy()
 # When the TF-A source code is updated in a way that is not compatible with the existing prebuilts, this should be set
 # to False, which ensures that HAF / TF-A will be build from source if supported. On Windows, TF-A cannot be built from
 # source, so the platform build will be skipped with a warning.
-HAF_TFA_EXTDEP_BINS_CURRENT = False
+HAF_TFA_EXTDEP_BINS_CURRENT = True
 
 # Declare test whose failure will not return a non-zero exit code
 FAILURE_EXEMPT_TESTS = {
@@ -326,6 +326,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
                 logging.warning("Prebuilt TF-A binaries are no longer in sync with source code and cannot be built on Windows.")
                 logging.warning("Only linux hosts are currently supported until the prebuilts can be updated.")
                 logging.warning("Skipping build.")
+                self.SkipPreBuild = True
                 self.SkipBuild = True
                 self.SkipPostBuild = True
                 self.FlashImage = False
