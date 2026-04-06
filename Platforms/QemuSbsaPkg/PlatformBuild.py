@@ -315,7 +315,7 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         self.env.SetValue("CONF_AUTOGEN_INCLUDE_PATH", self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuSbsaPkg", "Include"), "Platform Defined")
         self.env.SetValue("MU_SCHEMA_DIR", self.edk2path.GetAbsolutePathOnThisSystemFromEdk2RelativePath("QemuSbsaPkg", "CfgData"), "Platform Defined")
         self.env.SetValue("MU_SCHEMA_FILE_NAME", "QemuSbsaPkgCfgData.xml", "Platform Hardcoded")
-        self.env.SetValue("HAF_TFA_BUILD", "FALSE", "Platform Hardcoded")
+        self.env.SetValue("HAF_TFA_BUILD", "FALSE", "Platform Hardcoded", overridable=True)
         self.env.SetValue("TOOL_CHAIN_TAG", "CLANGPDB", "Platform Hardcoded")
         
         # If HAF/TF-A binaries are not in sync, and we are on Windows, exit without building the platform because we
