@@ -108,8 +108,8 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.MU_ACCESS_APP_ID }}
-          private-key: ${{ secrets.MU_ACCESS_APP_PRIVATE_KEY }}
+          app-id: ${{ secrets.PATINA_AUTOMATION_APPLICATION_ID }}
+          private-key: ${{ secrets.PATINA_AUTOMATION_APPLICATION_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
 
