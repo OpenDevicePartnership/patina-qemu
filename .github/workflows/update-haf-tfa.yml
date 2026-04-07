@@ -30,23 +30,33 @@ jobs:
           REPO: ${{ env.REPO }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # We can use the normal token here, as we are just reading releases.
           CUTOFF_DATE: $(date -d '7 days ago' --iso-8601=seconds)
+          EVENT_NAME: ${{ github.event_name }}
         shell: bash
         run: |
           # Get the latest release that matches semver format v<major>.<minor>.<patch>
-          # and was published within the cutoff date
-          TAG_NAME=$(gh release list --repo "$REPO" --limit 100 --json tagName,publishedAt | \
-            jq -r --arg cutoff "$CUTOFF_DATE" '
+          RELEASE=$(gh release list --repo "$REPO" --limit 100 --json tagName,publishedAt | \
+            jq -c '
               [ .[] 
               | select(.tagName | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))
-              | select(.publishedAt >= $cutoff)
               ]
               | sort_by(.publishedAt) 
               | reverse 
-              | .[0] 
-              | .tagName // ""
+              | .[0]
             ')
 
-          echo "Latest release found: $TAG_NAME"
+          TAG_NAME=$(echo "$RELEASE" | jq -r '.tagName // ""')
+          PUBLISHED_AT=$(echo "$RELEASE" | jq -r '.publishedAt // ""')
+
+          echo "Latest release: $TAG_NAME (published: $PUBLISHED_AT)"
+
+          # For scheduled runs, only use the release if it's within the cutoff date
+          if [[ "$EVENT_NAME" != "workflow_dispatch" && -n "$PUBLISHED_AT" ]]; then
+            if [[ "$PUBLISHED_AT" < "$CUTOFF_DATE" ]]; then
+              echo "Release $TAG_NAME is older than cutoff date, skipping."
+              TAG_NAME=""
+            fi
+          fi
+
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
   
   update:
