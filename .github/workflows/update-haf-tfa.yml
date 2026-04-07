@@ -1,4 +1,4 @@
-name: Update BaseTools Binaries External Dependency
+name: Update HAF/TF-A Binaries External Dependency
 
 on:
   schedule:
@@ -21,86 +21,82 @@ jobs:
     runs-on: ubuntu-latest
 
     outputs:
-      releases: ${{ steps.releases.outputs.releases }}
+      tag_name: ${{ steps.releases.outputs.tag_name }}
   
     steps:
       - name: Build PR Creation Matrix
-        id: releases
+        id: release
         env:
           REPO: ${{ env.REPO }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # We can use the normal token here, as we are just reading releases.
+          CUTOFF_DATE: $(date -d '7 days ago' --iso-8601=seconds)
         shell: bash
         run: |
           # Get the latest release that matches semver format v<major>.<minor>.<patch>
-          LATEST_RELEASE=$(gh release list --repo "$REPO" --limit 100 --json tagName,publishedAt | \
-            jq -c '
+          # and was published within the cutoff date
+          TAG_NAME=$(gh release list --repo "$REPO" --limit 100 --json tagName,publishedAt | \
+            jq -r --arg cutoff "$CUTOFF_DATE" '
               [ .[] 
               | select(.tagName | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))
+              | select(.publishedAt >= $cutoff)
               ]
               | sort_by(.publishedAt) 
               | reverse 
               | .[0] 
-              | {tagName: .tagName}
+              | .tagName // ""
             ')
 
-          echo "Latest release found:"
-          echo "$LATEST_RELEASE"
-          echo "release=$LATEST_RELEASE" >> $GITHUB_OUTPUT
+          echo "Latest release found: $TAG_NAME"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
   
-  # update:
-  #   name: "[${{ matrix.release.branchName }}] Update BaseTools Binary to ${{ matrix.release.tagName }}"
+  update:
+    name: "Update BaseTools Binary to ${{ needs.check.outputs.tag_name }}"
 
-  #   if: ${{ needs.check.outputs.releases != '[]' }}
+    if: ${{ needs.check.outputs.tag_name != '' }}
 
-  #   needs: check
+    needs: check
 
-  #   runs-on: ubuntu-latest
+    runs-on: ubuntu-latest
 
-  #   permissions:
-  #     contents: write
+    permissions:
+      contents: write
     
-  #   env:
-  #     ARTIFACT_BASE_URL: https://github.com/${{ github.repository }}/releases/download
-  #     BASETOOLS_PATH: BaseTools/Bin/basetoolsbin_ext_dep.yaml
-  #     TAG_NAME: ${{ matrix.release.tagName }}
-  #     BRANCH_NAME: ${{ matrix.release.branchName }}
-  #     PR_BRANCH_PREFIX: sync-basetools/${{ matrix.release.branchName }}
-  #     PR_BRANCH_NAME: sync-basetools/${{ matrix.release.branchName }}/${{ matrix.release.tagName }}
-
-  #   strategy:
-  #     matrix:
-  #       release: ${{ fromJson(needs.check.outputs.releases) }}
+    env:
+      ARTIFACT_BASE_URL: https://github.com/${{ github.repository }}/releases/download
+      HAF_TFA_PATH: Platforms/QemuSbsaPkg/Binaries/haf_tfa_binaries_ext_dep.yaml
+      TAG_NAME: ${{ needs.check.outputs.tag_name }}
+      PR_BRANCH_NAME: sync-haf-tfa/${{ needs.check.outputs.tag_name }}
       
-  #   steps:
-  #     # If testing on a local fork with less strict permissions, you can remove this step, and update token usage to
-  #     # use ${{ secrets.GITHUB_TOKEN }} instead of the app token. You must also add the permission `pull-requests: write`
-  #     # to this job.
-  #     - name: Generate Token
-  #       id: app-token
-  #       uses: actions/create-github-app-token@v3
-  #       with:
-  #         app-id: ${{ vars.MU_ACCESS_APP_ID }}
-  #         private-key: ${{ secrets.MU_ACCESS_APP_PRIVATE_KEY }}
-  #         owner: ${{ github.repository_owner }}
+    steps:
+      # If testing on a local fork with less strict permissions, you can remove this step, and update token usage to
+      # use ${{ secrets.GITHUB_TOKEN }} instead of the app token. You must also add the permission `pull-requests: write`
+      # to this job.
+      # - name: Generate Token
+      #   id: app-token
+      #   uses: actions/create-github-app-token@v3
+      #   with:
+      #     app-id: ${{ vars.MU_ACCESS_APP_ID }}
+      #     private-key: ${{ secrets.MU_ACCESS_APP_PRIVATE_KEY }}
+      #     owner: ${{ github.repository_owner }}
 
-  #     - name: Check if PR already exists
-  #       id: pr-check
-  #       shell: bash
-  #       env:
-  #         GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-  #         PR_BRANCH_NAME: ${{ env.PR_BRANCH_NAME }}
-  #         REPO: ${{ env.REPO }}
-  #       run: |
-  #         echo "Checking if PR already exists for branch: $PR_BRANCH_NAME"
-  #         RESULT=$(gh pr list --repo "$REPO" --state open --head "$PR_BRANCH_NAME" --json number --jq '.[0].number')
+      - name: Check if PR already exists
+        id: pr-check
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # ${{ steps.app-token.outputs.token }}
+          PR_BRANCH_NAME: ${{ env.PR_BRANCH_NAME }}
+          REPO: ${{ env.REPO }}
+        run: |
+          echo "Checking if PR already exists for branch: $PR_BRANCH_NAME"
+          RESULT=$(gh pr list --repo "$REPO" --state open --head "$PR_BRANCH_NAME" --json number --jq '.[0].number')
 
-  #         if [[ -n "$RESULT" ]]; then
-  #           echo "PR already exists: Pr Number $RESULT."
-  #           echo "exists=true" >> $GITHUB_OUTPUT
-  #         else
-  #           echo "No existing PR found."
-  #           echo "exists=false" >> $GITHUB_OUTPUT
-  #         fi
+          if [[ -n "$RESULT" ]]; then
+            echo "PR already exists: Pr Number $RESULT."
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "No existing PR found."
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
 
   #     - name: Checkout Code
   #       if: steps.pr-check.outputs.exists != 'true'
