@@ -62,7 +62,6 @@ jobs:
 
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
 
-
       - name: Check if PR already exists
         id: pr-check
         shell: bash
@@ -93,7 +92,6 @@ jobs:
 
     permissions:
       contents: write
-      pull-requests: write # REMOVE
     
     env:
       ARTIFACT_BASE_URL: https://github.com/${{ github.repository }}/releases/download
@@ -106,13 +104,13 @@ jobs:
       # If testing on a local fork with less strict permissions, you can remove this step, and update token usage to
       # use ${{ secrets.GITHUB_TOKEN }} instead of the app token. You must also add the permission `pull-requests: write`
       # to this job.
-      # - name: Generate Token
-      #   id: app-token
-      #   uses: actions/create-github-app-token@v3
-      #   with:
-      #     app-id: ${{ vars.MU_ACCESS_APP_ID }}
-      #     private-key: ${{ secrets.MU_ACCESS_APP_PRIVATE_KEY }}
-      #     owner: ${{ github.repository_owner }}
+      - name: Generate Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.MU_ACCESS_APP_ID }}
+          private-key: ${{ secrets.MU_ACCESS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
 
 
       - name: Checkout Code
@@ -171,7 +169,7 @@ jobs:
       - name: Create Pull Request
         id: pr
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN}} # ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           REPO: ${{ env.REPO }}
           HEAD: ${{ env.PR_BRANCH_NAME}}
           BASE: main
@@ -189,7 +187,7 @@ jobs:
 
       - name: Close Existing Pull Request
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_BRANCH_PREFIX: ${{ env.PR_BRANCH_PREFIX}}
           KEEP_PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
         run: |
