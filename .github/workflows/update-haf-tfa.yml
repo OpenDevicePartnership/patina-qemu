@@ -1,9 +1,13 @@
 # This workflow automates the process of updating the HAF/TF-A binaries external dependency in this repository.
 #
-# This workflow will run on a weekely schedule and will search for the latest release that has occurred in the last 7
+# This workflow will run on a weekly schedule and will search for the latest release that has occurred in the last 7
 # days. If a new release is found, it will create a PR to update the external dependency file and set the
 # `HAF_TFA_EXTDEP_BINS_CURRENT` variable to True in the PlatformBuild.py file. If a PR exists for an older release,
 # it will be closed in favor of the new PR.
+##
+# Copyright (c) Microsoft Corporation.
+# SPDX-License-Identifier: Apache-2.0
+##
 name: Update HAF/TF-A Binaries External Dependency
 
 on:
@@ -112,7 +116,6 @@ jobs:
           private-key: ${{ secrets.PATINA_AUTOMATION_APPLICATION_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-
       - name: Checkout Code
         uses: actions/checkout@v6
         with:
@@ -144,7 +147,6 @@ jobs:
       - name: Update PlatformBuild.py HAF_TFA_EXTDEP_BINS_CURRENT
         env:
           PLATFORM_BUILD_PATH: ${{ env.PLATFORM_BUILD_PATH }}
-          CONST_NAME: HAF_TFA_EXTDEP_BINS_CURRENT
         shell: bash
         run: |
           # Replace HAF_TFA_EXTDEP_BINS_CURRENT = False with HAF_TFA_EXTDEP_BINS_CURRENT = True
