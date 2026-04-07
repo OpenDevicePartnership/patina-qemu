@@ -138,6 +138,16 @@ jobs:
         uses: mikefarah/yq@v4
         with:
           cmd: yq -i -P '.source = strenv(SOURCE_URL) | .version = strenv(VERSION) | .sha256 = strenv(SHA256)' ${HAF_TFA_PATH}
+      
+      - name: Update PlatformBuild.py HAF_TFA_EXTDEP_BINS_CURRENT
+        env:
+          PLATFORM_BUILD_PATH: Platforms/QemuSbsaPkg/PlatformBuild.py
+          CONST_NAME: HAF_TFA_EXTDEP_BINS_CURRENT
+        shell: bash
+        run: |
+          # Replace HAF_TFA_EXTDEP_BINS_CURRENT = False with HAF_TFA_EXTDEP_BINS_CURRENT = True
+          # Handles variable spacing around the = sign
+          sed -i -E 's/^(HAF_TFA_EXTDEP_BINS_CURRENT[[:space:]]*=[[:space:]]*)False/\1True/' "$PLATFORM_BUILD_PATH"
         
       - name: Commit and push changes
         env:
