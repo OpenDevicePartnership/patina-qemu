@@ -121,11 +121,27 @@ jobs:
         with:
           ref: main
 
+      - name: Check if HAF_TFA_EXTDEP_BINS_CURRENT is already True
+        id: extdep-check
+        env:
+          PLATFORM_BUILD_PATH: ${{ env.PLATFORM_BUILD_PATH }}
+        shell: bash
+        run: |
+          if grep -qE '^HAF_TFA_EXTDEP_BINS_CURRENT[[:space:]]*=[[:space:]]*True' "$PLATFORM_BUILD_PATH"; then
+            echo "HAF_TFA_EXTDEP_BINS_CURRENT is already True."
+            echo "is_current=true" >> $GITHUB_OUTPUT
+          else
+            echo "HAF_TFA_EXTDEP_BINS_CURRENT is not True."
+            echo "is_current=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Install Dependencies
+        if: steps.extdep-check.outputs.is_current != 'true'
         shell: bash
         run: sudo apt install curl coreutils moreutils -y
 
       - name: Calculate HAF/TF-A External Dependency File SHA256
+        if: steps.extdep-check.outputs.is_current != 'true'
         id: sha256
         shell: bash
         env:
@@ -135,6 +151,7 @@ jobs:
           echo "sha256=${SHA256}" >> $GITHUB_OUTPUT
 
       - name: Update HAF/TF-A External Dependency File
+        if: steps.extdep-check.outputs.is_current != 'true'
         env:
           HAF_TFA_PATH: ${{ env.HAF_TFA_PATH }}
           SOURCE_URL: ${{ env.ARTIFACT_BASE_URL }}/${{ env.TAG_NAME }}/haf-tfa-firmware-${{ env.TAG_NAME }}.zip
@@ -145,6 +162,7 @@ jobs:
           cmd: yq -i -P '.source = strenv(SOURCE_URL) | .version = strenv(VERSION) | .sha256 = strenv(SHA256)' ${HAF_TFA_PATH}
       
       - name: Update PlatformBuild.py HAF_TFA_EXTDEP_BINS_CURRENT
+        if: steps.extdep-check.outputs.is_current != 'true'
         env:
           PLATFORM_BUILD_PATH: ${{ env.PLATFORM_BUILD_PATH }}
         shell: bash
@@ -154,6 +172,7 @@ jobs:
           sed -i -E 's/^(HAF_TFA_EXTDEP_BINS_CURRENT[[:space:]]*=[[:space:]]*)False/\1True/' "$PLATFORM_BUILD_PATH"
         
       - name: Commit and push changes
+        if: steps.extdep-check.outputs.is_current != 'true'
         env:
           HAF_TFA_PATH: ${{ env.HAF_TFA_PATH }}
           PLATFORM_BUILD_PATH: ${{ env.PLATFORM_BUILD_PATH }}
@@ -169,6 +188,7 @@ jobs:
           git push origin HEAD:refs/heads/$PR_BRANCH_NAME
 
       - name: Create Pull Request
+        if: steps.extdep-check.outputs.is_current != 'true'
         id: pr
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -188,6 +208,7 @@ jobs:
           echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
 
       - name: Close Existing Pull Request
+        if: steps.extdep-check.outputs.is_current != 'true'
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_BRANCH_PREFIX: ${{ env.PR_BRANCH_PREFIX}}
