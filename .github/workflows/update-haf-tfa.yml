@@ -1,3 +1,9 @@
+# This workflow automates the process of updating the HAF/TF-A binaries external dependency in this repository.
+#
+# This workflow will run on a weekely schedule and will search for the latest release that has occurred in the last 7
+# days. If a new release is found, it will create a PR to update the external dependency file and set the
+# `HAF_TFA_EXTDEP_BINS_CURRENT` variable to True in the PlatformBuild.py file. If a PR exists for an older release,
+# it will be closed in favor of the new PR.
 name: Update HAF/TF-A Binaries External Dependency
 
 on:
@@ -115,6 +121,8 @@ jobs:
 
       - name: Checkout Code
         uses: actions/checkout@v6
+        with:
+          ref: main
 
       - name: Install Dependencies
         shell: bash
