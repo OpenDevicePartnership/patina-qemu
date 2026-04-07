@@ -91,6 +91,7 @@ jobs:
 
     permissions:
       contents: write
+      pull-requests: write # REMOVE
     
     env:
       ARTIFACT_BASE_URL: https://github.com/${{ github.repository }}/releases/download
