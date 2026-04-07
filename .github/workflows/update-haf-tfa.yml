@@ -35,9 +35,10 @@ jobs:
         shell: bash
         run: |
           # Get the latest release that matches semver format v<major>.<minor>.<patch>
-          RELEASE=$(gh release list --repo "$REPO" --limit 100 --json tagName,publishedAt | \
+          RELEASE=$(gh release list --repo "$REPO" --limit 100 --json tagName,publishedAt,isDraft | \
             jq -c '
               [ .[] 
+              | select(.isDraft == false)
               | select(.tagName | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))
               ]
               | sort_by(.publishedAt) 
