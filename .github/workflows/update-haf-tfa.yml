@@ -16,11 +16,6 @@ env:
   REPO: ${{ github.repository }}
 
 jobs:
-  # This job pulls all releases made in the last 7 days (This job runs weekly), and finds the newest unique tag, which
-  # is then used to generate a matrix for the next job, responsible for updating the BaseTools binaries for each branch.
-  #
-  # By "unique tag", it is meant that the semver versioning scheme is ignored, and only the date prefix is used.
-  # e.g. for `v2025020000.0.2`, it is finding the newest unique `202502`.
   check:
     name: Find New Releases
 
@@ -73,7 +68,7 @@ jobs:
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # ${{ steps.app-token.outputs.token }}
-          PR_BRANCH_NAME: ${{ env.PR_BRANCH_NAME }}
+          PR_BRANCH_NAME: sync-haf-tfa/${{ steps.release.outputs.tag_name }}
           REPO: ${{ env.REPO }}
         run: |
           echo "Checking if PR already exists for branch: $PR_BRANCH_NAME"
