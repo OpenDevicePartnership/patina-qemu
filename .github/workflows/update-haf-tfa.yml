@@ -22,9 +22,10 @@ jobs:
 
     outputs:
       tag_name: ${{ steps.release.outputs.tag_name }}
+      pr_exists: ${{ steps.pr-check.outputs.exists }}
   
     steps:
-      - name: Build PR Creation Matrix
+      - name: Find Latest Release
         id: release
         env:
           REPO: ${{ env.REPO }}
@@ -58,11 +59,31 @@ jobs:
           fi
 
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+
+
+      - name: Check if PR already exists
+        id: pr-check
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # ${{ steps.app-token.outputs.token }}
+          PR_BRANCH_NAME: ${{ env.PR_BRANCH_NAME }}
+          REPO: ${{ env.REPO }}
+        run: |
+          echo "Checking if PR already exists for branch: $PR_BRANCH_NAME"
+          RESULT=$(gh pr list --repo "$REPO" --state open --head "$PR_BRANCH_NAME" --json number --jq '.[0].number')
+
+          if [[ -n "$RESULT" ]]; then
+            echo "PR already exists: Pr Number $RESULT."
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "No existing PR found."
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
   
   update:
-    name: "Update BaseTools Binary to ${{ needs.check.outputs.tag_name }}"
+    name: "Update HAF/TF-A Binary to ${{ needs.check.outputs.tag_name }}"
 
-    if: ${{ needs.check.outputs.tag_name != '' }}
+    if: ${{ needs.check.outputs.tag_name != '' && !fromJson(needs.check.outputs.pr_exists) }}
 
     needs: check
 
@@ -89,30 +110,9 @@ jobs:
       #     private-key: ${{ secrets.MU_ACCESS_APP_PRIVATE_KEY }}
       #     owner: ${{ github.repository_owner }}
 
-      - name: Check if PR already exists
-        id: pr-check
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # ${{ steps.app-token.outputs.token }}
-          PR_BRANCH_NAME: ${{ env.PR_BRANCH_NAME }}
-          REPO: ${{ env.REPO }}
-        run: |
-          echo "Checking if PR already exists for branch: $PR_BRANCH_NAME"
-          RESULT=$(gh pr list --repo "$REPO" --state open --head "$PR_BRANCH_NAME" --json number --jq '.[0].number')
 
-          if [[ -n "$RESULT" ]]; then
-            echo "PR already exists: Pr Number $RESULT."
-            echo "exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "No existing PR found."
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-
-  #     - name: Checkout Code
-  #       if: steps.pr-check.outputs.exists != 'true'
-  #       uses: actions/checkout@v6
-  #       with:
-  #         ref: ${{ env.BRANCH_NAME }}
+      - name: Checkout Code
+        uses: actions/checkout@v6
 
   #     - name: Install Dependencies
   #       if: steps.pr-check.outputs.exists != 'true'
