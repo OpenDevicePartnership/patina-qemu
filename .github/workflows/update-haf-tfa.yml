@@ -67,7 +67,7 @@ jobs:
         id: pr-check
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # We can use the normal token here, as we are just reading PRs.
           PR_BRANCH_NAME: sync-haf-tfa/${{ steps.release.outputs.tag_name }}
           REPO: ${{ env.REPO }}
         run: |
