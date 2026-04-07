@@ -121,6 +121,8 @@ jobs:
         with:
           ref: main
 
+      # If `HAF_TFA_EXTDEP_BINS_CURRENT` is already true, then we do not need to update the external dependency,
+      # so we will skip all remaining steps.
       - name: Check if HAF_TFA_EXTDEP_BINS_CURRENT is already True
         id: extdep-check
         env:
