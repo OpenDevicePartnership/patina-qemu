@@ -128,6 +128,7 @@ jobs:
           stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE'
 
       - name: Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
+        timeout-minutes: 15  
         uses: ./.github/actions/build-platform
         with:
           command: 'flash'
