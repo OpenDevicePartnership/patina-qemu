@@ -90,6 +90,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Print number of CPU cores
+        shell: bash
+        run: echo "Number of cores:" $(nproc)
+
       # Configure git for use in the container. Specifically needed for the FFA builds
       - name: Configure Git
         if: ${{ matrix.container != null }}
