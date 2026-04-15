@@ -34,7 +34,6 @@ jobs:
     timeout-minutes: 30
 
     env:
-      TOOL_CHAIN: ${{ needs.vars.outputs.linux-toolchain }}
       STARTUP_NSH_PATH: './STARTUP.NSH'
       LOG_FILE: 'ADV_LOGS.TXT'
 
@@ -92,7 +91,6 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          tool-chain: ${{ env.TOOL_CHAIN }}
           stuart-args: 'QEMU_HEADLESS=TRUE STARTUP_NSH="${{ env.STARTUP_NSH_PATH }}" SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*AdvancedLogDumper.efi'
 
       - name: Run
@@ -102,7 +100,6 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          tool-chain: ${{ env.TOOL_CHAIN }}
           stuart-args: 'QEMU_HEADLESS=TRUE STARTUP_NSH="${{ env.STARTUP_NSH_PATH }}" SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*AdvancedLogDumper.efi'
 
       # Extracts and validates the log dump from AdvancedLogDumper dumps logs from PEI and DXE
@@ -185,5 +182,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: build-logs-${{ matrix.platform }}-${{ matrix.target }}-${{ env.TOOL_CHAIN }}
+          name: build-logs-${{ matrix.platform }}-${{ matrix.target }}
           path: ${{ steps.build-platform.outputs.log-path }}
