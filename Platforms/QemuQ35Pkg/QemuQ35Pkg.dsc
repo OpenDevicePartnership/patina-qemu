@@ -1308,8 +1308,14 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
       MfciDeviceIdSupportLib|MfciPkg/Library/MfciDeviceIdSupportLibSmbios/MfciDeviceIdSupportLibSmbios.inf
   }
 
+# The TpmTestApp can run without TPM enabled. It will report that the
+# Tcg2Protocol was not installed, however, it really isn't meant to run
+# without TPM enabled. This prevents an issue in CI where all TestApps
+# are auto included to run.
+!if $(TPM_ENABLE) == TRUE
   # TPM test application to test PCR bank operations via TCG2 Protocol
   SecurityPkg/Applications/TpmTestApp/TpmTestApp.inf
+#endif
 
 !include TpmTestingPkg/TpmReplay.dsc.inc
 
