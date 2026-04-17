@@ -252,9 +252,8 @@
   Tcg2PhysicalPresenceLib |QemuPkg/Library/Tcg2PhysicalPresenceLibNull/DxeTcg2PhysicalPresenceLib.inf
   Tpm2HelpLib             |SecurityPkg/Library/Tpm2HelpLib/Tpm2HelpLib.inf
 !if $(TPM_ENABLE) == TRUE
-  Tcg2PhysicalPresenceLib |QemuPkg/Library/Tcg2PhysicalPresenceLibQemu/DxeTcg2PhysicalPresenceLib.inf
+  Tcg2PhysicalPresenceLib |SecurityPkg/Library/DxeTcg2PhysicalPresenceMinimumLib/DxeTcg2PhysicalPresenceMinimumLib.inf
   TpmMeasurementLib       |SecurityPkg/Library/DxeTpmMeasurementLib/DxeTpmMeasurementLib.inf
-  Tpm2DebugLib            |SecurityPkg/Library/Tpm2DebugLib/Tpm2DebugLibSimple.inf
 !endif
 
   # Shell Libraries
@@ -384,9 +383,8 @@
   PolicyLib                  |PolicyServicePkg/Library/PeiPolicyLib/PeiPolicyLib.inf
   SmmRelocationLib           |QemuQ35Pkg/Library/SmmRelocationLib/SmmRelocationLib.inf
 !if $(TPM_ENABLE) == TRUE
-  Tpm12DeviceLib             |SecurityPkg/Library/Tpm12DeviceLibDTpm/Tpm12DeviceLibDTpm.inf
   Tpm2DeviceLib              |SecurityPkg/Library/Tpm2DeviceLibDTpm/Tpm2DeviceLibDTpm.inf
-  Tcg2PreUefiEventLogLib     |QemuPkg/Library/QemuPreUefiEventLogLibNull/QemuPreUefiEventLogLibNull.inf
+  Tcg2PreUefiEventLogLib     |SecurityPkg/Library/Tcg2PreUefiEventLogLibNull/Tcg2PreUefiEventLogLibNull.inf
 !endif
   RngLib                     |MdePkg/Library/PeiRngLib/PeiRngLib.inf
 
@@ -437,6 +435,7 @@
 [LibraryClasses.common.UEFI_APPLICATION]
   CheckHwErrRecHeaderLib|MsWheaPkg/Library/CheckHwErrRecHeaderLib/CheckHwErrRecHeaderLib.inf
   FlatPageTableLib|UefiTestingPkg/Library/FlatPageTableLib/FlatPageTableLib.inf
+  IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
 
 [LibraryClasses.common.DXE_DRIVER]
   PlatformBootManagerLib|MsCorePkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
@@ -447,7 +446,6 @@
   CapsuleLib|MdeModulePkg/Library/DxeCapsuleLibFmp/DxeCapsuleLib.inf
   PolicyLib|PolicyServicePkg/Library/DxePolicyLib/DxePolicyLib.inf
 !if $(TPM_ENABLE) == TRUE
-  Tpm12DeviceLib|SecurityPkg/Library/Tpm12DeviceLibTcg/Tpm12DeviceLibTcg.inf
   Tpm2DeviceLib|SecurityPkg/Library/Tpm2DeviceLibTcg2/Tpm2DeviceLibTcg2.inf
 !endif
 
@@ -744,7 +742,7 @@
   # unknown) workloads / boot paths.
   #
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIMemoryNVS|0x80
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIReclaimMemory|0x20
+  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIReclaimMemory|0x2B
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiReservedMemoryType|0x510
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesCode|0x100
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesData|0x700
@@ -788,7 +786,7 @@
   gUefiQemuQ35PkgTokenSpaceGuid.PcdPciMmio64Size|0x800000000
 
   # Limit to SHA256 for now.
-  gEfiSecurityPkgTokenSpaceGuid.PcdTpm2HashMask|0x00002
+  gEfiSecurityPkgTokenSpaceGuid.PcdTpm2HashMask|0x02
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvStoreReserved|0
 
@@ -835,9 +833,11 @@
   !endif
 
 [PcdsDynamicHii]
-!if $(TPM_ENABLE) == TRUE && $(TPM_CONFIG_ENABLE) == TRUE
+!if $(TPM_ENABLE) == TRUE
+  gEfiSecurityPkgTokenSpaceGuid.PcdTpm2AcpiTableRev|L"TCG2_VERSION"|gTcg2ConfigFormSetGuid|0x8|4|NV,BS
+!endif
+!if $(TPM_CONFIG_ENABLE) == TRUE
   gEfiSecurityPkgTokenSpaceGuid.PcdTcgPhysicalPresenceInterfaceVer|L"TCG2_VERSION"|gTcg2ConfigFormSetGuid|0x0|"1.3"|NV,BS
-  gEfiSecurityPkgTokenSpaceGuid.PcdTpm2AcpiTableRev|L"TCG2_VERSION"|gTcg2ConfigFormSetGuid|0x8|3|NV,BS
 !endif
 
 ################################################################################
@@ -914,7 +914,6 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
       # Only TPM 2.0 is supported by the feature
       NULL|TpmTestingPkg/Overrides/Library/DxeTpm2MeasureBootLib/DxeTpm2MeasureBootLib.inf
 !else
-      NULL|SecurityPkg/Library/DxeTpmMeasureBootLib/DxeTpmMeasureBootLib.inf
       NULL|SecurityPkg/Library/DxeTpm2MeasureBootLib/DxeTpm2MeasureBootLib.inf
 !endif
 !endif
@@ -1308,6 +1307,9 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
       MfciRetrievePolicyLib|MfciPkg/Library/MfciRetrievePolicyLibViaHob/MfciRetrievePolicyLibViaHob.inf
       MfciDeviceIdSupportLib|MfciPkg/Library/MfciDeviceIdSupportLibSmbios/MfciDeviceIdSupportLibSmbios.inf
   }
+
+  # TPM test application to test PCR bank operations via TCG2 Protocol
+  SecurityPkg/Applications/TpmTestApp/TpmTestApp.inf
 
 !include TpmTestingPkg/TpmReplay.dsc.inc
 

@@ -25,6 +25,7 @@
   MsCorePkg/MsCorePkg.dec
   MsGraphicsPkg/MsGraphicsPkg.dec
   PcBdsPkg/PcBdsPkg.dec
+  SecurityPkg/SecurityPkg.dec
   ShellPkg/ShellPkg.dec
   MsWheaPkg/MsWheaPkg.dec
 
@@ -44,6 +45,7 @@
   MsBootManagerSettingsLib
   BootGraphicsLib
   GraphicsConsoleHelperLib
+  Tcg2PhysicalPresenceLib
 
 [Guids]
   gUefiShellFileGuid

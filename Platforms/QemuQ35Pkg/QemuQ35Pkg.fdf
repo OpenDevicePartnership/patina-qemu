@@ -460,6 +460,8 @@ INF  SecurityPkg/Tcg/Tcg2Config/Tcg2ConfigDxe.inf
 !endif
 !endif
 
+INF SecurityPkg/Applications/TpmTestApp/TpmTestApp.inf
+
 INF  AdvLoggerPkg/AdvancedFileLogger/AdvancedFileLogger.inf
 INF  MsCorePkg/Universal/StatusCodeHandler/Serial/Dxe/SerialStatusCodeHandlerDxe.inf
 INF  MsCorePkg/MuCryptoDxe/MuCryptoDxe.inf
