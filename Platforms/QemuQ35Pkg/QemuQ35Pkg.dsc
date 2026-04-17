@@ -1315,7 +1315,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
 !if $(TPM_ENABLE) == TRUE
   # TPM test application to test PCR bank operations via TCG2 Protocol
   SecurityPkg/Applications/TpmTestApp/TpmTestApp.inf
-#endif
+!endif
 
 !include TpmTestingPkg/TpmReplay.dsc.inc
 
