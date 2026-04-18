@@ -1,8 +1,8 @@
 # TpmTestApp on QEMU Platforms
 
 Platform-specific guidance for running
-[TpmTestApp](../MU_BASECORE/SecurityPkg/Applications/TpmTestApp/TpmTestApp.md) on the
-QEMU Q35 and SBSA platforms.
+[TpmTestApp](https://github.com/microsoft/mu_basecore/blob/release/202511/SecurityPkg/Applications/TpmTestApp/TpmTestApp.md)
+on the QEMU Q35 and SBSA platforms.
 
 ## Table of Contents
 
