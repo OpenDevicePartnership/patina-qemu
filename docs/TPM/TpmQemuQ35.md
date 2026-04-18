@@ -29,7 +29,7 @@ stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py --FlashRom \
 The following defines control TPM behavior in `QemuQ35Pkg.dsc`:
 
 | Define | Default | Purpose |
-|--------|---------|---------|
+| -------- | --------- | --------- |
 | `TPM_ENABLE` | `FALSE` | Master switch. Guards all TPM drivers, libraries, and PCDs. |
 | `TPM_CONFIG_ENABLE` | `FALSE` | Enables `Tcg2ConfigDxe` HII configuration UI. |
 | `TPM_REPLAY_ENABLED` | `FALSE` | Enables TPM Replay overrides (uses `TpmTestingPkg` variants of Tcg2Dxe and DxeTpm2MeasureBootLib). |
@@ -39,7 +39,7 @@ The following defines control TPM behavior in `QemuQ35Pkg.dsc`:
 Q35 uses the standard x86 TPM memory-mapped I/O region:
 
 | Region | Address | Size | Interface |
-|--------|---------|------|-----------|
+| -------- | --------- | ------ | ----------- |
 | TPM TIS/CRB | `0xFED40000` | 0x5000 (20 KiB) | CRB or TIS (auto-detected) |
 
 The firmware communicates directly with the TPM device via MMIO, and QEMU forwards the
@@ -51,7 +51,7 @@ The base address comes from the SecurityPkg package declaration default
 
 ## Architecture Overview
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ UEFI Firmware (x86_64)                                                   │
 │                                                                          │
@@ -113,7 +113,7 @@ Q35 uses two different patterns for accessing the TPM, depending on the firmware
 
 ### PEI Phase: Direct MMIO (`Tpm2DeviceLibDTpm`)
 
-```
+```text
 Tcg2Pei
   │ Tpm2SubmitCommand()
   ▼
@@ -132,7 +132,7 @@ determine the interface type. QEMU's `tpm-tis` device presents a TIS/FIFO interf
 
 ### DXE Phase: Router Pattern (`Tpm2DeviceLibRouter`)
 
-```
+```text
 Tcg2Dxe
   │ Tpm2SubmitCommand()
   ▼
@@ -161,7 +161,7 @@ If the TPM presents a CRB interface (as opposed to TIS/FIFO), the register layou
 the TCG PC Client Platform TPM Profile (PTP) specification:
 
 | Offset | Register | Description |
-|--------|----------|-------------|
+| -------- | ---------- | ------------- |
 | `0x00` | `LocalityState` | Current locality ownership |
 | `0x08` | `LocalityControl` | Request access, relinquish, seize |
 | `0x0C` | `LocalityStatus` | Granted / been seized status |
@@ -183,7 +183,7 @@ QEMU's `tpm-tis` device presents a TIS (TPM Interface Specification) / FIFO inte
 The key registers:
 
 | Offset | Register | Description |
-|--------|----------|-------------|
+| -------- | ---------- | ------------- |
 | `0x00` | `Access` | Locality access control |
 | `0x08` | `IntEnable` | Interrupt enable |
 | `0x10` | `IntVector` | Interrupt vector |
@@ -221,7 +221,7 @@ NULL|SecurityPkg/Library/HashInstanceLibSm3/HashInstanceLibSm3.inf
 ### Hash Algorithm Bitmask Values
 
 | Algorithm | Bit | Value |
-|-----------|-----|-------|
+| ----------- | ----- | ------- |
 | SHA1 | BIT0 | `0x01` |
 | SHA256 | BIT1 | `0x02` |
 | SHA384 | BIT2 | `0x04` |
@@ -230,7 +230,7 @@ NULL|SecurityPkg/Library/HashInstanceLibSm3/HashInstanceLibSm3.inf
 
 ### Filtering Chain
 
-```
+```text
 PcdTpm2HashMask (0x02)
         │
         ▼
@@ -251,7 +251,7 @@ Final ActivePcrBanks / HashAlgorithmBitmap in EFI_TCG2_BOOT_SERVICE_CAPABILITY
 ### Library Selection
 
 | `TPM_ENABLE` | Library | Behavior |
-|--------------|---------|----------|
+| -------------- | --------- | ---------- |
 | `FALSE` | `Tcg2PhysicalPresenceLibNull` | All functions stubbed |
 | `TRUE` | `DxeTcg2PhysicalPresenceMinimumLib` | Auto-confirms Clear; rejects all other operations |
 
@@ -340,7 +340,7 @@ The thread is launched before QEMU starts and joined after QEMU exits.
 
 The `QemuCommandBuilder.with_tpm()` method adds three arguments for Q35:
 
-```
+```text
 -chardev socket,id=chrtpm,path=/tmp/mytpm1/swtpm-sock
 -tpmdev emulator,id=tpm0,chardev=chrtpm
 -device tpm-tis,tpmdev=tpm0
@@ -353,7 +353,7 @@ to the Q35 chipset at the standard address `0xFED40000`.
 
 Complete path from a shell application to swtpm:
 
-```
+```text
 TpmTestApp (UEFI Shell)
   │ gBS->LocateProtocol(&gEfiTcg2ProtocolGuid)
   │ Tcg2Protocol->SetActivePcrBanks(0x02)
@@ -391,7 +391,7 @@ QEMU tpm-tis device ──── Unix socket ──── swtpm process
 ### Required PCDs (set when TPM_ENABLE=TRUE)
 
 | PCD | Value | Type | Purpose |
-|-----|-------|------|---------|
+| ----- | ------- | ------ | --------- |
 | `PcdTpmBaseAddress` | `0xFED40000` (package default) | DynamicDefault | TPM TIS/CRB MMIO base address |
 | `PcdTpm2HashMask` | `0x02` | DynamicDefault | Hash algorithm filter (SHA256 only) |
 | `PcdTpmInstanceGuid` | `gEfiTpmDeviceInstanceTpm20DtpmGuid` | DynamicDefault | Selects discrete TPM 2.0 device type (set by Tcg2ConfigPei at runtime) |
@@ -401,7 +401,7 @@ QEMU tpm-tis device ──── Unix socket ──── swtpm process
 ### Memory Type PCDs
 
 | PCD | Value (pages) | Purpose |
-|-----|---------------|---------|
+| ----- | --------------- | --------- |
 | `PcdMemoryTypeEfiACPIReclaimMemory` | `0x2B` (43) | Includes TPM ACPI tables |
 | `PcdMemoryTypeEfiACPIMemoryNVS` | `0x80` (128) | ACPI NVS memory |
 | `PcdMemoryTypeEfiReservedMemoryType` | `0x510` | Reserved memory |
@@ -411,5 +411,5 @@ QEMU tpm-tis device ──── Unix socket ──── swtpm process
 ### Conditional PCDs (TPM_CONFIG_ENABLE=TRUE)
 
 | PCD | Value | Purpose |
-|-----|-------|---------|
+| ----- | ------- | --------- |
 | `PcdTcgPhysicalPresenceInterfaceVer` | `"1.3"` | TCG PPI specification version reported to OS |

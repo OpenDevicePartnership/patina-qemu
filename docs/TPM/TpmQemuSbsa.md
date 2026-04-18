@@ -39,7 +39,7 @@ stuart_build -c Platforms/QemuSbsaPkg/PlatformBuild.py --FlashRom \
 The following defines control TPM behavior in `QemuSbsaPkg.dsc`:
 
 | Define | Default | Purpose |
-|--------|---------|---------|
+| -------- | --------- | --------- |
 | `TPM2_ENABLE` | `FALSE` | Master switch. Guards all TPM drivers, libraries, and PCDs. |
 | `TPM2_CONFIG_ENABLE` | `FALSE` | Enables `Tcg2ConfigDxe` HII configuration UI. |
 
@@ -51,7 +51,7 @@ via build options, allowing C code to use `#ifdef TPM2_ENABLE` guards.
 The SBSA platform defines two distinct TPM memory regions:
 
 | Region | Address | Size | Visibility |
-|--------|---------|------|------------|
+| -------- | --------- | ------ | ------------ |
 | Internal CRB | `0x100_00200000` | 0x10 pages | Normal world + Secure world |
 | External CRB | `0x000_60120000` | 0x10 pages | Secure world only |
 
@@ -65,7 +65,7 @@ can locate it through the ACPI TPM2 table.
 
 ## Architecture Overview
 
-```
+```text
 ┌──────────────────────────────────────────────────────────────────────────┐
 │ UEFI Firmware (AARCH64)                                                  │
 │                                                                          │
@@ -150,7 +150,7 @@ Two FF-A Secure Partitions are involved in TPM operations.
 Configured in `Platforms/QemuSbsaPkg/fdts/qemu_sbsa_mssp_rust_config.dts`:
 
 | Property | Value |
-|----------|-------|
+| ---------- | ------- |
 | Partition ID | `0x8002` |
 | Exception Level | SEL1 |
 | Execution State | AARCH64 |
@@ -177,7 +177,7 @@ device-regions {
 
 The MSSP publishes three service UUIDs. The TPM service UUID is:
 
-```
+```text
 17b862a4-1806-4faf-86b3-089a58353861
 ```
 
@@ -196,7 +196,7 @@ Key libraries running inside the MSSP:
 Configured in `Platforms/QemuSbsaPkg/fdts/qemu_sbsa_stmm_config.dts`:
 
 | Property | Value |
-|----------|-------|
+| ---------- | ------- |
 | Partition ID | `0x8001` |
 | Exception Level | SEL0 |
 | Execution State | AARCH64 |
@@ -216,7 +216,7 @@ Each locality occupies 0x1000 bytes. The register layout per the TCG PC Client P
 TPM Profile (PTP) specification, defined in `TpmPtp.h`:
 
 | Offset | Register | Description |
-|--------|----------|-------------|
+| -------- | ---------- | ------------- |
 | `0x00` | `LocalityState` | Current locality ownership |
 | `0x08` | `LocalityControl` | Request access, relinquish, seize |
 | `0x0C` | `LocalityStatus` | Granted / been seized status |
@@ -257,7 +257,7 @@ command/response protocol (burst-count reads, data register writes).
 The external CRB connects to the `swtpm` process through QEMU's chardev/tpmdev
 infrastructure:
 
-```
+```text
 QEMU args: -chardev socket,id=chrtpm,path=/tmp/mytpm1/swtpm-sock
            -tpmdev emulator,id=tpm0,chardev=chrtpm
 ```
@@ -287,7 +287,7 @@ partition.
 ### Function IDs
 
 | ID | Name | Direction | Supported |
-|----|------|-----------|-----------|
+| ---- | ------ | ----------- | ----------- |
 | `0x0f000001` | `TPM2_FFA_GET_INTERFACE_VERSION` | NW → SW | YES |
 | `0x0f000101` | `TPM2_FFA_GET_FEATURE_INFO` | NW → SW | NO |
 | `0x0f000201` | `TPM2_FFA_START` | NW → SW | YES |
@@ -299,14 +299,14 @@ partition.
 The `TPM2_FFA_START` function carries a qualifier in Arg1:
 
 | Qualifier | Value | Purpose |
-|-----------|-------|---------|
+| ----------- | ------- | --------- |
 | `TPM2_FFA_START_FUNC_QUALIFIER_COMMAND` | `0x0` | Execute a CRB state transition (cmdReady, start, or goIdle) |
 | `TPM2_FFA_START_FUNC_QUALIFIER_LOCALITY` | `0x1` | Request or relinquish locality access |
 
 The `TPM2_FFA_MANAGE_LOCALITY` function carries a qualifier in Arg1:
 
 | Qualifier | Value | Purpose |
-|-----------|-------|---------|
+| ----------- | ------- | --------- |
 | `TPM2_FFA_MANAGE_LOCALITY_OPEN` | `0x0` | Allows access to a locality |
 | `TPM2_FFA_MANAGE_LOCALITY_CLOSE` | `0x1` | Prevents access to a locality |
 
@@ -325,39 +325,38 @@ relinquished is not the current active locality, a DENIED error is returned.
 
 A single TPM command requires multiple FF-A round trips:
 
-```
-Normal World                              Secure World (MSSP)
-────────────                              ───────────────────
+```mermaid
+sequenceDiagram
+    participant NW as Normal World
+    participant SW as Secure World (MSSP)
 
-1. Write LocalityControl = request access
-   FFA DirectReq2(START, LOCALITY) ──────► LocalityX becomes active
-                                   ◄────── FFA DirectResp2(SUCCESS)
+    Note over NW: Write LocalityControl = request access
+    NW->>SW: FFA DirectReq2(START, LOCALITY)
+    Note over SW: LocalityX becomes active
+    SW-->>NW: FFA DirectResp2(SUCCESS)
 
-2. Write CrbControlRequest = cmdReady
-   FFA DirectReq2(START, COMMAND) ──────► State: IDLE → READY
-                                          (prepare external TPM)
-                                  ◄────── FFA DirectResp2(SUCCESS)
+    Note over NW: Write CrbControlRequest = cmdReady
+    NW->>SW: FFA DirectReq2(START, COMMAND)
+    Note over SW: State: IDLE → READY<br/>(prepare external TPM)
+    SW-->>NW: FFA DirectResp2(SUCCESS)
 
-3. Write command to CrbDataBuffer
-   Write CrbControlStart = 1
-   FFA DirectReq2(START, COMMAND) ──────► State: READY → COMPLETE
-                                          • Copy cmd from Internal CRB
-                                          • Write cmd to External CRB
-                                          • Trigger external TPM
-                                          • Read response from External CRB
-                                          • Copy response to Internal CRB
-                                  ◄────── FFA DirectResp2(SUCCESS)
+    Note over NW: Write command to CrbDataBuffer<br/>Write CrbControlStart = 1
+    NW->>SW: FFA DirectReq2(START, COMMAND)
+    Note over SW: State: READY → COMPLETE<br/>• Copy cmd from Internal CRB<br/>• Write cmd to External CRB<br/>• Trigger external TPM<br/>• Read response from External CRB<br/>• Copy response to Internal CRB
+    SW-->>NW: FFA DirectResp2(SUCCESS)
 
-4. Read response from CrbDataBuffer
-   Write CrbControlRequest = goIdle
-   FFA DirectReq2(START, COMMAND) ──────► State: COMPLETE → IDLE
-                                          (idle external TPM)
-                                  ◄────── FFA DirectResp2(SUCCESS)
+    Note over NW: Read response from CrbDataBuffer<br/>Write CrbControlRequest = goIdle
+    NW->>SW: FFA DirectReq2(START, COMMAND)
+    Note over SW: State: COMPLETE → IDLE<br/>(idle external TPM)
+    SW-->>NW: FFA DirectResp2(SUCCESS)
 
-**OPTIONAL**
-5. Write LocalityControl = relinquish access
-   FFA DirectReq2(START, LOCALITY) ──────► LocalityX is relinquished
-                                   ◄────── FFA DirectResp2(SUCCESS)
+    rect rgba(200, 200, 200, 0.2)
+        Note over NW,SW: OPTIONAL
+        Note over NW: Write LocalityControl = relinquish access
+        NW->>SW: FFA DirectReq2(START, LOCALITY)
+        Note over SW: LocalityX is relinquished
+        SW-->>NW: FFA DirectResp2(SUCCESS)
+    end
 ```
 
 If the secure partition is preempted by a non-secure interrupt during processing, the FF-A
@@ -421,7 +420,7 @@ Tcg2Dxe uses a pluggable hash library architecture based on `HashLibBaseCryptoRo
 ### Hash Algorithm Bitmask Values
 
 | Algorithm | Bit | Value |
-|-----------|-----|-------|
+| ----------- | ----- | ------- |
 | SHA1 | BIT0 | `0x01` |
 | SHA256 | BIT1 | `0x02` |
 | SHA384 | BIT2 | `0x04` |
@@ -430,7 +429,7 @@ Tcg2Dxe uses a pluggable hash library architecture based on `HashLibBaseCryptoRo
 
 ### Filtering Chain
 
-```
+```text
 PcdTpm2HashMask (0x02)
         │
         ▼
@@ -484,7 +483,7 @@ variable store in StMM.
 Published by `Tcg2AcpiFfa.c`:
 
 | Field | Value |
-|-------|-------|
+| ------- | ------- |
 | Start Method | CRB with FF-A (`0x0C`) |
 | Control Area Address | `PcdTpmBaseAddress + 0x40` |
 | Command Buffer | `PcdTpmBaseAddress + 0x80`, size `0xF80` |
@@ -559,7 +558,7 @@ prompted to press Ctrl+C to terminate swtpm at shutdown.
 
 The `QemuCommandBuilder.with_tpm()` method adds:
 
-```
+```text
 -chardev socket,id=chrtpm,path=/tmp/mytpm1/swtpm-sock
 -tpmdev emulator,id=tpm0,chardev=chrtpm
 ```
@@ -580,7 +579,7 @@ This must complete before DXE phase drivers can use the TPM. The SEC phase uses
 
 Complete path from a shell application to swtpm:
 
-```
+```text
 TpmTestApp (UEFI Shell)
   │ gBS->LocateProtocol(&gEfiTcg2ProtocolGuid)
   │ Tcg2Protocol->SetActivePcrBanks(0x02)
@@ -643,7 +642,7 @@ Response returned to caller
 ### Required PCDs (set when TPM2_ENABLE=TRUE)
 
 | PCD | Value | Type | Purpose |
-|-----|-------|------|---------|
+| ----- | ------- | ------ | --------- |
 | `PcdTpmBaseAddress` | `0x10000200000` | FixedAtBuild | Internal CRB base address |
 | `PcdTpmMaxAddress` | `0x10000204FFF` | FixedAtBuild | Internal CRB end address (5 localities) |
 | `PcdTpm2HashMask` | `0x02` | DynamicDefault | Hash algorithm filter (SHA256 only) |
@@ -654,7 +653,7 @@ Response returned to caller
 ### Always-Set PCDs
 
 | PCD | Value | Purpose |
-|-----|-------|---------|
+| ----- | ------- | --------- |
 | `PcdMemoryTypeEfiACPIReclaimMemory` | `0x143` | ACPI reclaim memory pages (includes TPM ACPI tables) |
 | `PcdMemoryTypeEfiACPIMemoryNVS` | `0x3C` | ACPI NVS pages (includes CRB region) |
 | `PcdMemoryTypeEfiRuntimeServicesData` | `0x642` | Runtime services data pages |
@@ -664,5 +663,5 @@ Response returned to caller
 ### Conditional PCDs (TPM2_CONFIG_ENABLE=TRUE)
 
 | PCD | Value | Purpose |
-|-----|-------|---------|
+| ----- | ------- | --------- |
 | `PcdTcgPhysicalPresenceInterfaceVer` | `"1.3"` | TCG PPI specification version reported to OS |
