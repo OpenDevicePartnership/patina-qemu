@@ -279,7 +279,9 @@ READ_LOCK_STATUS   = TRUE
   INF QemuPkg/LinuxInitrdDynamicShellCommand/LinuxInitrdDynamicShellCommand.inf
 
 !if $(TPM2_ENABLE) == TRUE
+!if $(TPM_TEST_APP_ENABLE) == TRUE
   INF SecurityPkg/Applications/TpmTestApp/TpmTestApp.inf
+!endif
 !endif
 
   INF MsGraphicsPkg/SimpleWindowManagerDxe/SimpleWindowManagerDxe.inf
