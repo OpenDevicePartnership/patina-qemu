@@ -91,7 +91,7 @@ The base address comes from the SecurityPkg package declaration default
 │                                                                          │
 │  ┌─── UEFI Shell ─────────────────────────────────────────────────────┐  │
 │  │                                                                    │  │
-│  │  UEFI Shell / OS / TpmTestApp                                      │  │
+│  │  UEFI Shell / OS / TpmShellApp                                     │  │
 │  │    │ gBS->LocateProtocol(&gEfiTcg2ProtocolGuid)                    │  │
 │  │    │ Tcg2Protocol->GetCapability / SetActivePcrBanks / etc.        │  │
 │  └────┼───────────────────────────────────────────────────────────────┘  │
@@ -354,7 +354,7 @@ to the Q35 chipset at the standard address `0xFED40000`.
 Complete path from a shell application to swtpm:
 
 ```text
-TpmTestApp (UEFI Shell)
+TpmShellApp (UEFI Shell)
   │ gBS->LocateProtocol(&gEfiTcg2ProtocolGuid)
   │ Tcg2Protocol->SetActivePcrBanks(0x02)
   ▼

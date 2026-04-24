@@ -102,7 +102,7 @@ can locate it through the ACPI TPM2 table.
 │                                                                          │
 │  ┌─── UEFI Shell ─────────────────────────────────────────────────────┐  │
 │  │                                                                    │  │
-│  │  UEFI Shell / OS / TpmTestApp                                      │  │
+│  │  UEFI Shell / OS / TpmShellApp                                     │  │
 │  │    │ gBS->LocateProtocol(&gEfiTcg2ProtocolGuid)                    │  │
 │  │    │ Tcg2Protocol->GetCapability / SetActivePcrBanks / etc.        │  │
 │  └────┼───────────────────────────────────────────────────────────────┘  │
@@ -580,7 +580,7 @@ This must complete before DXE phase drivers can use the TPM. The SEC phase uses
 Complete path from a shell application to swtpm:
 
 ```text
-TpmTestApp (UEFI Shell)
+TpmShellApp (UEFI Shell)
   │ gBS->LocateProtocol(&gEfiTcg2ProtocolGuid)
   │ Tcg2Protocol->SetActivePcrBanks(0x02)
   ▼

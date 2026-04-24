@@ -1,7 +1,7 @@
-# TpmTestApp on QEMU Platforms
+# TpmShellApp on QEMU Platforms
 
 Platform-specific guidance for running
-[TpmTestApp](https://github.com/microsoft/mu_basecore/blob/release/202511/SecurityPkg/Applications/TpmTestApp/TpmTestApp.md)
+[TpmShellApp](https://github.com/microsoft/mu_basecore/blob/release/202511/SecurityPkg/Applications/TpmShellApp/TpmShellApp.md)
 on the QEMU Q35 and SBSA platforms.
 
 ## Table of Contents
@@ -20,7 +20,7 @@ on the QEMU Q35 and SBSA platforms.
 On SBSA, add the INF to `FV.FvMain`. On Q35, add it to `FV.DXEFV`:
 
 ```ini
-INF SecurityPkg/Applications/TpmTestApp/TpmTestApp.inf
+INF SecurityPkg/Applications/TpmShellApp/TpmShellApp.inf
 ```
 
 ## Protocol Availability
@@ -30,7 +30,7 @@ The `EFI_TCG2_PROTOCOL` is installed by `Tcg2Dxe.efi`, which only loads when
 
 ## Running on QEMU SBSA
 
-On SBSA, the TpmTestApp is placed directly in the firmware volume, which is mapped as an
+On SBSA, the TpmShellApp is placed directly in the firmware volume, which is mapped as an
 `FSx:` device in the UEFI shell. Build with:
 
 ```bash
@@ -42,10 +42,10 @@ stuart_build -c Platforms/QemuSbsaPkg/PlatformBuild.py --FlashRom \
 At the UEFI shell, run:
 
 ```text
-Shell> TpmTestApp.efi help
-Shell> TpmTestApp.efi info
-Shell> TpmTestApp.efi eventlog
-Shell> TpmTestApp.efi replay
+Shell> TpmShellApp.efi help
+Shell> TpmShellApp.efi info
+Shell> TpmShellApp.efi eventlog
+Shell> TpmShellApp.efi replay
 ```
 
 Or navigate to the correct FS mapping first:
@@ -53,7 +53,7 @@ Or navigate to the correct FS mapping first:
 ```text
 Shell> map -r
 Shell> FS0:
-FS0:\> TpmTestApp.efi info
+FS0:\> TpmShellApp.efi info
 ```
 
 ## Running on QEMU Q35
@@ -66,7 +66,7 @@ binaries are copied to the virtual drive:
 stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py --FlashRom \
   BLD_*_TPM_ENABLE=TRUE \
   TPM_DEV=/tmp/mytpm1/swtpm-sock \
-  FILE_REGEX=TpmTestApp.efi
+  FILE_REGEX=TpmShellApp.efi
 ```
 
 At the UEFI shell, find the virtual drive's FS mapping (typically backed by a PCI device,
@@ -75,7 +75,7 @@ not `Fv(...)`) and run:
 ```text
 Shell> map -r
 Shell> FS0:
-FS0:\> TpmTestApp.efi info
+FS0:\> TpmShellApp.efi info
 ```
 
 If the app is not found, verify the virtual drive was created with the binary:
@@ -95,7 +95,7 @@ DSC.
 ## Expected Behavior with MinimumLib
 
 Both QEMU platforms use `DxeTcg2PhysicalPresenceMinimumLib` when TPM is enabled. This
-library has specific behaviors that affect TpmTestApp results:
+library has specific behaviors that affect TpmShellApp results:
 
 ### `setpcr` with Already-Active Banks
 
@@ -104,7 +104,7 @@ When the requested banks match the currently active banks, `Tcg2Dxe` sends
 successfully, returning `EFI_SUCCESS`.
 
 ```text
-Shell> TpmTestApp setpcr 0x2    (SHA256 already active)
+Shell> TpmShellApp setpcr 0x2    (SHA256 already active)
 Submitting SetActivePcrBanks with parameter 2
 Status: Success
 Request submitted. Changes will take effect after reboot.
@@ -117,7 +117,7 @@ When the requested banks differ from active banks, `Tcg2Dxe` sends
 operation as it only supports Clear operations.
 
 ```text
-Shell> TpmTestApp setpcr 0x4    (SHA384, not currently active)
+Shell> TpmShellApp setpcr 0x4    (SHA384, not currently active)
 Submitting SetActivePcrBanks with parameter 4
 Status: Unsupported
 SetActivePcrBanks failed.
@@ -140,7 +140,7 @@ Reports the result stored in the `Tcg2PhysicalPresence` NV variable by
 the response will show no operation present.
 
 ```text
-Shell> TpmTestApp lastresponse
+Shell> TpmShellApp lastresponse
   Operation present: NO
   Response code:     0
 ```
@@ -153,7 +153,7 @@ The `eventlog` command dumps the crypto-agile TCG2 event log. On QEMU with the d
 SHA256-only configuration, each event contains a single SHA256 digest.
 
 ```text
-Shell> TpmTestApp.efi eventlog
+Shell> TpmShellApp.efi eventlog
 
 [TCG2 Event Log]
 
@@ -180,7 +180,7 @@ PCR values, then reads the actual PCR values from the TPM via `SubmitCommand` an
 compares them.
 
 ```text
-Shell> TpmTestApp.efi replay
+Shell> TpmShellApp.efi replay
 
 [Event Log Replay]
 

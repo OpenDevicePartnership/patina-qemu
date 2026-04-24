@@ -461,9 +461,7 @@ INF  SecurityPkg/Tcg/Tcg2Config/Tcg2ConfigDxe.inf
 !endif
 
 !if $(TPM_ENABLE) == TRUE
-!if $(TPM_TEST_APP_ENABLE) == TRUE
-INF SecurityPkg/Applications/TpmTestApp/TpmTestApp.inf
-!endif
+INF SecurityPkg/Applications/TpmShellApp/TpmShellApp.inf
 !endif
 
 INF  AdvLoggerPkg/AdvancedFileLogger/AdvancedFileLogger.inf
