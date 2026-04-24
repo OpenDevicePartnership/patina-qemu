@@ -1245,7 +1245,6 @@
   SecurityPkg/Applications/TpmShellApp/TpmShellApp.inf
 !endif
 
-
 ###################################################################################################
 #
 # BuildOptions Section - Define the module specific tool chain flags that should be used as

@@ -282,7 +282,6 @@ READ_LOCK_STATUS   = TRUE
   INF SecurityPkg/Applications/TpmShellApp/TpmShellApp.inf
 !endif
 
-
   INF MsGraphicsPkg/SimpleWindowManagerDxe/SimpleWindowManagerDxe.inf
   INF MsGraphicsPkg/RenderingEngineDxe/RenderingEngineDxe.inf
   INF MsGraphicsPkg/OnScreenKeyboardDxe/OnScreenKeyboardDxe.inf
