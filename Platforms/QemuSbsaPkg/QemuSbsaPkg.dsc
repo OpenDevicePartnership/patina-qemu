@@ -1244,7 +1244,7 @@
   # TPM shell application to test PCR bank operations via TCG2 Protocol
   SecurityPkg/Applications/TpmShellApp/TpmShellApp.inf
 !endif
-!endif
+
 
 ###################################################################################################
 #
