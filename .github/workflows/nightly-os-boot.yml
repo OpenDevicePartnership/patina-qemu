@@ -58,7 +58,6 @@ jobs:
 
     env:
       OS_BOOT_ARTIFACTS_PATH: ./os-boot-artifacts
-      TOOL_CHAIN: ${{ needs.vars.outputs.linux-toolchain }}
 
     strategy:
       fail-fast: false
@@ -208,7 +207,6 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          tool-chain: ${{ env.TOOL_CHAIN }}
           stuart-args: 'QEMU_HEADLESS=TRUE ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
 
       - name: Run
@@ -218,7 +216,6 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          tool-chain: ${{ env.TOOL_CHAIN }}
           stuart-args: 'QEMU_HEADLESS=TRUE ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
 
       - name: Publish Logs
@@ -226,5 +223,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           # Specify architecture if it is not empty
-          name: build-logs-${{ matrix.os-boot-device }}-${{ matrix.platform }}-${{ matrix.target }}-${{ env.TOOL_CHAIN }}-${{ contains(matrix.os-artifact, 'windows') && 'windows' || 'ubuntu' }}
+          name: build-logs-${{ matrix.os-boot-device }}-${{ matrix.platform }}-${{ matrix.target }}-${{ contains(matrix.os-artifact, 'windows') && 'windows' || 'ubuntu' }}
           path: ${{ steps.build-platform.outputs.log-path }}
