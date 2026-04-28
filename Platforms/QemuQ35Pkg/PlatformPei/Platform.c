@@ -207,9 +207,9 @@ MemMapInitialization (
   AddIoMemoryBaseSizeHob (0xFED00000, SIZE_4KB);
 
   // Only generate this HOB if TPM is enabled
-  #ifdef TPM_ENABLE
+ #ifdef TPM_ENABLE
   AddIoMemoryBaseSizeHob (0xFED40000, SIZE_4KB);
-  #endif
+ #endif
 
   if (mHostBridgeDevId == INTEL_Q35_MCH_DEVICE_ID) {
     AddIoMemoryBaseSizeHob (ICH9_ROOT_COMPLEX_BASE, SIZE_16KB);
@@ -820,6 +820,36 @@ PublishPatinaPerformanceConfigHob (
     ));
 }
 
+VOID
+CompleteInitialization (
+  VOID
+  )
+{
+  PublishPeiMemory ();
+  QemuUc32BaseInitialization ();
+  InitializeRamRegions ();
+
+  if (!FeaturePcdGet (PcdSmmSmramRequire)) {
+    ReserveEmuVariableNvStore ();
+  }
+
+  PeiFvInitialization ();
+  MemMapInitialization ();
+  NoexecDxeInitialization ();
+
+  InstallClearCacheCallback ();
+  AmdSevInitialize ();
+  MiscInitialization ();
+  InstallFeatureControlCallback ();
+
+  if (FeaturePcdGet (PcdSmmSmramRequire)) {
+    RelocateSmBase ();
+  }
+
+  PublishV2ResourceHobs ();
+  PublishPatinaPerformanceConfigHob ();
+}
+
 /**
   Perform Platform PEI initialization.
 
@@ -836,6 +866,8 @@ InitializePlatform (
   IN CONST EFI_PEI_SERVICES     **PeiServices
   )
 {
+  EFI_STATUS  Status;
+
   // MU_CHANGE START
   DXE_MEMORY_PROTECTION_SETTINGS  DxeSettings;
   MM_MEMORY_PROTECTION_SETTINGS   MmSettings;
@@ -889,31 +921,18 @@ InitializePlatform (
     Q35SmramAtDefaultSmbaseInitialization ();
   }
 
-  PublishPeiMemory ();
-
-  QemuUc32BaseInitialization ();
-
-  InitializeRamRegions ();
-
-  if (!FeaturePcdGet (PcdSmmSmramRequire)) {
-    ReserveEmuVariableNvStore ();
+  Status = MemTypeInfoInitialization ();
+  if (EFI_ERROR (Status)) {
+    //
+    // Failing here is okay, it just means that the variable read PPI wasn't
+    // found, so we need to return EFI_SUCCESS here and let the dispatcher
+    // dispatch the variable PEIM first and then we'll get called back to
+    // finish initialization.
+    //
+    return EFI_SUCCESS;
   }
 
-  PeiFvInitialization ();
-  MemTypeInfoInitialization ();
-  MemMapInitialization ();
-  NoexecDxeInitialization ();
-
-  InstallClearCacheCallback ();
-  AmdSevInitialize ();
-  MiscInitialization ();
-  InstallFeatureControlCallback ();
-  if (FeaturePcdGet (PcdSmmSmramRequire)) {
-    RelocateSmBase ();
-  }
-
-  PublishV2ResourceHobs ();
-  PublishPatinaPerformanceConfigHob ();
+  CompleteInitialization ();
 
   return EFI_SUCCESS;
 }

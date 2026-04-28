@@ -82,7 +82,7 @@ PeiFvInitialization (
   VOID
   );
 
-VOID
+EFI_STATUS
 MemTypeInfoInitialization (
   VOID
   );
@@ -128,5 +128,10 @@ extern UINT16  mHostBridgeDevId;
 extern BOOLEAN  mQ35SmramAtDefaultSmbase;
 
 extern UINT32  mQemuUc32Base;
+
+VOID
+CompleteInitialization (
+  VOID
+  );
 
 #endif // _PLATFORM_PEI_H_INCLUDED_

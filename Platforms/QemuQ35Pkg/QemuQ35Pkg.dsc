@@ -570,6 +570,7 @@
 #
 ################################################################################
 [PcdsFeatureFlag]
+  gEfiMdeModulePkgTokenSpaceGuid.PcdPeiMemoryBinsEnable|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdHiiOsRuntimeSupport|FALSE
   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeIplSupportUefiDecompress|FALSE
   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeIplSwitchToLongMode|TRUE

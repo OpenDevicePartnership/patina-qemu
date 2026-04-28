@@ -187,6 +187,8 @@ OnReadOnlyVariable2Available (
 
   RefreshMemTypeInfo (Ppi);
   BuildMemTypeInfoHob ();
+  CompleteInitialization ();
+
   return EFI_SUCCESS;
 }
 
@@ -201,12 +203,13 @@ STATIC CONST EFI_PEI_NOTIFY_DESCRIPTOR  mReadOnlyVariable2Notify = {
   OnReadOnlyVariable2Available              // Notify
 };
 
-VOID
+EFI_STATUS
 MemTypeInfoInitialization (
   VOID
   )
 {
-  EFI_STATUS  Status;
+  EFI_STATUS                       Status;
+  EFI_PEI_READ_ONLY_VARIABLE2_PPI  *ReadOnlyVariable2;
 
   if (!FeaturePcdGet (PcdSmmSmramRequire)) {
     //
@@ -214,7 +217,22 @@ MemTypeInfoInitialization (
     // the default memory type information HOB right away.
     //
     BuildMemTypeInfoHob ();
-    return;
+    return EFI_SUCCESS;
+  }
+
+  Status = PeiServicesLocatePpi (
+             &gEfiPeiReadOnlyVariable2PpiGuid,
+             0,
+             NULL,
+             (VOID **)&ReadOnlyVariable2
+             );
+  if (!EFI_ERROR (Status)) {
+    //
+    // EFI_PEI_READ_ONLY_VARIABLE2_PPI is already available; use it now.
+    //
+    RefreshMemTypeInfo (ReadOnlyVariable2);
+    BuildMemTypeInfoHob ();
+    return EFI_SUCCESS;
   }
 
   Status = PeiServicesNotifyPpi (&mReadOnlyVariable2Notify);
@@ -228,4 +246,10 @@ MemTypeInfoInitialization (
     ASSERT (FALSE);
     CpuDeadLoop ();
   }
+
+  //
+  // Return that we're not ready yet so that the dispatcher can dispatch
+  // the variable PEIM first.
+  //
+  return EFI_NOT_READY;
 }
