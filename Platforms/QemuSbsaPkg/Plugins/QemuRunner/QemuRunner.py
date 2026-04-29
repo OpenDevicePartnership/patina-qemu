@@ -133,7 +133,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         qemu_version = QemuRunner.QueryQemuVersion(qemu_executable_path)
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_executable_path, QemuArchitecture.SBSA)
-            .with_cpu(cpu_model, 4)
+            .with_cpu(cpu_model, 2)
             .with_machine(qemu_accelerator)
             .with_memory(8192 if path_to_os else 2048)
             .with_firmware(code_fd, var_store)
