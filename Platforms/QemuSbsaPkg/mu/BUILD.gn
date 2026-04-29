@@ -45,9 +45,9 @@ aarch64_toolchains("secure_qemu_aarch64") {
   gic_version = 3
   gicd_base_address = "0x40060000"
   gicr_base_address = "0x40080000"
-  gicr_frames = 8
+  gicr_frames = 256
   heap_pages = 180
-  max_cpus = 8
+  max_cpus = 48
   max_vms = 16
   toolchain_args = {
     ffa_role = "//src/ffa:spmc"
