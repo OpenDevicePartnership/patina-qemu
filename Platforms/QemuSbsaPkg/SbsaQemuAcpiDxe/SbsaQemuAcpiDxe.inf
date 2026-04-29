@@ -44,7 +44,6 @@
 
 [Pcd]
   gEfiMdeModulePkgTokenSpaceGuid.PcdAcpiTableStorageFile
-  gArmPlatformTokenSpaceGuid.PcdCoreCount
 
 [Depex]
   gEfiAcpiTableProtocolGuid                       ## CONSUMES
