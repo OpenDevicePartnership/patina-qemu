@@ -371,6 +371,7 @@ INF  MdeModulePkg/Universal/Disk/UdfDxe/UdfDxe.inf
 INF  ShellPkg/DynamicCommand/TftpDynamicCommand/TftpDynamicCommand.inf
 INF  ShellPkg/DynamicCommand/HttpDynamicCommand/HttpDynamicCommand.inf
 INF  ShellPkg/DynamicCommand/VariablePolicyDynamicCommand/VariablePolicyDynamicCommand.inf
+INF  ShellPkg/DynamicCommand/DpDynamicCommand/DpDynamicCommand.inf
 INF  QemuPkg/LinuxInitrdDynamicShellCommand/LinuxInitrdDynamicShellCommand.inf
 
 #
@@ -458,6 +459,10 @@ INF  SecurityPkg/Tcg/Tcg2Dxe/Tcg2Dxe.inf
 !if $(TPM_CONFIG_ENABLE) == TRUE
 INF  SecurityPkg/Tcg/Tcg2Config/Tcg2ConfigDxe.inf
 !endif
+!endif
+
+!if $(TPM_ENABLE) == TRUE
+INF SecurityPkg/Applications/TpmShellApp/TpmShellApp.inf
 !endif
 
 INF  AdvLoggerPkg/AdvancedFileLogger/AdvancedFileLogger.inf

@@ -84,6 +84,3 @@
 
 [FeaturePcd]
   gQemuPkgTokenSpaceGuid.PcdSmmSmramRequire
-
-[BuildOptions]
-  MSFT:*_*_*_CC_FLAGS = /GS-

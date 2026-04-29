@@ -21,7 +21,7 @@ jobs:
     steps:
       - name: Generate Token
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ secrets.PATINA_AUTOMATION_APPLICATION_ID }}
           private-key: ${{ secrets.PATINA_AUTOMATION_APPLICATION_PRIVATE_KEY }}

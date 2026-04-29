@@ -100,7 +100,7 @@
   RegisterFilterLib           |MdePkg/Library/RegisterFilterLibNull/RegisterFilterLibNull.inf
 
   # Math Libraries
-  FltUsedLib |MdePkg/Library/FltUsedLib/FltUsedLib.inf
+  FltUsedLib |MsCorePkg/Library/FltUsedLib/FltUsedLib.inf
   MathLib    |MsCorePkg/Library/MathLib/MathLib.inf
   SafeIntLib |MdePkg/Library/BaseSafeIntLib/BaseSafeIntLib.inf
 
@@ -252,9 +252,8 @@
   Tcg2PhysicalPresenceLib |QemuPkg/Library/Tcg2PhysicalPresenceLibNull/DxeTcg2PhysicalPresenceLib.inf
   Tpm2HelpLib             |SecurityPkg/Library/Tpm2HelpLib/Tpm2HelpLib.inf
 !if $(TPM_ENABLE) == TRUE
-  Tcg2PhysicalPresenceLib |QemuPkg/Library/Tcg2PhysicalPresenceLibQemu/DxeTcg2PhysicalPresenceLib.inf
+  Tcg2PhysicalPresenceLib |SecurityPkg/Library/DxeTcg2PhysicalPresenceMinimumLib/DxeTcg2PhysicalPresenceMinimumLib.inf
   TpmMeasurementLib       |SecurityPkg/Library/DxeTpmMeasurementLib/DxeTpmMeasurementLib.inf
-  Tpm2DebugLib            |SecurityPkg/Library/Tpm2DebugLib/Tpm2DebugLibSimple.inf
 !endif
 
   # Shell Libraries
@@ -384,9 +383,8 @@
   PolicyLib                  |PolicyServicePkg/Library/PeiPolicyLib/PeiPolicyLib.inf
   SmmRelocationLib           |QemuQ35Pkg/Library/SmmRelocationLib/SmmRelocationLib.inf
 !if $(TPM_ENABLE) == TRUE
-  Tpm12DeviceLib             |SecurityPkg/Library/Tpm12DeviceLibDTpm/Tpm12DeviceLibDTpm.inf
   Tpm2DeviceLib              |SecurityPkg/Library/Tpm2DeviceLibDTpm/Tpm2DeviceLibDTpm.inf
-  Tcg2PreUefiEventLogLib     |QemuPkg/Library/QemuPreUefiEventLogLibNull/QemuPreUefiEventLogLibNull.inf
+  Tcg2PreUefiEventLogLib     |SecurityPkg/Library/Tcg2PreUefiEventLogLibNull/Tcg2PreUefiEventLogLibNull.inf
 !endif
   RngLib                     |MdePkg/Library/PeiRngLib/PeiRngLib.inf
 
@@ -437,6 +435,7 @@
 [LibraryClasses.common.UEFI_APPLICATION]
   CheckHwErrRecHeaderLib|MsWheaPkg/Library/CheckHwErrRecHeaderLib/CheckHwErrRecHeaderLib.inf
   FlatPageTableLib|UefiTestingPkg/Library/FlatPageTableLib/FlatPageTableLib.inf
+  IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
 
 [LibraryClasses.common.DXE_DRIVER]
   PlatformBootManagerLib|MsCorePkg/Library/PlatformBootManagerLib/PlatformBootManagerLib.inf
@@ -447,7 +446,6 @@
   CapsuleLib|MdeModulePkg/Library/DxeCapsuleLibFmp/DxeCapsuleLib.inf
   PolicyLib|PolicyServicePkg/Library/DxePolicyLib/DxePolicyLib.inf
 !if $(TPM_ENABLE) == TRUE
-  Tpm12DeviceLib|SecurityPkg/Library/Tpm12DeviceLibTcg/Tpm12DeviceLibTcg.inf
   Tpm2DeviceLib|SecurityPkg/Library/Tpm2DeviceLibTcg2/Tpm2DeviceLibTcg2.inf
 !endif
 
@@ -681,7 +679,7 @@
   # On Q35 machine types that QEMU intends to support in the long term, QEMU
   # never lets the RAM below 4 GB exceed 2816 MB.
   gEfiMdePkgTokenSpaceGuid.PcdPciExpressBaseAddress|0xB0000000
-  gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber|$(QEMU_CORE_NUM)
+  gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber|4
 
   !if $(TARGET) == RELEASE
     gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerHdwPortDebugPrintErrorLevel|0x0
@@ -744,7 +742,7 @@
   # unknown) workloads / boot paths.
   #
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIMemoryNVS|0x80
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIReclaimMemory|0x20
+  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIReclaimMemory|0x2B
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiReservedMemoryType|0x510
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesCode|0x100
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesData|0x700
@@ -788,7 +786,7 @@
   gUefiQemuQ35PkgTokenSpaceGuid.PcdPciMmio64Size|0x800000000
 
   # Limit to SHA256 for now.
-  gEfiSecurityPkgTokenSpaceGuid.PcdTpm2HashMask|0x00002
+  gEfiSecurityPkgTokenSpaceGuid.PcdTpm2HashMask|0x02
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdEmuVariableNvStoreReserved|0
 
@@ -835,9 +833,11 @@
   !endif
 
 [PcdsDynamicHii]
-!if $(TPM_ENABLE) == TRUE && $(TPM_CONFIG_ENABLE) == TRUE
+!if $(TPM_ENABLE) == TRUE
+  gEfiSecurityPkgTokenSpaceGuid.PcdTpm2AcpiTableRev|L"TCG2_VERSION"|gTcg2ConfigFormSetGuid|0x8|4|NV,BS
+!endif
+!if $(TPM_CONFIG_ENABLE) == TRUE
   gEfiSecurityPkgTokenSpaceGuid.PcdTcgPhysicalPresenceInterfaceVer|L"TCG2_VERSION"|gTcg2ConfigFormSetGuid|0x0|"1.3"|NV,BS
-  gEfiSecurityPkgTokenSpaceGuid.PcdTpm2AcpiTableRev|L"TCG2_VERSION"|gTcg2ConfigFormSetGuid|0x8|3|NV,BS
 !endif
 
 ################################################################################
@@ -914,7 +914,6 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
       # Only TPM 2.0 is supported by the feature
       NULL|TpmTestingPkg/Overrides/Library/DxeTpm2MeasureBootLib/DxeTpm2MeasureBootLib.inf
 !else
-      NULL|SecurityPkg/Library/DxeTpmMeasureBootLib/DxeTpmMeasureBootLib.inf
       NULL|SecurityPkg/Library/DxeTpm2MeasureBootLib/DxeTpm2MeasureBootLib.inf
 !endif
 !endif
@@ -1083,6 +1082,10 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
       gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE
   }
   ShellPkg/DynamicCommand/VariablePolicyDynamicCommand/VariablePolicyDynamicCommand.inf {
+    <PcdsFixedAtBuild>
+      gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE
+  }
+  ShellPkg/DynamicCommand/DpDynamicCommand/DpDynamicCommand.inf {
     <PcdsFixedAtBuild>
       gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE
   }
@@ -1309,6 +1312,14 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
       MfciDeviceIdSupportLib|MfciPkg/Library/MfciDeviceIdSupportLibSmbios/MfciDeviceIdSupportLibSmbios.inf
   }
 
+# The TpmShellApp can run without TPM enabled. It will report that the
+# Tcg2Protocol was not installed, however, it really isn't meant to run
+# without TPM enabled.
+!if $(TPM_ENABLE) == TRUE
+  # TPM shell application to test PCR bank operations via TCG2 Protocol
+  SecurityPkg/Applications/TpmShellApp/TpmShellApp.inf
+!endif
+
 !include TpmTestingPkg/TpmReplay.dsc.inc
 
 [Components.X64]
@@ -1421,23 +1432,24 @@ QemuQ35Pkg/ResetVector/ResetVector.inf
     DEFINE PERFORMANCE_OPTIONS =
   !endif
 
+  !if $(TPM_ENABLE) == TRUE
+  #
+  # Enable TPM support
+  #
+  *_CLANGPDB_*_CC_FLAGS = -DTPM_ENABLE
+  !endif
+
   # Exception tables are required for stack walks in the debugger.
-  MSFT:*_*_X64_GENFW_FLAGS  = --keepexceptiontable
-  GCC:*_*_X64_GENFW_FLAGS   = --keepexceptiontable
+  *_*_X64_GENFW_FLAGS   = --keepexceptiontable
 
   #
   # Disable deprecated APIs.
   #
-  MSFT:*_*_*_CC_FLAGS = /D DISABLE_NEW_DEPRECATED_INTERFACES $(PERFORMANCE_OPTIONS)
-  GCC:*_*_*_CC_FLAGS = -D DISABLE_NEW_DEPRECATED_INTERFACES $(PERFORMANCE_OPTIONS)
+  *_CLANGPDB_*_CC_FLAGS = -D DISABLE_NEW_DEPRECATED_INTERFACES $(PERFORMANCE_OPTIONS)
 
-  MSFT:*_*_*_DLINK_FLAGS = /ALIGN:64
-  GCC:*_GCC5_*_DLINK_FLAGS = -z common-page-size=64
-  GCC:*_CLANGPDB_*_DLINK_FLAGS = /ALIGN:64 /FILEALIGN:64
+  *_CLANGPDB_*_DLINK_FLAGS = /ALIGN:64 /FILEALIGN:64
 
 # Force PE/COFF sections to be aligned at 4KB boundaries to support page level
 # protection of DXE_SMM_DRIVER/SMM_CORE modules
 [BuildOptions.common.EDKII.DXE_SMM_DRIVER, BuildOptions.common.EDKII.DXE_RUNTIME_DRIVER, BuildOptions.common.EDKII.SMM_CORE, BuildOptions.common.EDKII.DXE_DRIVER, BuildOptions.common.EDKII.DXE_CORE, BuildOptions.common.EDKII.UEFI_DRIVER, BuildOptions.common.EDKII.UEFI_APPLICATION, BuildOptions.common.EDKII.MM_CORE_STANDALONE, BuildOptions.common.EDKII.MM_STANDALONE]
-  MSFT:*_*_*_DLINK_FLAGS = /ALIGN:4096
-  GCC:*_GCC5_*_DLINK_FLAGS = -z common-page-size=0x1000
-  GCC:*_CLANGPDB_*_DLINK_FLAGS = /ALIGN:4096
+  *_CLANGPDB_*_DLINK_FLAGS = /ALIGN:4096

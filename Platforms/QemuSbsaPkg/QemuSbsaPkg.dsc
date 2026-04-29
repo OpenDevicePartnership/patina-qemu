@@ -261,7 +261,7 @@
   SecurityLockAuditLib|MdeModulePkg/Library/SecurityLockAuditDebugMessageLib/SecurityLockAuditDebugMessageLib.inf
   ResetUtilityLib|MdeModulePkg/Library/ResetUtilityLib/ResetUtilityLib.inf
   HwResetSystemLib|ArmPkg/Library/ArmPsciResetSystemLib/ArmPsciResetSystemLib.inf
-  FltUsedLib|MdePkg/Library/FltUsedLib/FltUsedLib.inf
+  FltUsedLib|MsCorePkg/Library/FltUsedLib/FltUsedLib.inf
   DeviceBootManagerLib|QemuPkg/Library/DeviceBootManagerLibQemu/DeviceBootManagerLib.inf
   MsPlatformDevicesLib|QemuSbsaPkg/Library/MsPlatformDevicesLibQemuSbsa/MsPlatformDevicesLib.inf
   MsNetworkDependencyLib|PcBdsPkg/Library/MsNetworkDependencyLib/MsNetworkDependencyLib.inf
@@ -285,7 +285,6 @@
   OemMiscLib|QemuSbsaPkg/Library/OemMiscLib/OemMiscLib.inf
 
   # Math Libraries
-  FltUsedLib |MdePkg/Library/FltUsedLib/FltUsedLib.inf
   MathLib    |MsCorePkg/Library/MathLib/MathLib.inf
   SafeIntLib |MdePkg/Library/BaseSafeIntLib/BaseSafeIntLib.inf
 
@@ -439,7 +438,6 @@
   VirtNorFlashPlatformLib|QemuSbsaPkg/Library/SbsaQemuNorFlashLib/SbsaQemuNorFlashLib.inf
   SafeIntLib|MdePkg/Library/BaseSafeIntLib/BaseSafeIntLib.inf
   MemoryTypeInfoSecVarCheckLib|MdeModulePkg/Library/MemoryTypeInfoSecVarCheckLib/MemoryTypeInfoSecVarCheckLib.inf
-  FltUsedLib|MdePkg/Library/FltUsedLib/FltUsedLib.inf
   ArmFfaLib|MdeModulePkg/Library/ArmFfaLib/ArmFfaStandaloneMmLib.inf
 
 !if $(TPM2_ENABLE) == TRUE
@@ -456,6 +454,7 @@
   PerformanceLib|MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
   HiiLib|MdeModulePkg/Library/UefiHiiLib/UefiHiiLib.inf
+  IntrinsicLib|CryptoPkg/Library/IntrinsicLib/IntrinsicLib.inf
 
 #########################################
 # Advanced Logger Libraries
@@ -564,27 +563,10 @@
   # but not used).
   #
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIReclaimMemory|0x143
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIMemoryNVS|0x28
+  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiACPIMemoryNVS|0x3C
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesData|0x642
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiReservedMemoryType|0x505
   gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiRuntimeServicesCode|0x424
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiBootServicesCode|0x5DC
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiBootServicesData|0x2EE0
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiLoaderCode|0x14
-  gEmbeddedTokenSpaceGuid.PcdMemoryTypeEfiLoaderData|0x0
-
-  #
-  # Enable strict image permissions for all images. (This applies
-  # only to images that were built with >= 4 KB section alignment.)
-  #
-#   gEfiMdeModulePkgTokenSpaceGuid.PcdImageProtectionPolicy|0x3
-
-  #
-  # Enable NX memory protection for all non-code regions, including OEM and OS
-  # reserved ones, with the exception of LoaderData regions, of which OS loaders
-  # (i.e., GRUB) may assume that its contents are executable.
-  #
-#   gEfiMdeModulePkgTokenSpaceGuid.PcdDxeNxMemoryProtectionPolicy|0xC000000000007FD1
 
   gMsGraphicsPkgTokenSpaceGuid.PcdUiThemeInDxe|TRUE
   gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerInBootOrder|FALSE
@@ -1146,6 +1128,10 @@
     <PcdsFixedAtBuild>
       gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE
   }
+  ShellPkg/DynamicCommand/DpDynamicCommand/DpDynamicCommand.inf {
+    <PcdsFixedAtBuild>
+      gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE
+  }
   QemuPkg/LinuxInitrdDynamicShellCommand/LinuxInitrdDynamicShellCommand.inf {
     <PcdsFixedAtBuild>
       gEfiShellPkgTokenSpaceGuid.PcdShellLibAutoInitialize|FALSE
@@ -1254,6 +1240,14 @@
   # FF-A test application to test the FF-A interface
   FfaFeaturePkg/Applications/FfaPartitionTest/FfaPartitionTestApp.inf
 
+# The TpmShellApp can run without TPM enabled. It will report that the
+# Tcg2Protocol was not installed, however, it really isn't meant to run
+# without TPM enabled.
+!if $(TPM2_ENABLE) == TRUE
+  # TPM shell application to test PCR bank operations via TCG2 Protocol
+  SecurityPkg/Applications/TpmShellApp/TpmShellApp.inf
+!endif
+
 ###################################################################################################
 #
 # BuildOptions Section - Define the module specific tool chain flags that should be used as
@@ -1265,36 +1259,28 @@
 ###################################################################################################
 [BuildOptions]
   # Exception tables are required for stack walks in the debugger.
-  MSFT:*_*_AARCH64_GENFW_FLAGS  = --keepexceptiontable
-  GCC:*_*_AARCH64_GENFW_FLAGS   = --keepexceptiontable
+  *_CLANGPDB_AARCH64_GENFW_FLAGS   = --keepexceptiontable
 
   #
   # Disable deprecated APIs.
   #
-  RVCT:*_*_*_CC_FLAGS = -DDISABLE_NEW_DEPRECATED_INTERFACES
-  GCC:*_*_*_CC_FLAGS = -DDISABLE_NEW_DEPRECATED_INTERFACES
+  *_CLANGPDB_*_CC_FLAGS = -DDISABLE_NEW_DEPRECATED_INTERFACES
 
 !if $(TPM2_ENABLE) == TRUE
   #
   # Enable TPM2 support
   #
-  GCC:*_*_*_CC_FLAGS = -DTPM2_ENABLE
+  *_CLANGPDB_*_CC_FLAGS = -DTPM2_ENABLE
 !endif
 
 [BuildOptions.common.EDKII.SEC,BuildOptions.common.EDKII.MM_CORE_STANDALONE]
-  GCC:*_CLANGPDB_*_DLINK_FLAGS = /ALIGN:0x1000 /FILEALIGN:0x1000
+  *_CLANGPDB_*_DLINK_FLAGS = /ALIGN:0x1000 /FILEALIGN:0x1000
 
 [BuildOptions.common.EDKII.DXE_CORE,BuildOptions.common.EDKII.DXE_DRIVER,BuildOptions.common.EDKII.UEFI_DRIVER,BuildOptions.common.EDKII.UEFI_APPLICATION,BuildOptions.common.EDKII.MM_CORE_STANDALONE,BuildOptions.common.EDKII.MM_STANDALONE]
-  GCC:*_GCC5_*_DLINK_FLAGS = -z common-page-size=0x1000
-  GCC:*_GCC_*_DLINK_FLAGS = -z common-page-size=0x1000
-  GCC:*_CLANGPDB_*_DLINK_FLAGS = /ALIGN:0x1000
-  GCC:*_*_*_DLINK_XIPFLAGS = -z common-page-size=0x1000
+  *_CLANGPDB_*_DLINK_FLAGS = /ALIGN:0x1000
 
 [BuildOptions.common.EDKII.DXE_RUNTIME_DRIVER]
-  GCC:*_GCC5_AARCH64_DLINK_FLAGS = -z common-page-size=0x10000
-  GCC:*_GCC_AARCH64_DLINK_FLAGS = -z common-page-size=0x10000
-  GCC:*_CLANGPDB_AARCH64_DLINK_FLAGS = /ALIGN:0x10000
-  RVCT:*_*_ARM_DLINK_FLAGS = --scatter $(EDK_TOOLS_PATH)/Scripts/Rvct-Align4K.sct
+  *_CLANGPDB_AARCH64_DLINK_FLAGS = /ALIGN:0x10000
 
 [BuildOptions.AARCH64.EDKII.MM_CORE_STANDALONE,BuildOptions.AARCH64.EDKII.MM_STANDALONE]
-  GCC:*_*_*_CC_FLAGS = -mstrict-align -march=armv8-a
+  *_CLANGPDB_*_CC_FLAGS = -mstrict-align -march=armv8-a

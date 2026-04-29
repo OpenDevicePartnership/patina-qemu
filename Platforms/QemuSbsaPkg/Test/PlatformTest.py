@@ -58,7 +58,7 @@ class TestManager(BuildSettingsManager, UefiBuilder):
         return PlatformBuild.CommonPlatform.PackagesPath
 
     def GetActiveScopes(self):
-        return ('qemu', 'qemusbsa', 'gcc_aarch64_linux', 'edk2-build', 'cibuild', 'host-based-test')
+        return ('qemu', 'qemusbsa', 'edk2-build', 'cibuild', 'host-based-test')
     
     def GetName(self):
         return f"{PLATFORM_NAME}_HostBasedTest"
@@ -69,7 +69,7 @@ class TestManager(BuildSettingsManager, UefiBuilder):
         self.env.SetValue("TARGET", "NOOPT", "Platform Hardcoded.")
         self.env.SetValue("CI_BUILD_TYPE", "host_unit_test", "Platform Hardcoded.")
         self.env.SetValue("TARGET_ARCH", "X64", "Platform Hardcoded.")
-        self.env.SetValue("TOOL_CHAIN_TAG", "GCC5", "Platform Hardcoded.")
+        self.env.SetValue("TOOL_CHAIN_TAG", "CLANGPDB", "Platform Hardcoded.")
 
         # Don't let the host runner reorganize the build. This file will do it by platform.
         self.env.SetValue("CC_REORGANIZE", "FALSE", "Platform Hardcoded")

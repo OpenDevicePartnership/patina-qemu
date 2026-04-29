@@ -18,6 +18,22 @@ On most Linux distros this requires an extra step for mono and nuget support.
 
 <https://github.com/tianocore/edk2-pytool-extensions/blob/master/docs/usability/using_extdep.md#a-note-on-nuget-on-linux>
 
+## CLANGPDB
+
+Both QemuQ35Pkg and QemuSbsaPkg use the CLANGPDB toolchain exclusively. This allows development of both architectures
+on Linux and Windows, native PE/COFF image generation, and PDBs to connect with the
+[uefi_debug_tools](https://github.com/microsoft/uefi_debug_tools) WinDbg infrastructure or
+[lldb](https://lldb.llvm.org/).
+
+LLVM version 21 or greater is recommended to use with EDK II and related projects. It can be downloaded through many
+sources, but the simplest is from [LLVM itself](https://github.com/llvm/llvm-project/releases). Add the directory
+containing the clang executable to your PATH variable (restarting a terminal if necessary) and follow the instructions
+below on building with stuart.
+
+>**Note:**: By default, Hafnium and TF-A (only used in the QemuSbsaPkg build) are pulled in as precompiled binaries.
+> Passing HAF_TFA_BUILD=TRUE on the stuart_build command line will recompile these components. This is only supported
+> on Linux as these projects do not build natively on Windows. They still use clang to compile.
+
 ## Building with Pytools
 
 1. [Optional] Create a Python Virtual Environment - generally once per workspace
@@ -47,73 +63,50 @@ On most Linux distros this requires an extra step for mono and nuget support.
 
 4. Initialize & Update Submodules - only when submodules updated
 
+    First time setup:
+
     ``` bash
-    stuart_setup -c Platforms/<Package>/PlatformBuild.py TOOL_CHAIN_TAG=<TOOL_CHAIN_TAG>
+    stuart_setup -c Platforms/<Package>/PlatformBuild.py
     ```
 
-    - `TOOL_CHAIN_TAG` being the toolchain you want to build with, currently `VS2019`, `VS2022`, and `GCC5` are
-      supported values. Q35 can be built with `GCC5`, `VS2019`, and `VS2022` toolchains. SBSA can be built with
-      `GCC5`.
-    - NOTE: Building with GCC5 targeting AARCH64 requires the setup to export `GCC5_AARCH64_PREFIX`.
-      `GCC5_AARCH64_PREFIX` should contain the path and the prefix to the gcc/objcopy tools, and needs to
-      match the tool chain that is being used by the platform. The below example is for the gcc-aarch64-linux-gnu
-      tool chain, but other tool chains can be used.
-      As an example, `export GCC5_AARCH64_PREFIX=/usr/bin/aarch64-linux-gnu-`
+    Subsequently when submodules are updated:
+
+    ```bash
+    git submodule update --recursive
+    ```
 
 5. Initialize & Update Dependencies - only as needed when ext_deps change
 
     ``` bash
-    stuart_update -c Platforms/<Package>/PlatformBuild.py TOOL_CHAIN_TAG=<TOOL_CHAIN_TAG>
+    stuart_update -c Platforms/<Package>/PlatformBuild.py
     ```
 
 6. Compile Firmware
 
     ``` bash
-    stuart_build -c Platforms/<Package>/PlatformBuild.py TOOL_CHAIN_TAG=<TOOL_CHAIN_TAG>
+    stuart_build -c Platforms/<Package>/PlatformBuild.py
     ```
 
     - use `stuart_build -c Platforms/<Package>/PlatformBuild.py -h` option to see additional
     options like `--clean`
 
-7. Running Emulator
-    - You can add `--FlashRom` to the end of your build command and the emulator will run after the
-    build is complete.
-    - or use the `--FlashOnly` feature to just run the emulator.
+7. Running QEMU
+    - You can add `--FlashRom` to the end of your build command and QEMU will run after the
+    build is complete, booting this FW.
+    - or use the `--FlashOnly` feature to skip the build and launch QEMU with the last built FW.
 
       ``` bash
-      stuart_build -c Platforms/<Package>/PlatformBuild.py TOOL_CHAIN_TAG=<TOOL_CHAIN_TAG> --FlashOnly
+      stuart_build -c Platforms/<Package>/PlatformBuild.py --FlashOnly
       ```
-
-8. Alternative Options
-    - All the commands specified here can use a shortcut, which is to invoke the Build file directly. For example:
-
-      ``` bash
-      py Platforms/<Package>/PlatformBuild.py TOOL_CHAIN_TAG=<TOOL_CHAIN_TAG>  --FlashOnly
-      ```
-
-    - Setup and update can be done by passing it in
-
-      ``` bash
-      py Platforms/<Package>/PlatformBuild.py TOOL_CHAIN_TAG=<TOOL_CHAIN_TAG>  --setup
-      ```
-
-      ``` bash
-      py Platforms/<Package>/PlatformBuild.py TOOL_CHAIN_TAG=<TOOL_CHAIN_TAG>  --update
-      ```
-
-    - Under the hood, it just does the invocation of Stuart for you.
 
 ### Notes
 
-1. QEMU is provided on windows via an external dependency located at QemuPkg/Binaries; Qemu must be manually downloaded
-   on linux.
-2. QEMU for linux requires at least **version 9.0.2** when booting an operating system; if you are only booting to
-   shell, matching the version to the windows external dependency is acceptable.
-3. If you want to override the external dependency on windows, or the installed version on linux, you can use
+1. QEMU is provided on Windows via an external dependency located at QemuPkg/Binaries; Qemu must be manually downloaded
+   on Linux.
+2. QEMU for Linux requires at least **version 9.0.2** when booting an operating system; if you are only booting to
+   shell, matching the version to the Windows external dependency is acceptable.
+3. If you want to override the external dependency on Windows, or the installed version on Linux, you can use
    `QEMU_PATH = <path>` on the command line.
-
-**NOTE:** Logging the execution output will be in the normal stuart log as well as to your console (if you have the
-correct logging level set, by default it doesn't output to console).
 
 ### Custom Build Options
 
@@ -126,9 +119,13 @@ and then execute the contents of *startup.nsh*.
 **QEMU_HEADLESS=TRUE** Since CI servers run headless QEMU must be told to run with no display otherwise
 an error occurs. Locally you don't need to set this.
 
-**GDB_SERVER=\<TCP Port\>** Enables the GDB port in the QEMU instance at the provided TCP port.
+**GDB_SERVER=\<TCP Port\>** Enables the QEMU GDB server at the provided TCP port. This can be connected to a GDB client
+for debugging via the hardware debugger.
 
-**SERIAL_PORT=\<Serial Port\>** Enables the specified serial port to be used as console.
+**SERIAL_PORT=\<Serial Port\>** Enables the specified serial port to be used. Primarily this is used to connect to the
+software debugger when enabled. On Q35 this defaults to 50001. SBSA only has a single serial port for normal world and
+so by default does not set this so it can send serial output to stdio. Setting this for SBSA will prevent logs from
+coming over stdio and instead will go to this TCP port.
 
 **ENABLE_NETWORK=TRUE** will enable networking (currently supported on the QEMU Q35 platform).
 
@@ -140,6 +137,18 @@ For example, to enable the E1000 network support, instead of the traditional "-D
 command-line would be:
 
 `stuart_build -c Platforms/<Package>/PlatformBuild.py BLD_*_E1000_ENABLE=1`
+
+## The build_and_run_rust_binary.py Script
+
+The build_and_run_rust_binary.py script is intended for rapid development of Patina in this repository. It takes a
+prebuilt FD (from a previous stuart_build invocation) and patches a new Patina DXE core into it. This greatly speeds
+up the development loop as none of the C components are rebuilt. However, when a C component is changed, stuart_build
+must be re-run to rebuild the full platform, not just Patina.
+
+It requires that [patina-dxe-core-qemu](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu) and
+[patina-fw-patcher](https://github.com/OpenDevicePartnership/patina-fw-patcher) are cloned locally. The script will
+then build a Patina DXE core from patina-dxe-core-qemu and use the patcher to patch it into the existing FD. Finally,
+it will launch QEMU to execute this patched FD. Use `python build_and_run_rust_binary.py -h` to see all related options.
 
 ## References
 

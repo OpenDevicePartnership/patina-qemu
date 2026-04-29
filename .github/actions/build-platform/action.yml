@@ -23,10 +23,6 @@ inputs:
     description: 'Build target (e.g., DEBUG, RELEASE)'
     required: false
     default: 'DEBUG'
-  tool-chain:
-    description: 'Tool chain to use (e.g., VS2022, GCC)'
-    required: false
-    default: 'VS2022'
   architecture:
     description: 'Target architecture (e.g., X64; ARM64). By default, uses the architectures defined in the platform config.'
     required: false
@@ -74,7 +70,7 @@ runs:
     id: stuart
     shell: bash
     run: |
-      ARGS="TARGET=${{ inputs.target }} TOOL_CHAIN_TAG=${{ inputs.tool-chain }} ${{ inputs.stuart-args }}"
+      ARGS="TARGET=${{ inputs.target }} ${{ inputs.stuart-args }}"
       echo "arguments=$ARGS" >> $GITHUB_OUTPUT
 
   # Create a cache key based on the submodule hashes to speed up repeated builds
@@ -88,7 +84,7 @@ runs:
   # Use the cache key to attempt to restore cached submodules
   - name: Cache submodules
     if: ${{ inputs.command == 'all' || inputs.command == 'build' }}
-    uses: actions/cache@v4
+    uses: actions/cache@v5
     with:
       path: .git/modules
       key: ${{ runner.os }}-${{ inputs.platform-name }}-submodules-${{ steps.submodules-hash.outputs.hash}}

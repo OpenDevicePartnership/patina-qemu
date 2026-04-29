@@ -50,9 +50,7 @@ def _parse_arguments() -> argparse.Namespace:
         --build-target (str): Build target, either DEBUG or RELEASE. Default is "DEBUG".
         --no-build (bool): Skip building the Rust DXE Core and use the pre-built binary. Default is False.
         --platform (str): QEMU platform such as Q35. Default is "Q35".
-        --toolchain (str): Toolchain to use for building. Default is "VS2022".
         --features (str): Feature set to pass to patina-dxe-core-qemu build
-        --core-count (int): Number of QEMU CPU cores. Default is 2.
 
     Returns:
         argparse.Namespace: Parsed command-line arguments.
@@ -127,14 +125,6 @@ def _parse_arguments() -> argparse.Namespace:
         help="QEMU platform such as Q35 or SBSA.",
     )
     parser.add_argument(
-        "--toolchain",
-        "-t",
-        type=str.upper,
-        default="VS2022",
-        help="Toolchain to use for building. "
-        "Q35 default: VS2022. SBSA default: GCC5.",
-    )
-    parser.add_argument(
         "--os",
         type=Path,
         default=None,
@@ -185,12 +175,6 @@ def _parse_arguments() -> argparse.Namespace:
         help="Port to use for QEMU monitor communication.",
     )
     parser.add_argument(
-        "--core-count",
-        type=int,
-        default=2,
-        help="Number of QEMU CPU cores.",
-    )
-    parser.add_argument(
         "--headless",
         action="store_true",
         default=False,
@@ -205,9 +189,6 @@ def _parse_arguments() -> argparse.Namespace:
     )
 
     args = parser.parse_args()
-    if args.platform == "SBSA" and args.toolchain == "VS2022":
-        args.toolchain = "GCC5"
-
     return args
 
 
@@ -234,7 +215,6 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             - patina_dxe_core_repo: The path to the patina-dxe-core-qemu repo.
             - ref_fd: The path to the file to use as a reference for patching.
             - skip_build: Whether to skip building the Rust DXE Core.
-            - toolchain: The toolchain used for building (e.g. VS2022).
     """
     if args.platform == "Q35":
         if args.pre_compiled_rom:
@@ -244,7 +224,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
                 SCRIPT_DIR
                 / "Build"
                 / "QemuQ35Pkg"
-                / f"{args.build_target.upper()}_{args.toolchain.upper()}"
+                / f"{args.build_target.upper()}_CLANGPDB"
                 / "FV"
                 / "QEMUQ35_CODE.fd"
             )
@@ -267,9 +247,6 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         build_cmd = [
             "cargo",
-            "-Zunstable-options",
-            "-C",
-            str(args.patina_dxe_core_repo),
             "make",
         ]
 
@@ -280,7 +257,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         for p in args.crate_patch:
             build_cmd.append("--crate-patch ")
-            build_cmd.append(str(p))
+            build_cmd.append(str(p.resolve()))
 
         # if a serial port wasn't specified, use the default port so a debugger can be retroactively attached
         if args.serial_port is None:
@@ -306,7 +283,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_exec, QemuArchitecture.Q35)
-            .with_cpu(core_count=args.core_count)
+            .with_cpu(core_count=4)
             .with_machine()
             .with_memory(8192 if args.os else 2048)
             .with_firmware(code_fd, var_store)
@@ -347,7 +324,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
                 SCRIPT_DIR
                 / "Build"
                 / "QemuSbsaPkg"
-                / f"{args.build_target.upper()}_{args.toolchain.upper()}"
+                / f"{args.build_target.upper()}_CLANGPDB"
                 / "FV"
                 / "QEMU_EFI.fd"
             )
@@ -369,9 +346,6 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         build_cmd = [
             "cargo",
-            "-Zunstable-options",
-            "-C",
-            str(args.patina_dxe_core_repo),
             "make",
         ]
 
@@ -382,11 +356,26 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         for p in args.crate_patch:
             build_cmd.append("--crate-patch ")
-            build_cmd.append(str(p))
+            build_cmd.append(str(p.resolve()))
 
         if args.qemu_path:
             qemu_exec = args.qemu_path
             qemu_dir = str(Path(qemu_exec).parent / "share")
+        elif os.name == "nt":
+            qemu_exec = str(
+                SCRIPT_DIR
+                / "QemuPkg"
+                / "Binaries"
+                / "qemu-win_extdep"
+                / "qemu-system-aarch64.exe"
+            )
+            qemu_dir = str(
+                SCRIPT_DIR
+                / "QemuPkg"
+                / "Binaries"
+                / "qemu-win_extdep"
+                / "share"
+            )
         else:
             qemu_exec = "/usr/local/bin/qemu-system-aarch64"
             qemu_dir = "/usr/local/share/qemu"
@@ -406,7 +395,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_exec, QemuArchitecture.SBSA)
-            .with_cpu(core_count=args.core_count)
+            .with_cpu(core_count=4)
             .with_machine()
             .with_memory(8192 if args.os else 2048)
             .with_firmware(code_fd, var_store)
@@ -467,7 +456,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         "patina_dxe_core_repo": args.patina_dxe_core_repo,
         "ref_fd": ref_fd,
         "skip_build": args.no_build,
-        "toolchain": args.toolchain,
+        "toolchain": "CLANGPDB",
     }
 
 
@@ -496,7 +485,7 @@ def _print_configuration(settings: Dict[str, Path]) -> None:
     logging.info(f" - Code FD File: {settings['code_fd']}")
     logging.info(f" - FW Patch Repo: {settings['fw_patch_repo']}")
     logging.info(f" - Build Target: {settings['build_target']}")
-    logging.info(f" - Toolchain: {settings['toolchain']}")
+    logging.info(f" - Toolchain: CLANGPDB")
     logging.info(f" - Skip Build: {settings['skip_build']}")
     logging.info(f" - QEMU Command Line: {settings['qemu_cmd']}")
 
@@ -512,12 +501,14 @@ def _build_rust_dxe_core(settings: Dict[str, Path]) -> None:
     """
     logging.info("[1]. Building Rust DXE Core...\n")
 
-    env = os.environ.copy()
-    if "-Zunstable-options" in settings["build_cmd"]:
-        env["RUSTC_BOOTSTRAP"] = "1"
-
+    # Run from the patina-dxe-core-qemu directory so that rustup picks up its
+    # rust-toolchain.toml.
     try:
-        subprocess.run(settings["build_cmd"], check=True, env=env)
+        subprocess.run(
+            settings["build_cmd"],
+            check=True,
+            cwd=settings["patina_dxe_core_repo"],
+        )
     except subprocess.CalledProcessError as e:
         logging.error(f"Build failed with error #{e.returncode}.")
         sys.exit(e.returncode)

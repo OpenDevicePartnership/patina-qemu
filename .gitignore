@@ -11,3 +11,5 @@ __pycache__/
 /target
 BuildConfig.conf
 tags/
+*secure_mm.log
+*secure.log

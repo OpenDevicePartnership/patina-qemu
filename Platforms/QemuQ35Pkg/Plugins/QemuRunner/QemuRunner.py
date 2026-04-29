@@ -11,6 +11,7 @@ import os
 import re
 import io
 import shutil
+import threading
 from edk2toolext.environment.plugintypes import uefi_helper_plugin
 from edk2toollib import utility_functions
 
@@ -73,12 +74,28 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         return env.GetValue(key) or default
 
     @staticmethod
+    def RunThread(env):
+        """Runs TPM in a separate thread"""
+        tpm_path = env.GetValue("TPM_DEV")
+        if tpm_path is None:
+            logging.critical("TPM Path Invalid")
+            return
+
+        tpm_cmd = "swtpm"
+        tpm_args = f"socket --tpmstate dir={'/'.join(tpm_path.rsplit('/', 1)[:-1])} --ctrl type=unixio,path={tpm_path} --tpm2 --log level=20"
+
+        # Start the TPM emulator in a separate thread
+        ret = utility_functions.RunCmd(tpm_cmd, tpm_args)
+        if ret != 0:
+            logging.critical("Failed to start TPM emulator.")
+            return
+
+    @staticmethod
     def Runner(env):
         """Runs QEMU"""
 
         alt_boot_enable = QemuRunner.GetBool(env, "ALT_BOOT_ENABLE", False)
         boot_to_front_page = QemuRunner.GetBool(env, "BOOT_TO_FRONT_PAGE", False)
-        core_count = QemuRunner.GetBuildStr(env, "QEMU_CORE_NUM")
         cpu_model = QemuRunner.GetStr(env, "CPU_MODEL")
         enable_network = QemuRunner.GetBool(env, "ENABLE_NETWORK", False)
         executable = QemuRunner.GetStr(env, "QEMU_PATH")
@@ -127,7 +144,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         qemu_version = QemuRunner.QueryQemuVersion(qemu_executable_path)
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_executable_path, QemuArchitecture.Q35)
-            .with_cpu(cpu_model, core_count)
+            .with_cpu(cpu_model, 4)
             .with_machine(qemu_accelerator)
             .with_memory(8192 if path_to_os else 2048)
             .with_firmware(code_fd, var_store)
@@ -160,6 +177,13 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
 
         (executable, args) = qemu_cmd_builder.build()
 
+        thread = None
+        if tpm_dev:
+            # also spawn the TPM emulator on a different thread
+            logging.critical("Starting TPM emulator in a different thread.")
+            thread = threading.Thread(target=QemuRunner.RunThread, args=(env,))
+            thread.start()
+
         # Run QEMU
         ret = utility_functions.RunCmd(executable, str.join(" ", args))
 
@@ -179,4 +203,8 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         elif os.name != "nt":
             # Linux version of QEMU will mess with the print if its run failed, let's just restore it anyway
             utility_functions.RunCmd("stty", "sane", capture=False)
+
+        if thread is not None:
+            logging.critical("Terminate TPM emulator by using Crtl + C now!")
+            thread.join()
         return ret
