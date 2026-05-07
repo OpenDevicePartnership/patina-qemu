@@ -582,6 +582,7 @@
   gEfiSecurityPkgTokenSpaceGuid.PcdUserPhysicalPresence|FALSE
 
 !if $(TPM2_ENABLE) == TRUE
+  # For TPM over FFA, this should be gTpm2ServiceFfaGuid
   gEfiSecurityPkgTokenSpaceGuid.PcdTpmInstanceGuid|{0xa4, 0x62, 0xb8, 0x17, 0x06, 0x18, 0xaf, 0x4f, 0x86, 0xb3, 0x08, 0x9a, 0x58, 0x35, 0x38, 0x61}
 !endif
 
