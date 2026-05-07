@@ -111,7 +111,8 @@ AcpiPlatformChecksum (
  */
 EFI_STATUS
 AddMadtTable (
-  IN EFI_ACPI_TABLE_PROTOCOL  *AcpiTable
+  IN EFI_ACPI_TABLE_PROTOCOL  *AcpiTable,
+  IN UINT32                   NumCores
   )
 {
   EFI_STATUS            Status;
@@ -119,7 +120,6 @@ AddMadtTable (
   UINT32                TableSize;
   EFI_PHYSICAL_ADDRESS  PageAddress;
   UINT8                 *New;
-  UINT32                NumCores;
   UINT32                CoreIndex;
 
   // Initialize MADT ACPI Header
@@ -159,9 +159,6 @@ AddMadtTable (
   // Initialize GIC Redistributor Structure
   EFI_ACPI_6_0_GICR_STRUCTURE  Gicr = SBSAQEMU_MADT_GICR_INIT ();
 
-  // Get CoreCount which was determined earlier after parsing device tree
-  NumCores = PcdGet32 (PcdCoreCount);
-
   // Calculate the new table size based on the number of cores
   TableSize = sizeof (EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE_HEADER) +
               (sizeof (EFI_ACPI_6_0_GIC_STRUCTURE) * NumCores) +
@@ -188,7 +185,7 @@ AddMadtTable (
   New                                         += sizeof (EFI_ACPI_6_0_MULTIPLE_APIC_DESCRIPTION_TABLE_HEADER);
 
   // Add new GICC structures for the Cores
-  for (CoreIndex = 0; CoreIndex < PcdGet32 (PcdCoreCount); CoreIndex++) {
+  for (CoreIndex = 0; CoreIndex < NumCores; CoreIndex++) {
     EFI_ACPI_6_0_GIC_STRUCTURE  *GiccPtr;
 
     CopyMem (New, &Gicc, sizeof (EFI_ACPI_6_0_GIC_STRUCTURE));
@@ -276,7 +273,8 @@ SetPkgLength (
  */
 EFI_STATUS
 AddSsdtTable (
-  IN EFI_ACPI_TABLE_PROTOCOL  *AcpiTable
+  IN EFI_ACPI_TABLE_PROTOCOL  *AcpiTable,
+  IN UINT32                   NumCores
   )
 {
   EFI_STATUS            Status;
@@ -288,7 +286,6 @@ AddSsdtTable (
   UINT32                CpuId;
   UINT32                Offset;
   UINT8                 ScopeOpName[] =  SBSAQEMU_ACPI_SCOPE_NAME;
-  UINT32                NumCores      = PcdGet32 (PcdCoreCount);
 
   EFI_ACPI_DESCRIPTION_HEADER  Header =
     SBSAQEMU_ACPI_HEADER (
@@ -383,7 +380,8 @@ AddSsdtTable (
  */
 EFI_STATUS
 AddPpttTable (
-  IN EFI_ACPI_TABLE_PROTOCOL  *AcpiTable
+  IN EFI_ACPI_TABLE_PROTOCOL  *AcpiTable,
+  IN UINT32                   NumCores
   )
 {
   EFI_STATUS            Status;
@@ -392,7 +390,6 @@ AddPpttTable (
   EFI_PHYSICAL_ADDRESS  PageAddress;
   UINT8                 *New;
   UINT32                CpuId;
-  UINT32                NumCores = PcdGet32 (PcdCoreCount);
 
   EFI_ACPI_6_3_PPTT_STRUCTURE_CACHE  L1DCache = SBSAQEMU_ACPI_PPTT_L1_D_CACHE_STRUCT;
   EFI_ACPI_6_3_PPTT_STRUCTURE_CACHE  L1ICache = SBSAQEMU_ACPI_PPTT_L1_I_CACHE_STRUCT;
@@ -509,17 +506,17 @@ InitializeSbsaQemuAcpiDxe (
     return Status;
   }
 
-  Status = AddMadtTable (AcpiTable);
+  Status = AddMadtTable (AcpiTable, NumCores);
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "Failed to add MADT table\n"));
   }
 
-  Status = AddSsdtTable (AcpiTable);
+  Status = AddSsdtTable (AcpiTable, NumCores);
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "Failed to add SSDT table\n"));
   }
 
-  Status = AddPpttTable (AcpiTable);
+  Status = AddPpttTable (AcpiTable, NumCores);
   if (EFI_ERROR (Status)) {
     DEBUG ((DEBUG_ERROR, "Failed to add PPTT table\n"));
   }
