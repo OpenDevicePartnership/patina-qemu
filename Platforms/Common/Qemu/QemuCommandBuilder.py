@@ -551,8 +551,8 @@ class QemuCommandBuilder:
         if port:
             self._args.extend(["-serial", f"tcp:{ip}:{port},server,nowait"])
         else:
-            self._args.extend(["-serial", "stdio"])
             if log_files:
+                self._args.extend(["-serial", "stdio"])
                 for log_file in log_files:
                     self._args.extend(["-serial", f"file:{log_file}"])
         return self

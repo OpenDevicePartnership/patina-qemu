@@ -123,7 +123,10 @@ an error occurs. Locally you don't need to set this.
 for debugging via the hardware debugger.
 
 **SERIAL_PORT=\<Serial Port\>** Enables the specified serial port to be used. Primarily this is used to connect to the
-software debugger when enabled. On Q35 this defaults to 50001. SBSA only has a single serial port for normal world and
+software debugger when enabled.
+- On Q35, this defaults to `None` to avoid unintended port conflicts in the pipeline. The
+  [build_and_run_rust_binary.py](#the-build_and_run_rust_binarypy-script) script defaults to port 50001.
+- SBSA only has a single serial port for normal world and
 so by default does not set this so it can send serial output to stdio. Setting this for SBSA will prevent logs from
 coming over stdio and instead will go to this TCP port.
 
