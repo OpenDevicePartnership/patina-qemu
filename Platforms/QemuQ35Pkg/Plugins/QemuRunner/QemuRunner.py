@@ -110,7 +110,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         qemu_accelerator = QemuRunner.GetStr(env, "QEMU_ACCEL")
         qemu_executable_path = QemuRunner.GetStr(env, "QEMU_PATH")
         qemu_ext_dep_dir = QemuRunner.GetStr(env, "QEMU_DIR")
-        serial_port = QemuRunner.GetStr(env, "SERIAL_PORT", "50001")
+        serial_port = QemuRunner.GetStr(env, "SERIAL_PORT")
         tpm_dev = QemuRunner.GetStr(env, "TPM_DEV")
         virtual_drive = QemuRunner.GetStr(env, "VIRTUAL_DRIVE_PATH")
 
