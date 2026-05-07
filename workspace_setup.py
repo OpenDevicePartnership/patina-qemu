@@ -1043,6 +1043,10 @@ class _Wizard:
         """
         Q35_QEMU_EXEC = "qemu-system-x86_64"
         SBSA_QEMU_EXEC = "qemu-system-aarch64"
+        # executable names depend on OS
+        if platform.system() == "Windows":
+            Q35_QEMU_EXEC += ".exe"
+            SBSA_QEMU_EXEC += ".exe"    
 
         _LOGGER.info("\nSetting up patch configuration...")
 
@@ -1083,17 +1087,17 @@ class _Wizard:
             if qemu_ext_dep_path.exists():
                 if self._settings.package.upper() == "Q35":
                     if (qemu_ext_dep_path / Q35_QEMU_EXEC).exists():
-                        qemu_paths.append(qemu_ext_dep_path / Q35_QEMU_EXEC)
+                        qemu_paths.append(str(qemu_ext_dep_path / Q35_QEMU_EXEC))
                 elif self._settings.package.upper() == "SBSA":
                     if (qemu_ext_dep_path / SBSA_QEMU_EXEC).exists():
-                        qemu_paths.append(qemu_ext_dep_path / SBSA_QEMU_EXEC)
+                        qemu_paths.append(str(qemu_ext_dep_path / SBSA_QEMU_EXEC))
 
         # Check for qemu on the system path
         qemu_sys_path = None
         if self._settings.package.upper() == "Q35":
-            qemu_sys_path = shutil.which("qemu-system-x86_64")
+            qemu_sys_path = shutil.which(Q35_QEMU_EXEC)
         elif self._settings.package.upper() == "SBSA":
-            qemu_sys_path = shutil.which("qemu-system-aarch64")
+            qemu_sys_path = shutil.which(SBSA_QEMU_EXEC)
 
         if qemu_sys_path:
             qemu_paths.append(qemu_sys_path)
@@ -1109,11 +1113,13 @@ class _Wizard:
             )
 
             while True:
-                qemu_path = input().strip()
-                if os.path.isdir(qemu_path):
+                exe = Q35_QEMU_EXEC if self._settings.package.upper() == "Q35" else SBSA_QEMU_EXEC
+                qemu_path = Path(input().strip()) / exe
+                if qemu_path.exists() and qemu_path.is_file():
+                    qemu_path = str(qemu_path)
                     break
                 _LOGGER.error(
-                    "The provided path does not exist or is not a directory. Please enter a valid directory path:"
+                    "The provided path does not exist, is not a directory, or does not contain the QEMU executable. Please enter a valid directory path:"
                 )
         elif len(qemu_paths) > 1:
             _LOGGER.info("\nMultiple QEMU executables were found. Please select one:")
