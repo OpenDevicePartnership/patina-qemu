@@ -33,6 +33,12 @@
                       EFI_RESOURCE_ATTRIBUTE_TESTED \
                       )
 
+#define MMIO_CAP  (EFI_RESOURCE_ATTRIBUTE_PRESENT | \
+                   EFI_RESOURCE_ATTRIBUTE_INITIALIZED | \
+                   EFI_RESOURCE_ATTRIBUTE_UNCACHEABLE | \
+                   EFI_RESOURCE_ATTRIBUTE_TESTED \
+                   )
+
 // MU_CHANGE START
 
 /**
@@ -376,7 +382,7 @@ ArmPlatformGetVirtualMemoryMap (
   // CPUPERIPHS
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
-    RESOURCE_CAP,
+    MMIO_CAP,
     0x40000000,
     0x00040000,
     EFI_MEMORY_UC,
@@ -386,7 +392,7 @@ ArmPlatformGetVirtualMemoryMap (
   // GIC_D
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
-    RESOURCE_CAP,
+    MMIO_CAP,
     0x40060000,
     0x00010000,
     EFI_MEMORY_UC,
@@ -396,7 +402,7 @@ ArmPlatformGetVirtualMemoryMap (
   // GIC_R
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
-    RESOURCE_CAP,
+    MMIO_CAP,
     0x40080000,
     0x04000000,
     EFI_MEMORY_UC,
@@ -406,7 +412,7 @@ ArmPlatformGetVirtualMemoryMap (
   // UART
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
-    RESOURCE_CAP,
+    MMIO_CAP,
     0x60000000,
     0x1000,
     EFI_MEMORY_UC,
@@ -416,7 +422,7 @@ ArmPlatformGetVirtualMemoryMap (
   // SMMU
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
-    RESOURCE_CAP,
+    MMIO_CAP,
     0x60050000,
     0x00020000,
     EFI_MEMORY_UC,
@@ -426,7 +432,7 @@ ArmPlatformGetVirtualMemoryMap (
   // AHCI
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
-    RESOURCE_CAP,
+    MMIO_CAP,
     0x60100000,
     0x00010000,
     EFI_MEMORY_UC,
@@ -436,7 +442,7 @@ ArmPlatformGetVirtualMemoryMap (
   // XHCI
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
-    RESOURCE_CAP,
+    MMIO_CAP,
     0x60110000,
     0x00010000,
     EFI_MEMORY_UC,
@@ -446,7 +452,7 @@ ArmPlatformGetVirtualMemoryMap (
   // PCIE_PIO
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
-    RESOURCE_CAP,
+    MMIO_CAP,
     0x7fff0000,
     0x00010000,
     EFI_MEMORY_UC,
@@ -456,7 +462,7 @@ ArmPlatformGetVirtualMemoryMap (
   // PCIE_MMIO
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
-    RESOURCE_CAP,
+    MMIO_CAP,
     0x80000000,
     0x70000000,
     EFI_MEMORY_UC,
@@ -466,7 +472,7 @@ ArmPlatformGetVirtualMemoryMap (
   // PCIE_ECAM
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
-    RESOURCE_CAP,
+    MMIO_CAP,
     0xf0000000,
     0x10000000,
     EFI_MEMORY_UC,
@@ -476,7 +482,7 @@ ArmPlatformGetVirtualMemoryMap (
   // Watchdog Refresh
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
-    RESOURCE_CAP,
+    MMIO_CAP,
     0x50010000,
     0x00001000,
     EFI_MEMORY_UC,
@@ -486,7 +492,7 @@ ArmPlatformGetVirtualMemoryMap (
   // Watchdog Control
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
-    RESOURCE_CAP,
+    MMIO_CAP,
     0x50011000,
     0x00001000,
     EFI_MEMORY_UC,
