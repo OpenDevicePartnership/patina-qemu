@@ -188,6 +188,8 @@ class QemuCommandBuilder:
             self = self.with_usb_controller()
 
         self._usb_mouse_added = True
+        # `usb-tablet` uses absolute coordinates and allows QEMU
+        # to report the mouse position without grabbing the device.
         self._args.extend(["-device", "usb-tablet,id=input0,bus=usb.0,port=1"])
         return self
 
