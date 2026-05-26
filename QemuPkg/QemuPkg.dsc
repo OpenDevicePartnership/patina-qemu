@@ -135,6 +135,7 @@
   QemuPkg/Library/QemuPreUefiEventLogLibNull/QemuPreUefiEventLogLibNull.inf
   QemuPkg/Library/XenPlatformLib/XenPlatformLib.inf
   QemuPkg/PciHotPlugInitDxe/PciHotPlugInit.inf
+  QemuPkg/QemuVideoDxe/QemuVideoDxe.inf
   QemuPkg/VirtioPciDeviceDxe/VirtioPciDeviceDxe.inf
   QemuPkg/Virtio10Dxe/Virtio10.inf
   QemuPkg/VirtioBlkDxe/VirtioBlk.inf
@@ -145,5 +146,5 @@
   QemuPkg/LinuxInitrdDynamicShellCommand/LinuxInitrdDynamicShellCommand.inf
   QemuPkg/Tcg/Tcg2Config/Tcg12ConfigPei.inf
   QemuPkg/Tcg/Tcg2Config/Tcg2ConfigPei.inf
-  
+
   QemuPkg/AcpiSdtDxe/AcpiSdtDxe.inf
