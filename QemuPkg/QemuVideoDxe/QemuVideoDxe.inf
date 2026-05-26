@@ -11,7 +11,7 @@
 [Defines]
   INF_VERSION                    = 0x00010005
   BASE_NAME                      = QemuVideoDxe
-  FILE_GUID                      = e3752948-b9a1-4770-90c4-df41c38986be
+  FILE_GUID                      = 6DBEFC28-97EF-4DB5-950F-5D57C8C24E86
   MODULE_TYPE                    = UEFI_DRIVER
   VERSION_STRING                 = 1.0
 
@@ -20,7 +20,7 @@
 #
 # The following information is for reference only and not required by the build tools.
 #
-#  VALID_ARCHITECTURES           = IA32 X64 EBC
+#  VALID_ARCHITECTURES           = IA32 X64 AARCH64 EBC
 #
 #  DRIVER_BINDING                =  gQemuVideoDriverBinding
 #  COMPONENT_NAME                =  gQemuVideoComponentName
@@ -38,7 +38,6 @@
   MdeModulePkg/MdeModulePkg.dec
   MsGraphicsPkg/MsGraphicsPkg.dec # MU_CHANGE use MsGopOverrideProtocolGuid
   QemuPkg/QemuPkg.dec
-  QemuQ35Pkg/QemuQ35Pkg.dec
 
 [LibraryClasses]
   BaseMemoryLib

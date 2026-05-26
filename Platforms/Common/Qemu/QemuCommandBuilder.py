@@ -188,7 +188,7 @@ class QemuCommandBuilder:
             self = self.with_usb_controller()
 
         self._usb_mouse_added = True
-        self._args.extend(["-device", "usb-mouse,id=input0,bus=usb.0,port=1"])
+        self._args.extend(["-device", "usb-tablet,id=input0,bus=usb.0,port=1"])
         return self
 
     def with_usb_keyboard(self):
@@ -502,7 +502,7 @@ class QemuCommandBuilder:
 
         Args:
             enabled (bool): Enable or disable display.
-                - True: Configures display (VGA cirrus for Q35, default for SBSA)
+                - True: Configures display (Bochs for Q35 and SBSA)
                 - False: Disables display (headless mode, -display none)
         """
         if self._display_added:
@@ -514,7 +514,7 @@ class QemuCommandBuilder:
             self._logger.debug("Display disabled (headless mode)")
             self._args.extend(["-display", "none"])
         elif self._architecture == QemuArchitecture.Q35:
-            self._args.extend(["-vga", "cirrus"])
+            self._args.extend(["-device", "bochs-display"])
 
         return self
 

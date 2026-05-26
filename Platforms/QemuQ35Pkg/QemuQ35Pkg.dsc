@@ -1006,10 +1006,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   MdeModulePkg/Universal/MemoryTest/NullMemoryTestDxe/NullMemoryTestDxe.inf
   AdvLoggerPkg/Application/AdvancedLogDumper/AdvancedLogDumper.inf
 
-  QemuQ35Pkg/QemuVideoDxe/QemuVideoDxe.inf
-
-
-  QemuQ35Pkg/QemuRamfbDxe/QemuRamfbDxe.inf
+  QemuPkg/QemuVideoDxe/QemuVideoDxe.inf
 
   #
   # ISA Support
