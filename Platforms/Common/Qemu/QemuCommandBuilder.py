@@ -516,7 +516,7 @@ class QemuCommandBuilder:
             self._logger.debug("Display disabled (headless mode)")
             self._args.extend(["-display", "none"])
         elif self._architecture == QemuArchitecture.Q35:
-            self._args.extend(["-device", "bochs-display"])
+            self._args.extend(["-device", "bochs-display", "-vga", "none"])
 
         return self
 
