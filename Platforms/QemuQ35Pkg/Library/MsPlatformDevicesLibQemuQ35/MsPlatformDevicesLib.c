@@ -1189,7 +1189,7 @@ IsVgaHandle (
       DEBUG ((DEBUG_INFO, "  PCI CLASS CODE    = 0x%x\n", Pci.Hdr.ClassCode[2]));
       DEBUG ((DEBUG_INFO, "  PCI SUBCLASS CODE = 0x%x\n", Pci.Hdr.ClassCode[1]));
 
-      if (IS_PCI_VGA (&Pci) || IS_PCI_OLD_VGA (&Pci)) {
+      if (IS_PCI_DISPLAY (&Pci) || IS_PCI_OLD_VGA (&Pci)) {
         DEBUG ((DEBUG_INFO, "  \nPCI VGA Device Found\n"));
         return TRUE;
       }
