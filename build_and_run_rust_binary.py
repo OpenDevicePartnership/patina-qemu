@@ -407,7 +407,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             .with_display(not args.headless)
             .with_network(enabled=False)
             .with_gdb_server(args.gdb_port)
-            .with_serial_port(args.serial_port)
+            .with_serial_port(args.serial_port, log_files=["secure.log", "secure_mm.log"])
             .with_monitor_port(args.monitor_port)
         )
 
