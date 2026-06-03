@@ -1019,7 +1019,7 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
   # ACPI Support
   #
   QemuPkg/AcpiSdtDxe/AcpiSdtDxe.inf
-  QemuQ35Pkg/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  QemuPkg/AcpiPlatformDxe/AcpiPlatformDxe.inf
   MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
 
   #
