@@ -60,13 +60,13 @@ jobs:
             target: 'RELEASE'
             platform: 'Q35'
             os: 'windows-latest'
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'DEBUG'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os: 'windows-latest'
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'RELEASE'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os: 'windows-latest'
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'DEBUG'
@@ -78,14 +78,14 @@ jobs:
             platform: 'Q35'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'DEBUG'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'RELEASE'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
 
@@ -128,7 +128,7 @@ jobs:
           stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE'
 
       - name: Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
-        timeout-minutes: 15  
+        timeout-minutes: 15
         uses: ./.github/actions/build-platform
         with:
           command: 'flash'
@@ -154,8 +154,8 @@ jobs:
             Build/**/FV/QEMUQ35_VARS.fd
           if-no-files-found: error
 
-      - name: Publish SBSA release binaries
-        if: ${{ github.event_name == 'release' && matrix.platform == 'SBSA' }}
+      - name: Publish ArmVirt release binaries
+        if: ${{ github.event_name == 'release' && matrix.platform == 'ArmVirt' }}
         uses: actions/upload-artifact@v7
         with:
           name: release-bin-${{ matrix.platform }}-${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
@@ -181,12 +181,12 @@ jobs:
             platform: 'Q35'
             os: 'windows-latest'
             readiness: '${DXE_READINESS_TOOL_PATH}/capture/x86_64/qemu_dxe_readiness_capture.efi'
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'DEBUG'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os: 'ubuntu-latest'
             container: ${{ needs.vars.outputs.container-image }}
-            readiness: '${DXE_READINESS_TOOL_PATH}/capture/aarch64/qemu_dxe_readiness_capture.efi'
+            readiness: '${DXE_READINESS_TOOL_PATH}/capture/aarch64/arm_virt_dxe_readiness_capture.efi'
 
     steps:
       # Checkout the repository to the runner or container
@@ -241,8 +241,8 @@ jobs:
       - name: Extract JSON block from logfile
         shell: bash
         run: |
-          if [ "${{ matrix.platform }}" = "SBSA" ]; then
-            logfile="Build/BUILDLOG_QemuSbsaPkg_Run.txt"
+          if [ "${{ matrix.platform }}" = "ArmVirt" ]; then
+            logfile="Build/BUILDLOG_QemuArmVirtPkg_Run.txt"
           elif [ "${{ matrix.platform }}" = "Q35" ]; then
             logfile="Build/BUILDLOG_QemuQ35Pkg_Run.txt"
           fi
@@ -267,7 +267,7 @@ jobs:
           validator_log="validator_output.txt"
           exit_code=0
 
-          if [ "${{ matrix.platform }}" = "SBSA" ]; then
+          if [ "${{ matrix.platform }}" = "ArmVirt" ]; then
             chmod +x "${DXE_READINESS_TOOL_PATH}/validator/linux/dxe_readiness_validator_x86_64"
             "${DXE_READINESS_TOOL_PATH}/validator/linux/dxe_readiness_validator_x86_64" -f "$capture_file" 2>&1 | tee "$validator_log" || exit_code=$?
           elif [ "${{ matrix.platform }}" = "Q35" ]; then

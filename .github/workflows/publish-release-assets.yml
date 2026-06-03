@@ -41,10 +41,10 @@ jobs:
           artifacts_root = Path(r"${{ runner.temp }}/release-artifacts")
           staging_root = Path(r"${{ runner.temp }}/release-staging")
           q35_stage = staging_root / "Q35"
-          sbsa_stage = staging_root / "SBSA"
+          armvirt_stage = staging_root / "ArmVirt"
 
           q35_stage.mkdir(parents=True, exist_ok=True)
-          sbsa_stage.mkdir(parents=True, exist_ok=True)
+          armvirt_stage.mkdir(parents=True, exist_ok=True)
 
           for artifact_dir in artifacts_root.glob("release-bin-*"):
             name = artifact_dir.name
@@ -52,9 +52,9 @@ jobs:
             if name.startswith("release-bin-Q35-"):
               variant = name.removeprefix("release-bin-Q35-")
               destination = q35_stage / variant
-            elif name.startswith("release-bin-SBSA-"):
-              variant = name.removeprefix("release-bin-SBSA-")
-              destination = sbsa_stage / variant
+            elif name.startswith("release-bin-ArmVirt-"):
+              variant = name.removeprefix("release-bin-ArmVirt-")
+              destination = armvirt_stage / variant
             else:
               continue
 
@@ -82,7 +82,7 @@ jobs:
                   archive.write(item, arcname=item.relative_to(staging_root))
 
           create_zip(staging_root / "Q35", assets_root / f"patina-qemu-q35-{tag_name}.zip")
-          create_zip(staging_root / "SBSA", assets_root / f"patina-qemu-sbsa-{tag_name}.zip")
+          create_zip(staging_root / "ArmVirt", assets_root / f"patina-qemu-armvirt-{tag_name}.zip")
 
       - name: Upload zip files to the release
         env:
@@ -92,4 +92,4 @@ jobs:
         run: |
           set -euo pipefail
           gh release upload "${{ inputs.release-tag }}" "${{ runner.temp }}/release-assets/patina-qemu-q35-${{ inputs.release-tag }}.zip" --clobber --repo "${GH_REPO}"
-          gh release upload "${{ inputs.release-tag }}" "${{ runner.temp }}/release-assets/patina-qemu-sbsa-${{ inputs.release-tag }}.zip" --clobber --repo "${GH_REPO}"
+          gh release upload "${{ inputs.release-tag }}" "${{ runner.temp }}/release-assets/patina-qemu-armvirt-${{ inputs.release-tag }}.zip" --clobber --repo "${GH_REPO}"

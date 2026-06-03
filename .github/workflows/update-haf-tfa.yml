@@ -99,8 +99,8 @@ jobs:
     
     env:
       ARTIFACT_BASE_URL: https://github.com/${{ github.repository }}/releases/download
-      HAF_TFA_PATH: Platforms/QemuSbsaPkg/Binaries/haf_tfa_binaries_ext_dep.yaml
-      PLATFORM_BUILD_PATH: Platforms/QemuSbsaPkg/PlatformBuild.py
+      HAF_TFA_PATH: Platforms/QemuArmVirtPkg/Binaries/haf_tfa_binaries_ext_dep.yaml
+      PLATFORM_BUILD_PATH: Platforms/QemuArmVirtPkg/PlatformBuild.py
       TAG_NAME: ${{ needs.check.outputs.tag_name }}
       PR_BRANCH_NAME: sync-haf-tfa/${{ needs.check.outputs.tag_name }}
       

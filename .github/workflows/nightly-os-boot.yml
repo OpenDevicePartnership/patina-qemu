@@ -77,19 +77,19 @@ jobs:
             os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
             os-boot-device: SSD
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # HDD SBSA DEBUG (Boot to Ubuntu)
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          # SSD ArmVirt DEBUG (Boot to Ubuntu)
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'DEBUG'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
-            os-boot-device: HDD
+            os-boot-device: SSD
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # HDD SBSA RELEASE (Boot to Ubuntu)
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          # SSD ArmVirt RELEASE (Boot to Ubuntu)
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'RELEASE'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
-            os-boot-device: HDD
+            os-boot-device: SSD
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
           # SSD Q35 DEBUG X64 (Boot to Windows)
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
@@ -105,19 +105,19 @@ jobs:
             os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
             os-boot-device: SSD
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
-          # HDD SBSA DEBUG (Boot to Windows)
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          # SSD ArmVirt DEBUG (Boot to Windows)
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'DEBUG'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os-artifact: ${{ needs.vars.outputs.windows-aarch64-artifact }}
-            os-boot-device: HDD
+            os-boot-device: SSD
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
-          # HDD SBSA RELEASE (Boot to Windows)
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          # SSD ArmVirt RELEASE (Boot to Windows)
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'RELEASE'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os-artifact: ${{ needs.vars.outputs.windows-aarch64-artifact }}
-            os-boot-device: HDD
+            os-boot-device: SSD
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
           # USB Q35 DEBUG X64 (Boot to Ubuntu)
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
@@ -133,17 +133,17 @@ jobs:
             os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
             os-boot-device: USB
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # USB SBSA DEBUG (Boot to Ubuntu)
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          # USB ArmVirt DEBUG (Boot to Ubuntu)
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'DEBUG'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
             os-boot-device: USB
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
-          # USB SBSA RELEASE (Boot to Ubuntu)
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          # USB ArmVirt RELEASE (Boot to Ubuntu)
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'RELEASE'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os-artifact: ${{ needs.vars.outputs.ubuntu-aarch64-artifact }}
             os-boot-device: USB
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
@@ -161,17 +161,17 @@ jobs:
             os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
             os-boot-device: USB
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
-          # USB SBSA DEBUG (Boot to Windows)
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          # USB ArmVirt DEBUG (Boot to Windows)
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'DEBUG'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os-artifact: ${{ needs.vars.outputs.windows-aarch64-artifact }}
             os-boot-device: USB
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
-          # USB SBSA RELEASE (Boot to Windows)
-          - config: 'Platforms/QemuSbsaPkg/PlatformBuild.py'
+          # USB ArmVirt RELEASE (Boot to Windows)
+          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'RELEASE'
-            platform: 'SBSA'
+            platform: 'ArmVirt'
             os-artifact: ${{ needs.vars.outputs.windows-aarch64-artifact }}
             os-boot-device: USB
             extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
