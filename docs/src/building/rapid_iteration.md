@@ -32,5 +32,5 @@ The script will:
 python build_and_run_rust_binary.py -p Q35
 ```
 
-Use `python build_and_run_rust_binary.py -h` to see all related options, including the SBSA platform target and
+Use `python build_and_run_rust_binary.py -h` to see all related options, including the ARM Virt platform target and
 debugger configuration flags.

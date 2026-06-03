@@ -12,7 +12,7 @@ Patina.
 **Platforms**:
 
 - [QEMU Q35](./platforms/q35.md) - an x86_64 platform based on the Q35 chipset.
-- [QEMU SBSA](./platforms/sbsa.md) - an AArch64 platform based on the Arm Server Base System Architecture.
+- [QEMU ARM Virt](./platforms/armvirt.md) - an AArch64 platform based on the Arm Server Base System Architecture.
 
 ## What is in this book
 

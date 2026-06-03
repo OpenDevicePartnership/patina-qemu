@@ -56,7 +56,7 @@ the [`patina-dxe-core-qemu`](https://github.com/OpenDevicePartnership/patina-dxe
 binaries have debug disabled, the following steps enable debug and override the default.
 
 ```admonish note
-The following steps are for the Q35 build, but the same can be done for the SBSA build. They use the build
+The following steps are for the Q35 build, but the same can be done for the ARM Virt build. They use the build
 command-line parameter `BLD_*_DXE_CORE_BINARY_OVERRIDE` to override the current DXE Core with the new file. For other
 options such as patching a UEFI FD binary, see the [Rapid Patina Iteration](../building/rapid_iteration.md) page.
 ```

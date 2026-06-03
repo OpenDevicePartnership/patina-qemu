@@ -5,7 +5,7 @@
 # Platforms
 
 - [QEMU Q35](platforms/q35.md)
-- [QEMU SBSA](platforms/sbsa.md)
+- [QEMU ARM Virt](platforms/armvirt.md)
 
 # Building and Running
 

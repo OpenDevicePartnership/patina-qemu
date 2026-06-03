@@ -21,7 +21,7 @@ lead to Rust source code being maintained in the C codebase which is not ideal d
 
 The [Patina DXE Core QEMU](https://github.com/OpenDevicePartnership/patina-dxe-core-qemu) repository provides a sample
 .efi driver that is ingested by this repository using integration option 1.  It contains code to build a fully Rust based
-DXE core .efi driver, targeted toward either the SBSA or Q35 platform, and its Continuous Integration GitHub action publishes
+DXE core .efi driver, targeted toward either the Arm Virt or Q35 platform, and its Continuous Integration GitHub action publishes
 the debug and release .efi drivers to a Nuget feed that this repository can then use during its build.
 
 This repository, [Patina QEMU UEFI](https://github.com/), has its own Continuous Integration GitHub action to pull the nuget
@@ -30,7 +30,7 @@ and the firmware device linking process places the Patina DXE Core .efi binary i
 
 To replace the DXE Core .efi file with a new user built binary, both the platform
 [QemuQ35Pkg.fdf](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/QemuQ35Pkg/QemuQ35Pkg.fdf)
-and [QemuSbsaPkg.fdf](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/QemuSbsaPkg/QemuSbsaPkg.fdf)
+and [QemuArmVirtPkg.fdf](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/Platforms/QemuArmVirtPkg/QemuArmVirtPkg.fdf)
 files in this repository have a `[FV.RUST_DXE_CORE]` firmware volume definition section that contains a single driver,
 the Patina DXE Core QEMU .efi binary. There are several `#if` statements in the file to support multiple options, but the
 easiest method to inject a user built binary is to update the `FILE DXE_CORE` section to point directly to the newly built

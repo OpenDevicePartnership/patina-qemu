@@ -13,7 +13,7 @@ All `patina-qemu` platform documentation is maintained in the [`docs/`](./docs) 
 [Introduction](./docs/src/introduction.md). The two supported platforms have their own documentation pages:
 
 - [QEMU Q35](./docs/src/platforms/q35.md)
-- [QEMU SBSA](./docs/src/platforms/sbsa.md)
+- [QEMU ARM Virt](./docs/src/platforms/armvirt.md)
 
 Other common topics:
 

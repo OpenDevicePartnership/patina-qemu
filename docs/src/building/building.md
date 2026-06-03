@@ -1,6 +1,6 @@
 # Building the Firmware
 
-Steps to set up your environment, compile, and run `QemuQ35Pkg` and `QemuSbsaPkg`.
+Steps to set up your environment, compile, and run `QemuQ35Pkg` and `QemuArmVirtPkg`.
 
 ## Developer Environment
 
@@ -20,7 +20,7 @@ functionality. On most Linux distros, mono and nuget support require an extra st
 
 ## CLANGPDB Toolchain
 
-Both `QemuQ35Pkg` and `QemuSbsaPkg` use the CLANGPDB toolchain exclusively. This enables development of both
+Both `QemuQ35Pkg` and `QemuArmVirtPkg` use the CLANGPDB toolchain exclusively. This enables development of both
 architectures on Linux and Windows, native PE/COFF image generation, and PDBs that work with the
 [uefi_debug_tools](https://github.com/microsoft/uefi_debug_tools) WinDbg infrastructure or
 [lldb](https://lldb.llvm.org/).
@@ -30,7 +30,7 @@ LLVM version 21 or greater is recommended for use with EDK II and related projec
 your `PATH` (restarting the terminal if necessary) and follow the steps below to build with Stuart.
 
 ```admonish note title="Hafnium and TF-A"
-By default, Hafnium and TF-A (used in the `QemuSbsaPkg` build) are pulled in as precompiled binaries. Passing
+By default, Hafnium and TF-A (used in the `QemuArmVirtPkg` build) are pulled in as precompiled binaries. Passing
 `HAF_TFA_BUILD=TRUE` on the `stuart_build` command line recompiles these components. This is only supported on Linux
 as those projects do not build natively on Windows. They still use clang to compile.
 ```
@@ -124,8 +124,8 @@ as those projects do not build natively on Windows. They still use clang to comp
 
 - **Q35**: defaults to `None` to avoid unintended port conflicts in the pipeline. The
   [build_and_run_rust_binary.py](rapid_iteration.md) script defaults to port `50001`.
-- **SBSA**: only has a single serial port for normal world. By default, this is unset so it can send serial output to
-  stdio. Setting it for SBSA prevents logs from coming over stdio and instead routes them to the TCP port.
+- **ARM Virt**: only has a single serial port for normal world. By default, this is unset so it can send serial output to
+  stdio. Setting it for ARM Virt prevents logs from coming over stdio and instead routes them to the TCP port.
 
 ### Passing Build Defines
 
