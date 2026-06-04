@@ -34,19 +34,27 @@ BuildSmmuConfigHob (
 {
   SMMU_CONFIG  *SmmuConfig;
 
-  SmmuConfig = (SMMU_CONFIG *)AllocateZeroPool (sizeof (SMMU_CONFIG) + sizeof (IortData));
+  STATIC CONST SMMU_NC_DEVICE_ENTRY  NcDeviceTable[] = {
+    // { UniqueId, IORT NC ObjectName }
+    { 0x1, "SATA_AHCI" },
+  };
+
+  SmmuConfig = (SMMU_CONFIG *)AllocateZeroPool (sizeof (SMMU_CONFIG) + sizeof (IortData) + sizeof (NcDeviceTable));
   if (SmmuConfig == NULL) {
     return EFI_OUT_OF_RESOURCES;
   }
 
-  SmmuConfig->VersionMajor = CURRENT_SMMU_CONFIG_VERSION_MAJOR;
-  SmmuConfig->VersionMinor = CURRENT_SMMU_CONFIG_VERSION_MINOR;
-  SmmuConfig->IortSize     = sizeof (IortData);    // Size of the IORT table in the structure
-  SmmuConfig->IortOffset   = sizeof (SMMU_CONFIG); // Offset of the IORT table in the structure
+  SmmuConfig->VersionMajor       = CURRENT_SMMU_CONFIG_VERSION_MAJOR;
+  SmmuConfig->VersionMinor       = CURRENT_SMMU_CONFIG_VERSION_MINOR;
+  SmmuConfig->IortSize           = sizeof (IortData);    // Size of the IORT table in the structure
+  SmmuConfig->IortOffset         = sizeof (SMMU_CONFIG); // Offset of the IORT table in the structure
+  SmmuConfig->NcDeviceListSize   = sizeof (NcDeviceTable);
+  SmmuConfig->NcDeviceListOffset = sizeof (SMMU_CONFIG) + sizeof (IortData);
 
   CopyMem ((VOID *)((UINT8 *)SmmuConfig + SmmuConfig->IortOffset), &IortData, sizeof (IortData));
+  CopyMem ((VOID *)((UINT8 *)SmmuConfig + SmmuConfig->NcDeviceListOffset), NcDeviceTable, sizeof (NcDeviceTable));
 
-  BuildGuidDataHob (&gSmmuConfigHobGuid, SmmuConfig, sizeof (SMMU_CONFIG) + sizeof (IortData));
+  BuildGuidDataHob (&gSmmuConfigHobGuid, SmmuConfig, sizeof (SMMU_CONFIG) + sizeof (IortData) + sizeof (NcDeviceTable));
 
   FreePool (SmmuConfig);
 

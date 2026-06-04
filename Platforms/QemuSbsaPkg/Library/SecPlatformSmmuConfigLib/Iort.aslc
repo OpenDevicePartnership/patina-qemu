@@ -30,12 +30,21 @@ typedef struct _PLATFORM_ACPI_6_0_IO_REMAPPING_RC_NODE {
   EFI_ACPI_6_0_IO_REMAPPING_ID_TABLE    RcIdMap; // Root Complex ID Mapping
 } PLATFORM_ACPI_6_0_IO_REMAPPING_RC_NODE;
 
+typedef struct _PLATFORM_ACPI_6_0_IO_REMAPPING_NAMED_COMP_NODE {
+  EFI_ACPI_6_0_IO_REMAPPING_NAMED_COMP_NODE    NcNode;   // Named Component Node
+  UINT8                                        ObjectName[10]; // "SATA_AHCI"
+  EFI_ACPI_6_0_IO_REMAPPING_ID_TABLE           NcIdMap;  // Named Component ID Mapping
+} PLATFORM_ACPI_6_0_IO_REMAPPING_NAMED_COMP_NODE;
+
 typedef struct _PLATFORM_IO_REMAPPING_STRUCTURE {
-  EFI_ACPI_6_0_IO_REMAPPING_TABLE              Iort;     // IORT table header
-  PLATFORM_ACPI_6_0_IO_REMAPPING_ITS_NODE      ItsNode;  // ITS Node platform wrapper
-  PLATFORM_ACPI_6_0_IO_REMAPPING_SMMU3_NODE    SmmuNode; // Smmu Node platform wrapper
-  PLATFORM_ACPI_6_0_IO_REMAPPING_RC_NODE       RcNode;   // Root Complex Node platform wrapper
+  EFI_ACPI_6_0_IO_REMAPPING_TABLE                   Iort;     // IORT table header
+  PLATFORM_ACPI_6_0_IO_REMAPPING_ITS_NODE           ItsNode;  // ITS Node platform wrapper
+  PLATFORM_ACPI_6_0_IO_REMAPPING_SMMU3_NODE         SmmuNode; // Smmu Node platform wrapper
+  PLATFORM_ACPI_6_0_IO_REMAPPING_RC_NODE            RcNode;    // Root Complex Node platform wrapper
+  PLATFORM_ACPI_6_0_IO_REMAPPING_NAMED_COMP_NODE    SataNode;  // SATA AHCI Named Component Node platform wrapper
 } PLATFORM_IO_REMAPPING_STRUCTURE;
+
+#define SATA_OBJ_NAME  "SATA_AHCI\0"
 
 // Create SMMU Config Hob struct. Same as IORT we want to publish as it is platform dependent.
 PLATFORM_IO_REMAPPING_STRUCTURE IortData = {
@@ -45,7 +54,7 @@ PLATFORM_IO_REMAPPING_STRUCTURE IortData = {
     SBSAQEMU_ACPI_HEADER(EFI_ACPI_6_0_IO_REMAPPING_TABLE_SIGNATURE,
       PLATFORM_IO_REMAPPING_STRUCTURE,
       EFI_ACPI_IO_REMAPPING_TABLE_REVISION_06), // Rev E for full RC node support
-    3,
+    4,
     sizeof(EFI_ACPI_6_0_IO_REMAPPING_TABLE), // NodeOffset
     0
   },
@@ -129,6 +138,34 @@ PLATFORM_IO_REMAPPING_STRUCTURE IortData = {
       0x0000, // OutputBase
       OFFSET_OF(PLATFORM_IO_REMAPPING_STRUCTURE, SmmuNode), // OutputReference
       0, // Flags
+    }
+  },
+
+  // Initialize SATA Named Component Node
+  .SataNode = {
+    {
+      {
+        EFI_ACPI_IORT_TYPE_NAMED_COMP, // Type
+        sizeof(PLATFORM_ACPI_6_0_IO_REMAPPING_NAMED_COMP_NODE), // Length
+        4, // Revision
+        0, // Identifier
+        1, // NumIdMappings
+        OFFSET_OF(PLATFORM_ACPI_6_0_IO_REMAPPING_NAMED_COMP_NODE, NcIdMap) // IdReference (after ObjectName)
+      },
+      0, // Flags
+      1, // CacheCoherent
+      0, // AllocationHints
+      0, // Reserved
+      EFI_ACPI_IORT_MEM_ACCESS_FLAGS_CPM | EFI_ACPI_IORT_MEM_ACCESS_FLAGS_DACS, // MemoryAccessFlags
+      64 // AddressSizeLimit
+    },
+    SATA_OBJ_NAME,
+    {
+      0x0001, // InputBase  (single mapping: matched ID)
+      0x0000, // NumIds (0 for single mapping)
+      0x0001, // OutputBase (StreamID 0x10)
+      OFFSET_OF(PLATFORM_IO_REMAPPING_STRUCTURE, SmmuNode), // OutputReference
+      EFI_ACPI_IORT_ID_MAPPING_FLAGS_SINGLE // Flags
     }
   }
 };

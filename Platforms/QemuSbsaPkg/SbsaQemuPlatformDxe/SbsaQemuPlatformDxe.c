@@ -43,6 +43,7 @@ InitializeSbsaQemuPlatformDxe (
     ));
 
   Status = RegisterNonDiscoverableMmioDevice (
+             1,
              NonDiscoverableDeviceTypeAhci,
              NonDiscoverableDeviceDmaTypeCoherent,
              NULL,
