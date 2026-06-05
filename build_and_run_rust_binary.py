@@ -40,6 +40,25 @@ def _create_shutdown_drive(dest_dir: Path) -> Path:
     return dest_dir
 
 
+def _normalize_platform(value: str) -> str:
+    """Normalizes a user-supplied --platform value to the canonical internal name.
+
+    - ARM Virt: Accepts case-insensitive variants such as "ArmVirt", "ARM_VIRT", and
+      "ARMVIRT" and returns "ARM_VIRT".
+    - Q35: Accepts as is.
+    """
+    normalized = value.upper().replace("_", "").replace("-", "")
+    aliases = {
+        "Q35": "Q35",
+        "ARMVIRT": "ARM_VIRT",
+    }
+    if normalized not in aliases:
+        raise argparse.ArgumentTypeError(
+            f"invalid platform: {value!r} (choose from 'Q35', 'ArmVirt')"
+        )
+    return aliases[normalized]
+
+
 def _parse_arguments() -> argparse.Namespace:
     """
     Parses command-line arguments for building and running Rust DXE Core.
@@ -49,7 +68,7 @@ def _parse_arguments() -> argparse.Namespace:
         --fw-patch-repo (Path): Path to the firmware patch repository. Default is "../patina-fw-patcher".
         --build-target (str): Build target, either DEBUG or RELEASE. Default is "DEBUG".
         --no-build (bool): Skip building the Rust DXE Core and use the pre-built binary. Default is False.
-        --platform (str): QEMU platform such as Q35. Default is "Q35".
+        --platform (str): QEMU platform such as Q35 or ArmVirt. Default is "Q35".
         --features (str): Feature set to pass to patina-dxe-core-qemu build
 
     Returns:
@@ -119,10 +138,10 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--platform",
         "-p",
-        type=str.upper,
-        choices=["Q35", "SBSA"],
+        type=_normalize_platform,
         default="Q35",
-        help="QEMU platform such as Q35 or SBSA.",
+        help="QEMU platform such as Q35 or ArmVirt. Accepts case-insensitive "
+        "aliases (e.g. 'ARM_VIRT', 'ArmVirt', 'ARMVIRT').",
     )
     parser.add_argument(
         "--os",
@@ -316,14 +335,14 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             "-o",
             str(code_fd),
         ]
-    elif args.platform == "SBSA":
+    elif args.platform == "ARM_VIRT":
         if args.pre_compiled_rom:
             code_fd = args.pre_compiled_rom
         else:
             code_fd = (
                 SCRIPT_DIR
                 / "Build"
-                / "QemuSbsaPkg"
+                / "QemuArmVirtPkg"
                 / f"{args.build_target.upper()}_CLANGPDB"
                 / "FV"
                 / "QEMU_EFI.fd"
@@ -332,7 +351,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         if args.config_file:
             config_file = args.config_file
         else:
-            config_file = args.fw_patch_repo / "Configs" / "QemuSbsa.json"
+            config_file = args.fw_patch_repo / "Configs" / "QemuArmVirt.json"
         if args.custom_efi:
             efi_file = args.custom_efi
         else:
@@ -341,7 +360,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
                 / "target"
                 / "aarch64-unknown-uefi"
                 / ("release" if args.build_target.lower() == "release" else "debug")
-                / "qemu_sbsa_dxe_core.efi"
+                / "qemu_armvirt_dxe_core.efi"
             )
 
         build_cmd = [
@@ -350,9 +369,9 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         ]
 
         if args.build_target.upper() == "RELEASE":
-            build_cmd.append("sbsa-release")
+            build_cmd.append("armvirt-release")
         else:
-            build_cmd.append("sbsa")
+            build_cmd.append("armvirt")
 
         for p in args.crate_patch:
             build_cmd.append("--crate-patch ")
@@ -388,17 +407,17 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         if not Path(qemu_dir).is_dir():
             qemu_dir = str(Path(qemu_exec).parent)
 
-        var_store = str(code_fd.parent / "SECURE_FLASH0.fd")
+        secure_fd = str(code_fd.parent / "SECURE_FLASH0.fd")
         rom_path = str(
             SCRIPT_DIR / "QemuPkg" / "Binaries" / "qemu-win_extdep" / "share"
         )
 
         qemu_cmd_builder = (
-            QemuCommandBuilder(qemu_exec, QemuArchitecture.SBSA)
+            QemuCommandBuilder(qemu_exec, QemuArchitecture.ARM_VIRT)
             .with_cpu(core_count=2)
             .with_machine()
             .with_memory(8192 if args.os else 2048)
-            .with_firmware(code_fd, var_store)
+            .with_firmware(secure_fd, code_fd)
             .with_rom_path(rom_path)
             .with_usb_controller()
             .with_usb_mouse()
@@ -407,7 +426,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             .with_display(not args.headless)
             .with_network(enabled=False)
             .with_gdb_server(args.gdb_port)
-            .with_serial_port(args.serial_port, log_files=["secure.log", "secure_mm.log"])
+            .with_serial_port(args.serial_port, log_files=["secure_mm.log"])
             .with_monitor_port(args.monitor_port)
         )
 

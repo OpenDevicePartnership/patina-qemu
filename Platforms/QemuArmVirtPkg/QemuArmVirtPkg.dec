@@ -1,0 +1,52 @@
+#/** @file
+#
+#  Copyright (c) 2014, Linaro Limited. All rights reserved.
+#  Copyright (c) 2020, ARM Limited. All rights reserved.
+#  Copyright (c) Microsoft Corporation.
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+#**/
+
+[Defines]
+  DEC_SPECIFICATION              = 0x00010005
+  PACKAGE_NAME                   = QemuArmVirtPkg
+  PACKAGE_GUID                   = 1EC2A3BD-C5EF-4388-B1AA-061E621501B0
+  PACKAGE_VERSION                = 0.1
+
+################################################################################
+#
+# Include Section - list of Include Paths that are provided by this package.
+#                   Comments are used for Keywords and Module Types.
+#
+# Supported Module Types:
+#  BASE SEC PEI_CORE PEIM DXE_CORE DXE_DRIVER DXE_RUNTIME_DRIVER DXE_SMM_DRIVER DXE_SAL_DRIVER UEFI_DRIVER UEFI_APPLICATION
+#
+################################################################################
+[Includes]
+  Include
+
+[LibraryClasses]
+  ##  @libraryclass  Flat device tree support library on the CPU ID related operations
+  VirtNorFlashPlatformLib|Include/Library/VirtNorFlashPlatformLib.h
+
+  ## @libraryclass SecPlatformSmmuConfigLib Builds SMMU_CONFIG HOB for SmmuDxe to consume
+  SecPlatformSmmuConfigLib|Include/Library/SecPlatformSmmuConfigLib.h
+
+[Guids]
+  gQemuArmVirtPkgTokenSpaceGuid                             = { 0xaca66fd6, 0xb1a8, 0x40ec, { 0xbc, 0x62, 0xa1, 0xba, 0x8, 0xd7, 0x93, 0xb4 } }
+
+[PcdsFixedAtBuild]
+  ##
+  # This is the physical address of the flash allocated for NV storage, including
+  # fault tolerance working and spare copies.
+  #
+  gQemuArmVirtPkgTokenSpaceGuid.PcdFlashNvStorageBase|0x0|UINT64|0x00000001
+  gQemuArmVirtPkgTokenSpaceGuid.PcdFlashNvStorageSize|0x0|UINT64|0x00000002
+
+  # Device Tree PCDs
+  gQemuArmVirtPkgTokenSpaceGuid.PcdDeviceTreeInitialBaseAddress|0x40000000|UINT64|0x0000000C
+  # Padding in bytes to add to the device tree allocation, so that the DTB can
+  # be modified in place (default: 256 bytes)
+  #
+  gQemuArmVirtPkgTokenSpaceGuid.PcdDeviceTreeAllocationPadding|256|UINT32|0x0000000D

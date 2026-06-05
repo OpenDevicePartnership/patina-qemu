@@ -223,8 +223,8 @@ class _WizardSettings:
 
     _Q35_DXE_CORE_COMPRESSION_GUID = "ee4e5898-3914-4259-9d6e-dc7bd79403cf"
     _Q35_DXE_CORE_FFS_GUID = "fb5947af-7cb5-413e-8c1a-38167fcbe3ea"
-    _SBSA_DXE_CORE_COMPRESSION_GUID = "ee4e5898-3914-4259-9d6e-dc7bd79403cf"
-    _SBSA_DXE_CORE_FFS_GUID = "7bb6c4a8-fecd-4f0d-9f5a-2e03add35b96"
+    _ARM_VIRT_DXE_CORE_COMPRESSION_GUID = "ee4e5898-3914-4259-9d6e-dc7bd79403cf"
+    _ARM_VIRT_DXE_CORE_FFS_GUID = "7bb6c4a8-fecd-4f0d-9f5a-2e03add35b96"
 
     def __init__(self, workspace_dir: Path, package: str):
         self.default_prompt_choices = False
@@ -258,21 +258,22 @@ class _WizardSettings:
                 self._Q35_DXE_CORE_FFS_GUID,
                 "./Reference/Layouts/qemu_q35.inf",  # Use the built-in layout
             )
-        elif self.package.upper() == "SBSA":
-            self.config_path = self.config_dir / "SbsaWizardConfig.json"
-            self.pre_compiled_rom = (
-                self.workspace_dir
-                / "PatinaPatching"
-                / "Reference"
-                / "Binaries"
-                / "SBSA"
-                / "QEMUSBSA_CODE.fd"
+        elif self.package.upper() == "ARMVIRT":
+            # The directory name uses mixed case ("QemuArmVirtPkg"), which str.title()
+            # cannot produce, so set it explicitly here.
+            self.package_name = "QemuArmVirtPkg"
+            self.package_path = (
+                self.workspace_dir / _PLATFORM_PACKAGE_RELATIVE_DIR / self.package_name
             )
+            self.config_path = self.config_dir / "ArmVirtWizardConfig.json"
+            # For now, the user must build one from source. We will fix that in the future by
+            # pulling from release assets.
+            self.pre_compiled_rom = None
             self.patch_config = _PatchConfig(
                 self.config_path,
-                self._SBSA_DXE_CORE_COMPRESSION_GUID,
-                self._SBSA_DXE_CORE_FFS_GUID,
-                "./Reference/Layouts/qemu_sbsa.inf",  # Use the built-in layout
+                self._ARM_VIRT_DXE_CORE_COMPRESSION_GUID,
+                self._ARM_VIRT_DXE_CORE_FFS_GUID,
+                "./Reference/Layouts/qemu_armvirt.inf",  # Use the built-in layout
             )
         else:
             raise ValueError(f"Unknown package: {package}")
@@ -787,13 +788,13 @@ class _Utils:
 
         Args:
             build_dir (Path): The path to the build directory.
-            package (str): The package name (e.g., "QemuQ35Pkg" or "QemuSbsaPkg").
+            package (str): The package name (e.g., "QemuQ35Pkg" or "QemuArmVirtPkg").
 
         Returns:
             List[Path]: A list of paths to code files found for the specified package.
         """
         Q35_FD_FILE_NAME = "QEMUQ35_CODE.fd"
-        SBSA_FD_FILE_NAME = "QEMU_EFI.fd"
+        ARM_VIRT_FD_FILE_NAME = "QEMU_EFI.fd"
 
         _LOGGER.info(f"\nSearching for already built {package} UEFI code files...")
 
@@ -804,7 +805,7 @@ class _Utils:
 
         package_build_dir = build_dir / package
         code_fd_pattern = (
-            Q35_FD_FILE_NAME if package == "QemuQ35Pkg" else SBSA_FD_FILE_NAME
+            Q35_FD_FILE_NAME if package == "QemuQ35Pkg" else ARM_VIRT_FD_FILE_NAME
         )
         return list(package_build_dir.glob(f"**/{code_fd_pattern}"))
 
@@ -845,7 +846,7 @@ class _Wizard:
 
         Args:
             workspace_dir (Path): The directory where the workspace is located.
-            package (str): The name of the package to initialize settings for. Supported values are "Q35" and "SBSA".
+            package (str): The name of the package to initialize settings for. Supported values are "Q35" and "ArmVirt".
 
         Returns:
             _WizardSettings: An instance of _WizardSettings configured for the specified package.
@@ -856,8 +857,8 @@ class _Wizard:
 
         if package.upper() == "Q35":
             return _WizardSettings(workspace_dir, "Q35")
-        elif package.upper() == "SBSA":
-            return _WizardSettings(workspace_dir, "SBSA")
+        elif package.upper() == "ARMVIRT":
+            return _WizardSettings(workspace_dir, "ArmVirt")
         else:
             raise ValueError(f"Unknown package: {package}")
 
@@ -1042,11 +1043,11 @@ class _Wizard:
         Sets up configuration for patching.
         """
         Q35_QEMU_EXEC = "qemu-system-x86_64"
-        SBSA_QEMU_EXEC = "qemu-system-aarch64"
+        ARM_VIRT_QEMU_EXEC = "qemu-system-aarch64"
         # executable names depend on OS
         if platform.system() == "Windows":
             Q35_QEMU_EXEC += ".exe"
-            SBSA_QEMU_EXEC += ".exe"    
+            ARM_VIRT_QEMU_EXEC += ".exe"
 
         _LOGGER.info("\nSetting up patch configuration...")
 
@@ -1088,16 +1089,16 @@ class _Wizard:
                 if self._settings.package.upper() == "Q35":
                     if (qemu_ext_dep_path / Q35_QEMU_EXEC).exists():
                         qemu_paths.append(str(qemu_ext_dep_path / Q35_QEMU_EXEC))
-                elif self._settings.package.upper() == "SBSA":
-                    if (qemu_ext_dep_path / SBSA_QEMU_EXEC).exists():
-                        qemu_paths.append(str(qemu_ext_dep_path / SBSA_QEMU_EXEC))
+                elif self._settings.package.upper() == "ARMVIRT":
+                    if (qemu_ext_dep_path / ARM_VIRT_QEMU_EXEC).exists():
+                        qemu_paths.append(str(qemu_ext_dep_path / ARM_VIRT_QEMU_EXEC))
 
         # Check for qemu on the system path
         qemu_sys_path = None
         if self._settings.package.upper() == "Q35":
             qemu_sys_path = shutil.which(Q35_QEMU_EXEC)
-        elif self._settings.package.upper() == "SBSA":
-            qemu_sys_path = shutil.which(SBSA_QEMU_EXEC)
+        elif self._settings.package.upper() == "ARMVIRT":
+            qemu_sys_path = shutil.which(ARM_VIRT_QEMU_EXEC)
 
         if qemu_sys_path:
             qemu_paths.append(qemu_sys_path)
@@ -1113,7 +1114,7 @@ class _Wizard:
             )
 
             while True:
-                exe = Q35_QEMU_EXEC if self._settings.package.upper() == "Q35" else SBSA_QEMU_EXEC
+                exe = Q35_QEMU_EXEC if self._settings.package.upper() == "Q35" else ARM_VIRT_QEMU_EXEC
                 qemu_path = Path(input().strip()) / exe
                 if qemu_path.exists() and qemu_path.is_file():
                     qemu_path = str(qemu_path)
@@ -1186,6 +1187,14 @@ class _Wizard:
 
         selected_code_fd_file = self._find_code_fd_file()
         if not selected_code_fd_file:
+            if self._settings.pre_compiled_rom is None:
+                _LOGGER.error(
+                    "\nNo built UEFI image was found in this workspace and no pre-compiled ROM is "
+                    f"available for {self._settings.package}. Please build the UEFI code first by "
+                    "running this script again and selecting option 1."
+                )
+                exit(1)
+
             selected_code_fd_file = self._settings.pre_compiled_rom
             _LOGGER.info(
                 "\nIt looks like you have built UEFI firmware in this workspace but an existing UEFI image to "
@@ -1319,8 +1328,8 @@ class _Wizard:
                 "UEFI image, you should build the QEMU UEFI code first.\n"
             )
 
-            # Do not provide a built-in ROM for SBSA right now due to its size
-            if self._settings.package.upper() != "SBSA":
+            # If no pre-built ROM is provided, we will just build from source.
+            if self._settings.pre_compiled_rom is not None:
                 _LOGGER.info(
                     "\nHowever, we can continue the patching process using a pre-built QEMU UEFI image. This "
                     "will be built from code older than that in your workspace right now, but it will still allow "
@@ -1396,7 +1405,7 @@ def _internal_main(workspace_dir: Path, package: str, args: argparse.Namespace) 
 
     Args:
         workspace_dir (Path): The path to the workspace directory.
-        package (str): The package for which to set up the workspace (e.g., "Q35" or "SBSA").
+        package (str): The package for which to set up the workspace (e.g., "Q35" or "ArmVirt").
         args (argparse.Namespace): The command-line arguments for this invocation.
     """
     wizard = _Wizard(workspace_dir, package)
@@ -1491,15 +1500,15 @@ def wizard_main() -> None:
     workspace_dir = Path(__file__).resolve().parent
     package = None
 
-    while package not in ("Q35", "SBSA"):
+    while package not in ("Q35", "ArmVirt"):
         print("\nWhich QEMU platform are you setting up?")
         print("  [1] Q35 (x86_64)")
-        print("  [2] SBSA (aarch64)")
+        print("  [2] ArmVirt (aarch64)")
         choice = input("\nSelect an option [1 or 2]: ").strip()
         if choice == "1":
             package = "Q35"
         elif choice == "2":
-            package = "SBSA"
+            package = "ArmVirt"
         else:
             print("Invalid choice. Please enter 1 or 2.")
 

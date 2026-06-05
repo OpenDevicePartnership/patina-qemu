@@ -1,0 +1,9 @@
+author_string: Microsoft Core UEFI
+copyright_string: Copyright (c) Microsoft Corporation.
+description_string: QEMU Arm Virt RELEASE Platform Firmware
+name: Patina.QemuArmVirt.FW.RELEASE
+project_url: https://github.com/OpenDevicePartnership/patina
+repository_type: git
+repository_url: https://github.com/OpenDevicePartnership/patina-qemu
+server_url: https://nuget.pkg.github.com/microsoft/index.json
+tags_string: ''

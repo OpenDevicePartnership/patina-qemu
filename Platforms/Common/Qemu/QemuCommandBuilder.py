@@ -1,12 +1,12 @@
 ##
-# QEMU Command Builder for Q35 and SBSA architectures.
+# QEMU Command Builder for Q35 and ARM Virt architectures.
 # Provides a builder API for constructing QEMU command line arguments.
 #
 # Copyright (c) Microsoft Corporation
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
 
-"""QEMU Command Builder for Q35 and SBSA architectures"""
+"""QEMU Command Builder for Q35 and ARM Virt architectures"""
 
 import os
 import logging
@@ -19,7 +19,7 @@ class QemuArchitecture(Enum):
     """Supported QEMU architectures"""
 
     Q35 = "q35"
-    SBSA = "sbsa"
+    ARM_VIRT = "arm-virt"
 
 
 class QemuCommandBuilder:
@@ -61,7 +61,7 @@ class QemuCommandBuilder:
             self._args.extend(
                 ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04"]
             )  # debug exit device
-        elif self._architecture == QemuArchitecture.SBSA:
+        elif self._architecture == QemuArchitecture.ARM_VIRT:
             self._args.extend(["-semihosting"])
 
     def with_rom_path(self, rom_dir):
@@ -94,8 +94,8 @@ class QemuCommandBuilder:
                     machine_config += f",accel={accel_lower}"
 
             self._args.extend(["-machine", machine_config])
-        elif self._architecture == QemuArchitecture.SBSA:
-            self._args.extend(["-machine", "sbsa-ref"])
+        elif self._architecture == QemuArchitecture.ARM_VIRT:
+            self._args.extend(["-machine", "virt,secure=on,virtualization=on,gic-version=3,mte=on,iommu=smmuv3"])
 
         self._args.extend(
                 ["-global", "driver=cfi.pflash01,property=secure,value=on"]
@@ -114,7 +114,7 @@ class QemuCommandBuilder:
             cpu_model = model or "qemu64"
             cpu_features = f"{cpu_model},+rdrand,+umip,+smep,+pdpe1gb,+popcnt,+sse,+sse2,+sse3,+ssse3,+sse4.2,+sse4.1"
             self._args.extend(["-cpu", cpu_features])
-        elif self._architecture == QemuArchitecture.SBSA:
+        elif self._architecture == QemuArchitecture.ARM_VIRT:
             self._args.extend(["-cpu", "max,sve=off,sme=off"])
 
         if core_count:
@@ -145,19 +145,16 @@ class QemuCommandBuilder:
                     f"if=pflash,format=raw,unit=1,file={str(vars_fd)}",
                 ]
             )
-        elif self._architecture == QemuArchitecture.SBSA:
-            # SBSA has different firmware layout
+        elif self._architecture == QemuArchitecture.ARM_VIRT:
             # Unit 0: SECURE_FLASH0.fd (writable)
             # Unit 1: QEMU_EFI.fd (readonly)
-            if vars_fd:
-                self._args.extend(
-                    ["-drive", f"if=pflash,format=raw,unit=0,file={str(vars_fd)}"]
-                )
             self._args.extend(
                 [
                     "-drive",
-                    f"if=pflash,format=raw,unit=1,file={str(code_fd)},readonly=on",
-                ]
+                    f"if=pflash,format=raw,unit=0,file={str(code_fd)}",
+                    "-drive",
+                    f"if=pflash,format=raw,unit=1,file={str(vars_fd)},readonly=on",
+                 ]
             )
 
         return self
@@ -289,9 +286,6 @@ class QemuCommandBuilder:
         
         The `path` suffix must be `.vhd`, `.qcow2`, or `.iso`.
         The `device` must be `cdrom`, `ssd`, `hdd`, or `usb`.
-        
-        Note: SSD is only supported on Q35.
-        Note: HDD is only supported on SBSA.
 
         Args:
             path (os.PathLike): Path to the storage.
@@ -318,21 +312,12 @@ class QemuCommandBuilder:
             self._args.extend(["-cdrom", f"{str(path)}"])
         elif device == "usb":
             self = self.with_usb_storage(path, drive_format = format)
-        elif device == "ssd" and self._architecture == QemuArchitecture.Q35:
+        elif device == "ssd":
             self._args.extend([
                 "-drive",
                 f"file={path},format={format},if=none,id=os_nvme",
                 "-device",
                 "nvme,serial=nvme-1,drive=os_nvme",
-            ])
-        elif device == "hdd" and self._architecture == QemuArchitecture.SBSA:
-            self._args.extend([
-                "-drive",
-                f"file={path},format={format},if=none,id=os_disk",
-                "-device",
-                "ahci,id=ahci",
-                "-device",
-                "ide-hd,drive=os_disk,bus=ahci.0",
             ])
         else:
             raise Exception(f"Unsupported storage combination: {device} && {format} && {self._architecture}")
@@ -392,12 +377,12 @@ class QemuCommandBuilder:
 
                 Type 0 (BIOS Information):
                 - 'smbios0_vendor': Vendor name (default: 'Patina')
-                - 'smbios0_version': BIOS version (default: 'patina-q35-patched' for Q35, 'patina-sbsa-patched' for SBSA)
+                - 'smbios0_version': BIOS version (default: 'patina-q35-patched' for Q35, 'patina-armvirt-patched' for ARM Virt)
                 - 'smbios0_date': Release date in MM/DD/YYYY format (default: current date)
 
                 Type 1 (System Information):
                 - 'smbios1_manufacturer': System manufacturer (default: 'OpenDevicePartnership')
-                - 'smbios1_product': Product name (default: 'QEMU Q35' for Q35, 'QEMU SBSA' for SBSA)
+                - 'smbios1_product': Product name (default: 'QEMU Q35' for Q35, 'QEMU ARM Virt' for ARM Virt)
                 - 'smbios1_family': Product family (default: 'QEMU')
                 - 'smbios1_version': System version (default: '10.0.0')
                 - 'smbios1_serial': Serial number (default: '42-42-42-42')
@@ -405,9 +390,9 @@ class QemuCommandBuilder:
 
                 Type 3 (Chassis Information):
                 - 'smbios3_manufacturer': Chassis manufacturer (default: 'OpenDevicePartnership')
-                - 'smbios3_serial': Serial number (default: '40-41-42-43' for Q35, '42-42-42-42' for SBSA)
-                - 'smbios3_asset': Asset tag (default: 'Q35' for Q35, 'SBSA' for SBSA)
-                - 'smbios3_sku': SKU number (default: 'Q35' for Q35, 'SBSA' for SBSA)
+                - 'smbios3_serial': Serial number (default: '40-41-42-43' for Q35, '42-42-42-42' for ARM Virt)
+                - 'smbios3_asset': Asset tag (default: 'Q35' for Q35, 'ARM Virt' for ARM Virt)
+                - 'smbios3_sku': SKU number (default: 'Q35' for Q35, 'ARM Virt' for ARM Virt)
                 - 'smbios3_version': Chassis version (default: '')
         """
         if self._smbios_added:
@@ -439,11 +424,11 @@ class QemuCommandBuilder:
             defaults = {
                 # Type 0 (BIOS Information)
                 "smbios0_vendor": "Patina",
-                "smbios0_version": "patina-sbsa-patched",
+                "smbios0_version": "patina-armvirt-patched",
                 "smbios0_date": datetime.datetime.now().strftime("%m/%d/%Y"),
                 # Type 1 (System Information)
                 "smbios1_manufacturer": "OpenDevicePartnership",
-                "smbios1_product": "QEMU SBSA",
+                "smbios1_product": "QEMU ARM Virt",
                 "smbios1_family": "QEMU",
                 "smbios1_version": "10.0.0",
                 "smbios1_serial": "42-42-42-42",
@@ -451,8 +436,8 @@ class QemuCommandBuilder:
                 # Type 3 (Chassis Information)
                 "smbios3_manufacturer": "OpenDevicePartnership",
                 "smbios3_serial": "42-42-42-42",
-                "smbios3_asset": "SBSA",
-                "smbios3_sku": "SBSA",
+                "smbios3_asset": "ARM Virt",
+                "smbios3_sku": "ARM Virt",
                 "smbios3_version": "",
             }
 
@@ -493,9 +478,11 @@ class QemuCommandBuilder:
             ]
         )
 
-        # Q35 uses tpm-tis, SBSA would use tpm-tis-device (not added here as original doesn't have it)
+        # Q35 uses tpm-tis, ARM Virt would use tpm-tis-device (not added here as original doesn't have it)
         if self._architecture == QemuArchitecture.Q35:
             self._args.extend(["-device", "tpm-tis,tpmdev=tpm0"])
+        elif self._architecture == QemuArchitecture.ARM_VIRT:
+            self._args.extend(["-device", "tpm-tis-device,tpmdev=tpm0"])
 
         return self
 
@@ -504,7 +491,7 @@ class QemuCommandBuilder:
 
         Args:
             enabled (bool): Enable or disable display.
-                - True: Configures display (Bochs for Q35 and SBSA)
+                - True: Configures display (Bochs for Q35 and ARM Virt)
                 - False: Disables display (headless mode, -display none)
         """
         if self._display_added:
@@ -517,6 +504,11 @@ class QemuCommandBuilder:
             self._args.extend(["-display", "none"])
         elif self._architecture == QemuArchitecture.Q35:
             self._args.extend(["-device", "bochs-display,addr=0x03", "-vga", "none"])
+        elif self._architecture == QemuArchitecture.ARM_VIRT:
+            # Pin to a fixed PCI slot so the firmware's preferred-video
+            # device path stays stable regardless of how many other PCI
+            # devices precede it on the command line.
+            self._args.extend(["-device", "bochs-display,addr=0x1f"])
 
         return self
 

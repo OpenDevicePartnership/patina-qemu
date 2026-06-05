@@ -1,0 +1,21 @@
+##
+# Download the compiled HAF and TFA bins from the github release
+#
+# Copyright (c) 2025, Microsoft Corporation
+# SPDX-License-Identifier: BSD-2-Clause-Patent
+##
+scope: qemuarmvirt
+id: haf-tfa-bin
+type: web
+name: HAF_TFA_BUILD
+source: https://github.com/OpenDevicePartnership/patina-qemu/releases/download/v3.0.0/haf-tfa-firmware-v3.0.0.zip
+
+version: v3.0.0
+sha256: 8ebdbf431ae80a39cb720dd5d6e2820c60fab1eb638feec37915fdcaa5df1f81
+internal_path: /
+compression_type: zip
+flags:
+  - set_shell_var
+  - set_build_var
+  - set_path
+var_name: HAF_TFA_BINS
