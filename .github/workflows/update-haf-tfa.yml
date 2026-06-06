@@ -28,7 +28,7 @@ jobs:
     outputs:
       tag_name: ${{ steps.release.outputs.tag_name }}
       pr_exists: ${{ steps.pr-check.outputs.exists }}
-  
+
     steps:
       - name: Find Latest Release
         id: release
@@ -42,12 +42,12 @@ jobs:
           # Get the latest release that matches semver format v<major>.<minor>.<patch>
           RELEASE=$(gh release list --repo "$REPO" --limit 100 --json tagName,publishedAt,isDraft | \
             jq -c '
-              [ .[] 
+              [ .[]
               | select(.isDraft == false)
               | select(.tagName | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$"))
               ]
-              | sort_by(.publishedAt) 
-              | reverse 
+              | sort_by(.publishedAt)
+              | reverse
               | .[0]
             ')
 
@@ -84,7 +84,7 @@ jobs:
             echo "No existing PR found."
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
-  
+
   update:
     name: "Update HAF/TF-A Binary to ${{ needs.check.outputs.tag_name }}"
 
@@ -96,14 +96,15 @@ jobs:
 
     permissions:
       contents: write
-    
+
     env:
       ARTIFACT_BASE_URL: https://github.com/${{ github.repository }}/releases/download
       HAF_TFA_PATH: Platforms/QemuArmVirtPkg/Binaries/haf_tfa_binaries_ext_dep.yaml
       PLATFORM_BUILD_PATH: Platforms/QemuArmVirtPkg/PlatformBuild.py
       TAG_NAME: ${{ needs.check.outputs.tag_name }}
+      PR_BRANCH_PREFIX: sync-haf-tfa/
       PR_BRANCH_NAME: sync-haf-tfa/${{ needs.check.outputs.tag_name }}
-      
+
     steps:
       # If testing on a local fork with less strict permissions, you can remove this step, and update token usage to
       # use ${{ secrets.GITHUB_TOKEN }} instead of the app token. You must also add the permission `pull-requests: write`
@@ -162,7 +163,7 @@ jobs:
         uses: mikefarah/yq@v4
         with:
           cmd: yq -i -P '.source = strenv(SOURCE_URL) | .version = strenv(VERSION) | .sha256 = strenv(SHA256)' ${HAF_TFA_PATH}
-      
+
       - name: Update PlatformBuild.py HAF_TFA_EXTDEP_BINS_CURRENT
         if: steps.extdep-check.outputs.is_current != 'true'
         env:
@@ -172,7 +173,7 @@ jobs:
           # Replace HAF_TFA_EXTDEP_BINS_CURRENT = False with HAF_TFA_EXTDEP_BINS_CURRENT = True
           # Handles variable spacing around the = sign
           sed -i -E 's/^(HAF_TFA_EXTDEP_BINS_CURRENT[[:space:]]*=[[:space:]]*)False/\1True/' "$PLATFORM_BUILD_PATH"
-        
+
       - name: Commit and push changes
         if: steps.extdep-check.outputs.is_current != 'true'
         env:
@@ -204,7 +205,7 @@ jobs:
             --base "$BASE" \
             --title "Update HAF/TF-A ext dep to ${{ env.TAG_NAME }}" \
             --body "This PR updates the HAF/TF-A external dependency to version ${{ env.TAG_NAME }}."
-          
+
           PR_NUMBER=$(gh pr view "$HEAD" --repo "$REPO" --json number -q '.number')
           echo "Pr Created: Pr Number $PR_NUMBER."
           echo "pr_number=${PR_NUMBER}" >> $GITHUB_OUTPUT
@@ -213,12 +214,14 @@ jobs:
         if: steps.extdep-check.outputs.is_current != 'true'
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          PR_BRANCH_PREFIX: ${{ env.PR_BRANCH_PREFIX}}
+          PR_BRANCH_PREFIX: ${{ env.PR_BRANCH_PREFIX }}
           KEEP_PR_NUMBER: ${{ steps.pr.outputs.pr_number }}
+          # Only close existing PRs authored by the bot.
+          PR_AUTHOR: 'app/patina-automation'
         run: |
-          OPEN_PRS=$(gh pr list --state open --json number,headRefName \
-            -q ".[] | select(.headRefName | startswith(\"${PR_BRANCH_PREFIX}\")) | .number")
-          
+          OPEN_PRS=$(gh pr list --state open --json number,headRefName,author \
+            -q ".[] | select(.headRefName | startswith(\"${PR_BRANCH_PREFIX}\")) | select(.author.login == \"${PR_AUTHOR}\") | .number")
+
           for PR in $OPEN_PRS; do
             if [[ "$PR" != "$KEEP_PR_NUMBER" ]]; then
               echo "Closing PR #$PR"
