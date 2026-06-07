@@ -16,18 +16,18 @@ drive, from a USB drive, and from a PXE server.
 
 - ✅ Q35 Internal Drive Windows Validation OS boot
 - ✅ Q35 Internal Drive Ubuntu 24.04 Server OS boot
-- ✅ SBSA Internal Drive Windows Validation OS boot
-- ✅ SBSA Internal Drive Ubuntu 24.04 Server OS boot
+- ✅ ArmVirt Internal Drive Windows Validation OS boot
+- ✅ ArmVirt Internal Drive Ubuntu 24.04 Server OS boot
 
 - ✅ Q35 USB Drive Windows Validation OS boot
 - ✅ Q35 USB Drive Ubuntu 24.04 Server OS boot
-- ✅ SBSA USB Drive Windows Validation OS boot
-- ✅ SBSA USB Drive Ubuntu 24.04 Server OS boot
+- ✅ ArmVirt USB Drive Windows Validation OS boot
+- ✅ ArmVirt USB Drive Ubuntu 24.04 Server OS boot
 
 - ❌ Q35 PXE Windows Validation OS boot
 - ❌ Q35 PXE Ubuntu 24.04 Server OS boot
-- ❌ SBSA PXE Windows Validation OS boot
-- ❌ SBSA PXE Ubuntu 24.04 Server OS boot
+- ❌ ArmVirt PXE Windows Validation OS boot
+- ❌ ArmVirt PXE Ubuntu 24.04 Server OS boot
 
 The [`.github/workflows/nightly-os-boot.yml`](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/.github/workflows/nightly-os-boot.yml)
 workflow is responsible for the nightly OS boot testing mentioned above. It first downloads and prepares the OS
@@ -42,9 +42,9 @@ debugger), it can take time to notice if this functionality is broken. This nigh
 logs exist and are retrievable from Windows systems once booted to the operating system.
 
 - ✅ Q35 advanced logger boot log gathering via UEFI application
-- ✅ SBSA advanced logger boot log gathering via UEFI application
+- ✅ ArmVirt advanced logger boot log gathering via UEFI application
 - ❌ Q35 advanced logger boot log gathering via Windows Validation OS
-- ❌ SBSA advanced logger boot log gathering via Windows Validation OS
+- ❌ ArmVirt advanced logger boot log gathering via Windows Validation OS
 
 ## Debugger Connection
 
@@ -53,7 +53,7 @@ immediately. Nightly tests boot with the debugger and initial breakpoint enabled
 Protocol communication to ensure the debugger successfully connects and continues from the initial breakpoint.
 
 - ❌ Q35 debugger connection boot
-- ❌ SBSA debugger connection boot
+- ❌ ArmVirt debugger connection boot
 
 ## Hibernation
 
@@ -68,7 +68,7 @@ performs a hibernate-resume cycle. This process is repeated multiple times to de
 that could cause resume failures.
 
 - ❌ Q35 hibernate resume
-- ❌ SBSA hibernate resume
+- ❌ ArmVirt hibernate resume
 
 ## Self-Certification Tests (SCTs)
 
@@ -77,7 +77,7 @@ It is important to monitor and stay compliant with these tests. Unlike other tes
 weekly basis due to the time it takes to run them.
 
 - ❌ Q35 self-certification tests
-- ❌ SBSA self-certification tests
+- ❌ ArmVirt self-certification tests
 
 ## Performance Monitoring
 
@@ -93,4 +93,4 @@ compares them against the most recent measurements from the scheduled run, comme
 performance changes.
 
 - ❌ Q35 Release Performance Measurement tracking
-- ❌ SBSA Release Performance Measurement tracking
+- ❌ ArmVirt Release Performance Measurement tracking

@@ -19,7 +19,7 @@ from QemuCommandBuilder import QemuCommandBuilder
 from QemuCommandBuilder import QemuArchitecture
 
 
-# """QEMU Command Builder for Q35 and SBSA architectures"""
+# """QEMU Command Builder for Q35 and ArmVirt architectures"""
 
 
 class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):

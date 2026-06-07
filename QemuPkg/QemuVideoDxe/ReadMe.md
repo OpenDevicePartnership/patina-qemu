@@ -5,7 +5,7 @@
 This driver is derived from the sample GOP driver QemuVideoDxe in QemuQ35Pkg.
 It replaces the standard GOP interfaces GUID with MsGopOverrideProtocolGuid.
 
-It removes support for Cirrus in favor of BOCHS used by SBSA.
+It removes support for Cirrus in favor of BOCHS used by QEMU Q35 and ArmVirt.
 
 ## Copyright
 
