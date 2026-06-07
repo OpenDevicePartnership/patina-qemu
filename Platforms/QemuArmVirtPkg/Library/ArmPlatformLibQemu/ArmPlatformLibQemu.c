@@ -235,9 +235,7 @@ InitializeMemoryConfiguration (
     }
 
     // Get the 'reg' property of this node. We assume two 8-byte quantities
-    // for base and size, respectively (true on QEMU virt and SBSA-ref, both
-    // of which use #address-cells=<2> and #size-cells=<2> on the root). A
-    // bank with multiple (base,size) tuples is currently not split out.
+    // for base and size, respectively.
     PropertyPtr = FdtGetProperty (DeviceTreeBase, Node, "reg", &Len);
     if (PropertyPtr == NULL) {
       DEBUG ((DEBUG_ERROR, "%a: Memory node has no 'reg' property\n", __func__));

@@ -3,9 +3,6 @@
   ArmPlatformGetPlatformPpiList for QEMU/arm-virt: publishes CPU topology
   via ARM_MP_CORE_INFO_PPI by walking /cpus/cpu@N in the DTB.
 
-  TF-A's "qemu" platform (unlike SBSA) exposes no SiP service for CPU
-  enumeration, so the DTB is the canonical source.
-
   This library runs XIP (no writable .data), so each
   PrePeiCoreGetMpCoreInfo() call re-walks the DTB and allocates a fresh
   ARM_CORE_INFO table; the PPI caller copies it into a HOB.
