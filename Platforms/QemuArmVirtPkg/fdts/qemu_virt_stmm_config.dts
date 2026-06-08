@@ -51,15 +51,6 @@
 		compatible = "arm,ffa-manifest-device-regions";
 
 		/*
-		 * Secure UART region.
-		 */
-		secure_uart {
-			base-address = <0x0 0x09040000>;
-			pages-count = <0x1>;
-			attributes = <0x3>;
-		};
-
-		/*
 		 * Variable Flash.
 		 */
 		variable_flash {

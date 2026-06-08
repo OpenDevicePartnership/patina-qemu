@@ -482,7 +482,7 @@
 [LibraryClasses.common.MM_CORE_STANDALONE, LibraryClasses.common.MM_STANDALONE]
   # Current support of advanced logger in Standalone MM is limited to the platforms
   # that supports it from TFA.
-  DebugLib|MdePkg/Library/BaseDebugLibSerialPort/BaseDebugLibSerialPort.inf
+  DebugLib|MdeModulePkg/Library/ArmFfaConsoleDebugLib/ArmFfaConsoleDebugStandaloneMmLib.inf
 
 [BuildOptions]
 !include NetworkPkg/NetworkBuildOptions.dsc.inc
@@ -1140,7 +1140,6 @@
       NULL|MdePkg/Library/StackCheckLibNull/StackCheckLibNull.inf
     <PcdsFixedAtBuild>
       gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000000
-      gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x09040000
       gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|62500000
     <PcdsPatchableInModule>
       gEfiMdeModulePkgTokenSpaceGuid.PcdFfaLibConduitSmc|FALSE
@@ -1149,13 +1148,15 @@
   ArmPkg/Drivers/StandaloneMmCpu/StandaloneMmCpu.inf {
     <PcdsFixedAtBuild>
       gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x80000000
-      gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x09040000
       gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|62500000
+    <PcdsPatchableInModule>
+      gEfiMdeModulePkgTokenSpaceGuid.PcdFfaLibConduitSmc|FALSE
   }
   MdeModulePkg/Universal/FaultTolerantWriteDxe/FaultTolerantWriteStandaloneMm.inf {
     <PcdsFixedAtBuild>
-      gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x09040000
       gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|62500000
+    <PcdsPatchableInModule>
+      gEfiMdeModulePkgTokenSpaceGuid.PcdFfaLibConduitSmc|FALSE
   }
   MdeModulePkg/Universal/Variable/RuntimeDxe/VariableStandaloneMm.inf {
     <LibraryClasses>
@@ -1167,20 +1168,23 @@
       VariablePolicyLib|MdeModulePkg/Library/VariablePolicyLib/VariablePolicyLib.inf
       VariablePolicyHelperLib|MdeModulePkg/Library/VariablePolicyHelperLib/VariablePolicyHelperLib.inf
     <PcdsFixedAtBuild>
-      gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x09040000
       gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|62500000
+    <PcdsPatchableInModule>
+      gEfiMdeModulePkgTokenSpaceGuid.PcdFfaLibConduitSmc|FALSE
   }
 !if $(TPM2_ENABLE) == TRUE
   SecurityPkg/Tcg/Tcg2StandaloneMmArm/Tcg2StandaloneMmArm.inf {
     <PcdsFixedAtBuild>
-      gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x09040000
       gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|62500000
+    <PcdsPatchableInModule>
+      gEfiMdeModulePkgTokenSpaceGuid.PcdFfaLibConduitSmc|FALSE
   }
 !endif
   QemuArmVirtPkg/VirtNorFlashStandaloneMm/VirtNorFlashStandaloneMm.inf {
     <PcdsFixedAtBuild>
-      gEfiMdeModulePkgTokenSpaceGuid.PcdSerialRegisterBase|0x09040000
       gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|62500000
+    <PcdsPatchableInModule>
+      gEfiMdeModulePkgTokenSpaceGuid.PcdFfaLibConduitSmc|FALSE
   }
 
   # FF-A test application to test the FF-A interface
