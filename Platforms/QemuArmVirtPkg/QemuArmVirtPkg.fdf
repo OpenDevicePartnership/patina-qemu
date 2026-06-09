@@ -324,6 +324,7 @@ READ_LOCK_STATUS   = TRUE
   # ACPI Support
   #
   INF MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
+  INF MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
   INF QemuPkg/AcpiPlatformDxe/AcpiPlatformDxe.inf
 
   #
@@ -389,7 +390,7 @@ READ_LOCK_STATUS   = TRUE
   #
   # FF-A SSDT: self-contained driver compiles Ffa.asl and installs it.
   #
-  INF  QemuArmVirtPkg/FfaSsdtInstallDxe/FfaSsdtInstallDxe.inf
+  INF RuleOverride = ACPITABLE QemuArmVirtPkg/FfaSsdtInstallDxe/FfaSsdtInstallDxe.inf
 
   #
   # Unit Test
@@ -610,8 +611,8 @@ READ_LOCK_STATUS   = TRUE
 
 [Rule.Common.USER_DEFINED.ACPITABLE]
   FILE FREEFORM = $(NAMED_GUID) {
-    RAW       ACPI                    |.acpi
-    RAW       ASL                     |.aml
+    RAW       ACPI  Optional          |.acpi
+    RAW       ASL   Optional          |.aml
     UI        STRING="$(MODULE_NAME)" Optional
   }
 
