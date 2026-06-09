@@ -1,0 +1,43 @@
+## @file
+#  Installs the FF-A SSDT ACPI table from the firmware volume.
+#
+#  Copyright (c) Microsoft Corporation.
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x0001001A
+  BASE_NAME                      = FfaSsdtInstallDxe
+  FILE_GUID                      = 2B5F1E84-3C9A-4D77-8E61-7A4B2C9D5E10
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = FfaSsdtInstallEntryPoint
+
+#
+#  VALID_ARCHITECTURES           = AARCH64
+#
+
+[Sources]
+  FfaSsdtInstallDxe.c
+  Ffa.asl
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  BaseLib
+  BaseMemoryLib
+  DebugLib
+  DxeServicesLib
+  MemoryAllocationLib
+  UefiBootServicesTableLib
+  UefiDriverEntryPoint
+  UefiLib
+
+[Protocols]
+  gEfiAcpiTableProtocolGuid                          ## CONSUMES
+
+[Depex]
+  TRUE

@@ -387,6 +387,11 @@ READ_LOCK_STATUS   = TRUE
   INF  AdvLoggerPkg/Application/AdvancedLogDumper/AdvancedLogDumper.inf
 
   #
+  # FF-A SSDT: self-contained driver compiles Ffa.asl and installs it.
+  #
+  INF  QemuArmVirtPkg/FfaSsdtInstallDxe/FfaSsdtInstallDxe.inf
+
+  #
   # Unit Test
   #
   !if $(BUILD_UNIT_TESTS) == TRUE
