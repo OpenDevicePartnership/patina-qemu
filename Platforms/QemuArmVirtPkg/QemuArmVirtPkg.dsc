@@ -913,9 +913,6 @@
   SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
   AdvLoggerPkg/Application/AdvancedLogDumper/AdvancedLogDumper.inf
 
-  # FF-A SSDT: self-contained driver compiles Ffa.asl and installs it via EFI_ACPI_TABLE_PROTOCOL.
-  QemuArmVirtPkg/FfaSsdtInstallDxe/FfaSsdtInstallDxe.inf
-
   MdeModulePkg/Universal/SetupBrowserDxe/SetupBrowserDxe.inf
   MdeModulePkg/Universal/DriverHealthManagerDxe/DriverHealthManagerDxe.inf
   MdeModulePkg/Universal/BdsDxe/BdsDxe.inf {
