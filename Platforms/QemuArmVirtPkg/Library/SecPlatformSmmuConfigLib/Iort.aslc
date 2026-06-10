@@ -79,10 +79,14 @@ PLATFORM_IO_REMAPPING_STRUCTURE IortData = {
       0, // Reserved
       0, // VATOS address
       EFI_ACPI_IORT_SMMUv3_MODEL_GENERIC, // SMMUv3 Model
-      44, // Event (GSIV = SPI 12 + 32)
-      45, // Pri (GSIV = SPI 13 + 32)
-      46, // Gerror (GSIV = SPI 14 + 32)
-      47, // Sync (GSIV = SPI 15 + 32)
+      // QEMU 'virt' maps VIRT_SMMU SPIs starting at 74 (irqmap base);
+      // IORT GSIVs = SPI + ARM_SPI_BASE(32). QEMU emits them in the
+      // (Event, PRI, GERR, Sync) IORT fields as (irq, irq+1, irq+3, irq+2).
+      // See QEMU hw/arm/virt.c and hw/arm/virt-acpi-build.c
+      106, // Event  (GSIV = SPI 74 + 32)
+      107, // Pri    (GSIV = SPI 75 + 32)
+      109, // Gerror (GSIV = SPI 77 + 32)
+      108, // Sync   (GSIV = SPI 76 + 32)
       0,  // Proximity domain
       0   // DevIDMappingIndex (0-based index)
     },
