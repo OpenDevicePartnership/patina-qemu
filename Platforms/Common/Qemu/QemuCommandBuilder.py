@@ -180,7 +180,7 @@ class QemuCommandBuilder:
         if self._usb_mouse_added:
             self._logger.debug("USB mouse already added, skipping")
             return self
-        
+
         if not self._usb_controller_added:
             self = self.with_usb_controller()
 
@@ -195,7 +195,7 @@ class QemuCommandBuilder:
         if self._usb_keyboard_added:
             self._logger.debug("USB keyboard already added, skipping")
             return self
-        
+
         if not self._usb_controller_added:
             self = self.with_usb_controller()
 
@@ -207,7 +207,7 @@ class QemuCommandBuilder:
         """Add USB storage device"""
         if not drive_file:
             return self
-        
+
         if not self._usb_controller_added:
             self = self.with_usb_controller()
 
@@ -283,7 +283,7 @@ class QemuCommandBuilder:
 
     def with_storage(self, path: os.PathLike, device: str):
         """Attaches storage to a device to be accessible by QEMU.
-        
+
         The `path` suffix must be `.vhd`, `.qcow2`, or `.iso`.
         The `device` must be `cdrom`, `ssd`, `hdd`, or `usb`.
 
@@ -296,18 +296,18 @@ class QemuCommandBuilder:
         """
         if not path:
             return self
-        
+
         self._logger.debug(f"Configuring storage: {path}")
-        
+
         path = Path(path)
         device = device.lower()
-        
+
         format = {
             ".vhd": "raw",
             ".qcow2": "qcow2",
             ".iso": "iso"
         }.get(path.suffix)
-        
+
         if device == "cdrom" and format == "iso":
             self._args.extend(["-cdrom", f"{str(path)}"])
         elif device == "usb":
@@ -321,7 +321,7 @@ class QemuCommandBuilder:
             ])
         else:
             raise Exception(f"Unsupported storage combination: {device} && {format} && {self._architecture}")
-            
+
         return self
 
     def with_network(self, enabled=True, forward_ports=None, use_virtio=False):
@@ -549,6 +549,25 @@ class QemuCommandBuilder:
                 self._args.extend(["-serial", "stdio"])
                 for log_file in log_files:
                     self._args.extend(["-serial", f"file:{log_file}"])
+        return self
+
+    def with_virtio_serial(self, port=None, ip="127.0.0.1"):
+        """Configure a virtio serial port for console output
+
+        Args:
+            port: Port number for TCP serial connection (None for null)
+            ip: IP address to bind to (default: 127.0.0.1)
+        """
+
+        self._args.extend(["-global", "virtio-mmio.force-legacy=false"])
+        if port:
+            self._args.extend(["-chardev", f"socket,id=vcon0,host={ip},port={port},server=on,wait=off"])
+        else:
+            self._args.extend(["-chardev", "null,id=vcon0"])
+
+        self._args.extend(["-device", "virtio-serial-device,id=vser0,max_ports=1"])
+        self._args.extend(["-device", "virtconsole,chardev=vcon0,bus=vser0.0,nr=0"])
+
         return self
 
     def with_monitor_port(self, port, ip="127.0.0.1"):

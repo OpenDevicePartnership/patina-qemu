@@ -167,10 +167,11 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             )
             .with_tpm(tpm_dev)
             .with_gdb_server(gdb_server_port)
-            .with_serial_port(serial_port, log_files=["secure_mm.log"])
+            .with_serial_port(None, log_files=["secure_mm.log"])
+            .with_virtio_serial(serial_port)
             .with_monitor_port(monitor_port)
         )
-        
+
         if path_to_seed:
             qemu_cmd_builder = qemu_cmd_builder.with_custom("-drive", f"file=\"{path_to_seed}\",format=raw,if=virtio")
 
