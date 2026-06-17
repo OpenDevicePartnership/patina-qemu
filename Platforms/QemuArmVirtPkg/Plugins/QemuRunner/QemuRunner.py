@@ -10,7 +10,8 @@ import logging
 import io
 import os
 import re
-import threading
+import subprocess
+import time
 from edk2toolext.environment.plugintypes import uefi_helper_plugin
 from edk2toollib import utility_functions
 
@@ -68,21 +69,33 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         return env.GetValue(key) or default
 
     @staticmethod
-    def RunThread(env):
-        """Runs TPM in a separate thread"""
-        tpm_path = env.GetValue("TPM_DEV")
-        if tpm_path is None:
-            logging.critical("TPM Path Invalid")
-            return
+    def StartSwTpm(tpm_dir, tpm_sock):
+        """Starts the swtpm emulator and returns its Popen handle.
 
-        tpm_cmd = "swtpm"
-        tpm_args = f"socket --tpmstate dir={'/'.join(tpm_path.rsplit('/', 1)[:-1])} --ctrl type=unixio,path={tpm_path} --tpm2 --log level=1"
+        swtpm is a long-lived daemon, so it is launched directly with Popen
+        (rather than a blocking helper run in a thread) to keep a handle for
+        explicit teardown.
+        """
+        cmd = [
+            "swtpm", "socket",
+            "--tpmstate", f"dir={tpm_dir}",
+            "--ctrl", f"type=unixio,path={tpm_sock}",
+            "--tpm2",
+            "--log", "level=1",
+        ]
+        return subprocess.Popen(cmd)
 
-        # Start the TPM emulator in a separate thread
-        ret = utility_functions.RunCmd(tpm_cmd, tpm_args)
-        if ret != 0:
-            logging.critical("Failed to start TPM emulator.")
+    @staticmethod
+    def StopSwTpm(swtpm_proc):
+        """Terminates the swtpm subprocess if it is still running."""
+        if swtpm_proc is None or swtpm_proc.poll() is not None:
             return
+        swtpm_proc.terminate()
+        try:
+            swtpm_proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            logging.warning("swtpm did not exit after terminate. Killing it.")
+            swtpm_proc.kill()
 
     @staticmethod
     def Runner(env):
@@ -170,19 +183,33 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             .with_serial_port(serial_port, log_files=["secure_mm.log"])
             .with_monitor_port(monitor_port)
         )
-        
+
         if path_to_seed:
             qemu_cmd_builder = qemu_cmd_builder.with_custom("-drive", f"file=\"{path_to_seed}\",format=raw,if=virtio")
 
         (executable, args) = qemu_cmd_builder.build()
         logging.info(f"Running QEMU: {executable} {args}")
 
-        thread = None
+        swtpm_proc = None
         if tpm_dev:
-            # also spawn the TPM emulator on a different thread
-            logging.critical("Starting TPM emulator in a different thread.")
-            thread = threading.Thread(target=QemuRunner.RunThread, args=(env,))
-            thread.start()
+            tpm_sock = tpm_dev
+            tpm_dir = "/".join(tpm_sock.rsplit("/", 1)[:-1])
+            logging.info("Starting swtpm emulator.")
+            swtpm_proc = QemuRunner.StartSwTpm(tpm_dir, tpm_sock)
+
+            # Wait for swtpm to create the control socket before launching QEMU.
+            # Otherwise QEMU may try to connect before the socket exists and fail.
+            tpm_sock_timeout = 30
+            tpm_sock_poll_start = time.monotonic()
+            while not os.path.exists(tpm_sock):
+                if swtpm_proc.poll() is not None:
+                    logging.critical("swtpm exited before creating its socket.")
+                    return -1
+                if time.monotonic() - tpm_sock_poll_start > tpm_sock_timeout:
+                    logging.critical(f"Timed out waiting for swtpm socket at {tpm_sock}.")
+                    QemuRunner.StopSwTpm(swtpm_proc)
+                    return -1
+                time.sleep(0.1)
 
         ## TODO: Save the console mode. The original issue comes from: https://gitlab.com/qemu-project/qemu/-/issues/1674
         if os.name == "nt" and qemu_version[0] >= "8":
@@ -195,7 +222,10 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
                 std_handle = None
 
         # Run QEMU
-        ret = utility_functions.RunCmd(executable, str.join(" ", args))
+        try:
+            ret = utility_functions.RunCmd(executable, str.join(" ", args))
+        finally:
+            QemuRunner.StopSwTpm(swtpm_proc)
 
         ## TODO: restore the customized RunCmd once unit tests with asserts are figured out
         if ret == 0xC0000005:
@@ -213,9 +243,5 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         elif os.name != "nt":
             # Linux version of QEMU will mess with the print if its run failed, let's just restore it anyway
             utility_functions.RunCmd("stty", "sane", capture=False)
-
-        if thread is not None:
-            logging.critical("Terminate TPM emulator by using Crtl + C now!")
-            thread.join()
 
         return ret
