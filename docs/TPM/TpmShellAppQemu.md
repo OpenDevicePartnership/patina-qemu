@@ -26,7 +26,7 @@ INF SecurityPkg/Applications/TpmShellApp/TpmShellApp.inf
 ## Protocol Availability
 
 The `EFI_TCG2_PROTOCOL` is installed by `Tcg2Dxe.efi`, which only loads when
-`TPM_ENABLE=TRUE` (Q35) or `TPM2_ENABLE=TRUE` (Arm Virt).
+`TPM2_ENABLE=TRUE`.
 
 ## Running on QEMU Arm Virt
 
@@ -36,7 +36,6 @@ On QEMU Arm Virt, the TpmShellApp is placed directly in the firmware volume, whi
 ```bash
 stuart_build -c Platforms/QemuArmVirtPkg/PlatformBuild.py --FlashRom \
   BLD_*_TPM2_ENABLE=TRUE \
-  TPM_DEV=/tmp/mytpm1/swtpm-sock
 ```
 
 At the UEFI shell, run:
@@ -64,8 +63,7 @@ binaries are copied to the virtual drive:
 
 ```bash
 stuart_build -c Platforms/QemuQ35Pkg/PlatformBuild.py --FlashRom \
-  BLD_*_TPM_ENABLE=TRUE \
-  TPM_DEV=/tmp/mytpm1/swtpm-sock \
+  BLD_*_TPM2_ENABLE=TRUE \
   FILE_REGEX=TpmShellApp.efi
 ```
 

@@ -459,26 +459,33 @@ class QemuCommandBuilder:
 
         return self
 
-    def with_tpm(self, tpm_dev):
+    def with_tpm(self, sw_tpm_enable, tpm_dir=None):
         """Configure TPM device"""
+        # SWTPM needs to be enabled
+        if not sw_tpm_enable:
+            return self
+
+        # A valid directory needs to be provided
+        if not tpm_dir:
+            self._logger.warning("TPM requested but no tpm_dir provided; skipping")
+            return self
+
+        # Do not configure the TPM more than once
         if self._tpm_added:
             self._logger.debug("TPM already configured, skipping")
             return self
 
-        if tpm_dev is None:
-            return self
-
+        tpm_sock = os.path.join(tpm_dir, "swtpm-sock")
         self._tpm_added = True
         self._args.extend(
             [
                 "-chardev",
-                f"socket,id=chrtpm,path={tpm_dev}",
+                f"socket,id=chrtpm,path={tpm_sock}",
                 "-tpmdev",
                 "emulator,id=tpm0,chardev=chrtpm",
             ]
         )
 
-        # Q35 uses tpm-tis, ARM Virt would use tpm-tis-device (not added here as original doesn't have it)
         if self._architecture == QemuArchitecture.Q35:
             self._args.extend(["-device", "tpm-tis,tpmdev=tpm0"])
         elif self._architecture == QemuArchitecture.ARM_VIRT:

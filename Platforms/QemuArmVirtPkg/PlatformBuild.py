@@ -35,7 +35,7 @@ cached_env = os.environ.copy()
 # When the TF-A source code is updated in a way that is not compatible with the existing prebuilts, this should be set
 # to False, which ensures that HAF / TF-A will be build from source if supported. On Windows, TF-A cannot be built from
 # source, so the platform build will be skipped with a warning.
-HAF_TFA_EXTDEP_BINS_CURRENT = True
+HAF_TFA_EXTDEP_BINS_CURRENT = False
 
 # Declare test whose failure will not return a non-zero exit code
 FAILURE_EXEMPT_TESTS = {
@@ -835,10 +835,24 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
         return 0
 
     def PlatformPostBuild(self):
+        # Allow developers to point the mssp-rust SP at a locally-built .bin
+        # by setting MSSP_RUST_BIN_OVERRIDE.
+        override = (self.env.GetValue("MSSP_RUST_BIN_OVERRIDE") or "").strip()
+        tpm2_enable = (self.env.GetBuildValue("TPM2_ENABLE") or "FALSE").upper() == "TRUE"
+
+        if override:
+            mssp_bin_path = os.path.abspath(os.path.expanduser(override))
+            logging.info(f"MSSP_RUST_BIN_OVERRIDE set; using local SP binary '{mssp_bin_path}'")
+        else:
+            if tpm2_enable:
+                mssp_bin_name = "msft-sp-virt-tpm.bin"
+            else:
+                mssp_bin_name = "msft-sp-virt.bin"
+            mssp_bin_path = os.path.join(self.env.GetValue("SECURE_PARTITION_BINARIES"), mssp_bin_name)
+            logging.info(f"TPM2_ENABLE={tpm2_enable}; using prebuilt SP binary '{mssp_bin_path}'")
+
         # Set Default BIN and DTS paths if not on command prompt
-        self.env.SetValue( "MSSP_RUST_BIN_FILE",
-                            os.path.join(self.env.GetValue("SECURE_PARTITION_BINARIES"), "msft-sp-virt.bin"),
-                            "Path for mssp-rust sp binary file")
+        self.env.SetValue( "MSSP_RUST_BIN_FILE", mssp_bin_path, "Path for mssp-rust sp binary file")
         self.env.SetValue( "MSSP_RUST_DTS_FILE",
                            str(Path(__file__).parent / "fdts/qemu_virt_mssp_rust_config.dts"),
                            "Path for mssp-rust sp DTS file")
@@ -850,10 +864,14 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
             op_tfa = Path(self.env.GetValue("ARM_TFA_PATH")) / "build" / self.env.GetValue("QEMU_PLATFORM").lower() / self.env.GetValue("TARGET").lower()
             working_fip = op_tfa / "fip.bin"
         else:
-            ext_dep_bins = self.env.GetValue("HAF_TFA_BINS")
+            if tpm2_enable:
+                ext_dep_bins = self.env.GetValue("HAF_TFA_BINS_TPM")
+            else:
+                ext_dep_bins = self.env.GetValue("HAF_TFA_BINS")
             if not ext_dep_bins:
                 logging.error("HAF_TFA_BINS not set. Cannot patch secure partitions.")
                 return -1
+            logging.info(f"TPM2_ENABLE={tpm2_enable}; using HAF/TF-A bins '{ext_dep_bins}'")
             op_tfa = Path(ext_dep_bins)
             working_fip = self.PatchSecurePartitions(op_tfa) # Patch secure partition images into a working copy of fip.bin
             if working_fip is None:

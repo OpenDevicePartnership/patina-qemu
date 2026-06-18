@@ -117,11 +117,16 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         qemu_ext_dep_dir = QemuRunner.GetStr(env, "QEMU_DIR")
         repo_version = QemuRunner.GetStr(env, "VERSION", "Unknown")
         serial_port = QemuRunner.GetStr(env, "SERIAL_PORT")
-        tpm_dev = QemuRunner.GetStr(env, "TPM_DEV")
+        sw_tpm_enable = QemuRunner.GetBool(env, "SWTPM_ENABLE", True)
         virtual_drive = QemuRunner.GetStr(env, "VIRTUAL_DRIVE_PATH")
 
         secure_fd = os.path.join(output_path, "FV", "SECURE_FLASH0.fd")
         ns_fd = os.path.join(output_path, "FV", "QEMU_EFI.fd")
+
+        # SWTPM is only available on Linux builds, exclude Windows
+        if os.name == 'nt':
+            logging.warning("SWTPM is not available on Windows builds.")
+            sw_tpm_enable = False
 
         # Use a provided QEMU path. Otherwise use what is provided through the extdep
         if not qemu_executable_path:
@@ -178,7 +183,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
                     "smbios3_version": boot_selection,
                 }
             )
-            .with_tpm(tpm_dev)
+            .with_tpm(sw_tpm_enable, tpm_dir=output_path)
             .with_gdb_server(gdb_server_port)
             .with_serial_port(serial_port, log_files=["secure_mm.log"])
             .with_monitor_port(monitor_port)
@@ -191,9 +196,9 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         logging.info(f"Running QEMU: {executable} {args}")
 
         swtpm_proc = None
-        if tpm_dev:
-            tpm_sock = tpm_dev
-            tpm_dir = "/".join(tpm_sock.rsplit("/", 1)[:-1])
+        if sw_tpm_enable:
+            tpm_dir = env.GetValue("BUILD_OUTPUT_BASE")
+            tpm_sock = os.path.join(tpm_dir, "swtpm-sock")
             logging.info("Starting swtpm emulator.")
             swtpm_proc = QemuRunner.StartSwTpm(tpm_dir, tpm_sock)
 

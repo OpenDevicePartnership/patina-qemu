@@ -21,10 +21,20 @@ on:
 
 jobs:
   build:
-    name: Hafnium and Trusted Firmware-A Build
+    name: Hafnium and Trusted Firmware-A Build (${{ matrix.variant_name }})
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/microsoft/mu_devops/ubuntu-24-dev:latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant_name: DEF
+            tpm2_enable: "FALSE"
+            archive_suffix: ""
+          - variant_name: TPM
+            tpm2_enable: "TRUE"
+            archive_suffix: "-tpm"
 
     steps:
       - name: Generate Token
@@ -57,7 +67,7 @@ jobs:
         run: python Platforms/QemuArmVirtPkg/PlatformBuild.py --update
 
       - name: Stuart Build
-        run: python Platforms/QemuArmVirtPkg/PlatformBuild.py HAF_TFA_BUILD=TRUE
+        run: python Platforms/QemuArmVirtPkg/PlatformBuild.py HAF_TFA_BUILD=TRUE BLD_*_TPM2_ENABLE=${{ matrix.tpm2_enable }}
 
       - name: Install archive tools
         if: github.event_name == 'release'
@@ -76,8 +86,8 @@ jobs:
             echo "Binary directory not found: $BIN_DIR" >&2
             exit 1
           fi
-          ZIP_PATH="${RUNNER_TEMP}/haf-tfa-firmware-${{ github.event.release.tag_name }}.zip"
-          TAR_PATH="${RUNNER_TEMP}/haf-tfa-firmware-${{ github.event.release.tag_name }}.tar.gz"
+          ZIP_PATH="${RUNNER_TEMP}/haf-tfa-firmware${{ matrix.archive_suffix }}-${{ github.event.release.tag_name }}.zip"
+          TAR_PATH="${RUNNER_TEMP}/haf-tfa-firmware${{ matrix.archive_suffix }}-${{ github.event.release.tag_name }}.tar.gz"
           (cd "$BIN_DIR" && zip -r "$ZIP_PATH" .)
           (cd "$BIN_DIR" && tar -czf "$TAR_PATH" .)
           echo "Created archives:"
