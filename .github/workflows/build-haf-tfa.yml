@@ -60,6 +60,7 @@ jobs:
         run: python Platforms/QemuArmVirtPkg/PlatformBuild.py --clean HAF_TFA_BUILD=TRUE BLD_*_TPM2_ENABLE=FALSE
 
       - name: Stage DEF HAF/TF-A binaries
+        if: github.event_name == 'release'
         run: |
           mkdir -p "${RUNNER_TEMP}/haf-tfa-firmware/DEF"
           cp -a Build/QemuArmVirtPkg/DEBUG_CLANGPDB/HafTfaBins/. "${RUNNER_TEMP}/haf-tfa-firmware/DEF"/
@@ -69,6 +70,7 @@ jobs:
         run: python Platforms/QemuArmVirtPkg/PlatformBuild.py --clean HAF_TFA_BUILD=TRUE BLD_*_TPM2_ENABLE=TRUE
 
       - name: Stage TPM HAF/TF-A binaries
+        if: github.event_name == 'release'
         run: |
           mkdir -p "${RUNNER_TEMP}/haf-tfa-firmware/TPM"
           cp -a Build/QemuArmVirtPkg/DEBUG_CLANGPDB/HafTfaBins/. "${RUNNER_TEMP}/haf-tfa-firmware/TPM"/
