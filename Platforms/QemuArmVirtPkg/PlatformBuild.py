@@ -864,15 +864,17 @@ class PlatformBuilder(UefiBuilder, BuildSettingsManager):
             op_tfa = Path(self.env.GetValue("ARM_TFA_PATH")) / "build" / self.env.GetValue("QEMU_PLATFORM").lower() / self.env.GetValue("TARGET").lower()
             working_fip = op_tfa / "fip.bin"
         else:
-            if tpm2_enable:
-                ext_dep_bins = self.env.GetValue("HAF_TFA_BINS_TPM")
-            else:
-                ext_dep_bins = self.env.GetValue("HAF_TFA_BINS")
+            ext_dep_bins = self.env.GetValue("HAF_TFA_BINS")
             if not ext_dep_bins:
                 logging.error("HAF_TFA_BINS not set. Cannot patch secure partitions.")
                 return -1
-            logging.info(f"TPM2_ENABLE={tpm2_enable}; using HAF/TF-A bins '{ext_dep_bins}'")
-            op_tfa = Path(ext_dep_bins)
+
+            if tpm2_enable:
+                variant_dir = "TPM"
+            else:
+                variant_dir = "DEF"
+            op_tfa = Path(ext_dep_bins) / variant_dir
+            logging.info(f"TPM2_ENABLE={tpm2_enable}; using HAF/TF-A bins '{op_tfa}'")
             working_fip = self.PatchSecurePartitions(op_tfa) # Patch secure partition images into a working copy of fip.bin
             if working_fip is None:
                 return -1
