@@ -278,10 +278,6 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             build_cmd.append("--crate-patch ")
             build_cmd.append(str(p.resolve()))
 
-        # if a serial port wasn't specified, use the default port so a debugger can be retroactively attached
-        if args.serial_port is None:
-            args.serial_port = 50001
-
         if args.qemu_path:
             qemu_exec = args.qemu_path
         elif os.name == "nt":
