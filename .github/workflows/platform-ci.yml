@@ -36,7 +36,7 @@ jobs:
 
   # Builds the platform(s) in this repository as defined by the matrix.
   build:
-    name: Build ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
+    name: Build ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }} ${{ matrix.variant }}
 
     needs: vars
 
@@ -51,43 +51,30 @@ jobs:
       # This setting prevents the cancellation of other jobs when one job fails.
       fail-fast: false
       matrix:
-        include:
-          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-            target: 'DEBUG'
-            platform: 'Q35'
-            os: 'windows-latest'
-          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-            target: 'RELEASE'
-            platform: 'Q35'
-            os: 'windows-latest'
-          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
-            target: 'DEBUG'
-            platform: 'ArmVirt'
-            os: 'windows-latest'
-          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
-            target: 'RELEASE'
-            platform: 'ArmVirt'
-            os: 'windows-latest'
-          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-            target: 'DEBUG'
-            platform: 'Q35'
-            os: 'ubuntu-latest'
-            container: ${{ needs.vars.outputs.container-image }}
-          - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
-            target: 'RELEASE'
-            platform: 'Q35'
-            os: 'ubuntu-latest'
-            container: ${{ needs.vars.outputs.container-image }}
-          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
-            target: 'DEBUG'
-            platform: 'ArmVirt'
-            os: 'ubuntu-latest'
-            container: ${{ needs.vars.outputs.container-image }}
-          - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
-            target: 'RELEASE'
-            platform: 'ArmVirt'
-            os: 'ubuntu-latest'
-            container: ${{ needs.vars.outputs.container-image }}
+        config:
+          - 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+          - 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
+        target: [DEBUG, RELEASE]
+        os: [windows-latest, ubuntu-latest]
+        container: ['', '${{ needs.vars.outputs.container-image }}']
+        platform: [Q35, ArmVirt]
+        variant: [DEF, TPM]
+
+        exclude:
+          # Exclude mismatched platform/config pairings
+          - platform: Q35
+            config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
+          - platform: ArmVirt
+            config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
+          # Exclude container builds on Windows
+          - os: windows-latest
+            container: '${{ needs.vars.outputs.container-image }}'
+          # Exclude non-container builds on Ubuntu
+          - os: ubuntu-latest
+            container: ''
+          # Exclude TPM builds on Windows, swtpm requires Unix sockets
+          - variant: TPM
+            os: windows-latest
 
     steps:
       # Checkout the repository to the runner or container
@@ -96,13 +83,13 @@ jobs:
 
       # Configure git for use in the container. Specifically needed for the FFA builds
       - name: Configure Git
-        if: ${{ matrix.container != null }}
+        if: ${{ matrix.container != '' }}
         uses: ./.github/actions/configure-git
 
       # Set the version of Python to use when outside of a container. Otherwise just use what's
       # in the container.
       - name: Setup Python ${{ needs.vars.outputs.python-version }}
-        if: ${{ matrix.container == null }}
+        if: ${{ matrix.container == '' }}
         uses: actions/setup-python@v6
         with:
           python-version: ${{ needs.vars.outputs.python-version }}
@@ -116,8 +103,15 @@ jobs:
       - name: Redirect Hafnium Submodule URLs
         uses: ./.github/actions/redirect-hafnium-urls
 
+      # Expose TPM_ARGS for the build/run steps below on TPM-enabled runs.
+      - name: Set TPM build args
+        if: matrix.variant == 'TPM'
+        shell: bash
+        run: |
+            echo "TPM_ARGS=BLD_*_TPM2_ENABLE=TRUE" >> $GITHUB_ENV
+
       # Run the build-platform action, which calls stuart_setup, stuart_update, and stuart_build
-      - name: Prepare and Build ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
+      - name: Prepare and Build ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }} ${{ matrix.variant }}
         id: build-platform
         uses: ./.github/actions/build-platform
         with:
@@ -125,9 +119,9 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE'
+          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE ${{ env.TPM_ARGS }}'
 
-      - name: Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
+      - name: Run ${{ matrix.platform }} ${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }} ${{ matrix.variant }}
         timeout-minutes: 15
         uses: ./.github/actions/build-platform
         with:
@@ -135,17 +129,17 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE'
+          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE ${{ env.TPM_ARGS }}'
 
       - name: Publish Logs
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: build-logs-${{ matrix.platform }}-${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
+          name: build-logs-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.variant }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
           path: ${{ steps.build-platform.outputs.log-path }}
 
       - name: Publish Q35 release binaries
-        if: ${{ github.event_name == 'release' && matrix.platform == 'Q35' }}
+        if: ${{ github.event_name == 'release' && matrix.platform == 'Q35' && matrix.variant == 'DEF' }}
         uses: actions/upload-artifact@v7
         with:
           name: release-bin-${{ matrix.platform }}-${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
@@ -155,7 +149,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish ArmVirt release binaries
-        if: ${{ github.event_name == 'release' && matrix.platform == 'ArmVirt' }}
+        if: ${{ github.event_name == 'release' && matrix.platform == 'ArmVirt' && matrix.variant == 'DEF' }}
         uses: actions/upload-artifact@v7
         with:
           name: release-bin-${{ matrix.platform }}-${{ matrix.target }} ${{ matrix.os == 'windows-latest' && 'Windows' || 'Linux' }}
