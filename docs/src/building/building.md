@@ -124,8 +124,9 @@ as those projects do not build natively on Windows. They still use clang to comp
 
 - **Q35**: defaults to `None` to avoid unintended port conflicts in the pipeline. The
   [build_and_run_rust_binary.py](rapid_iteration.md) script defaults to port `50001`.
-- **ARM Virt**: only has a single serial port for normal world. By default, this is unset so it can send serial output to
-  stdio. Setting it for ARM Virt prevents logs from coming over stdio and instead routes them to the TCP port.
+- **ARM Virt**: defaults to `None`. When set, a separate virtio serial port is exposed on the specified TCP port for
+  use by the software debugger. Log output continues to be sent to stdio regardless of this setting, consistent with
+  Q35 where the serial port is separate from `debugcon` used for logging.
 
 ### Passing Build Defines
 
