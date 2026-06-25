@@ -13,10 +13,7 @@ on:
       - published
   pull_request:
     branches:
-      - '**'  # Matches all branches
-    paths:
-      - 'Platforms/QemuArmVirtPkg/**'
-      - 'Silicon/Arm/**'
+      - main
   workflow_dispatch:
 
 jobs:
