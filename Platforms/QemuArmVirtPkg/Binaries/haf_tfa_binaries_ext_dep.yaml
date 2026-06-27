@@ -8,9 +8,9 @@ scope: qemuarmvirt
 id: haf-tfa-bin
 type: web
 name: HAF_TFA_BUILD
-source: https://github.com/OpenDevicePartnership/patina-qemu/releases/download/v4.0.0/haf-tfa-firmware-v4.0.0.zip
-version: v4.0.0
-sha256: f5ab8f457985c94251a195e2ac3c01c65d314f68bd8cb4c788532a4cc3de8f4d
+source: https://github.com/OpenDevicePartnership/patina-qemu/releases/download/v4.0.1/haf-tfa-firmware-v4.0.1.zip
+version: v4.0.1
+sha256: 5f493671100205aaf98d3e320925bb15271ef25770d6e65db6bea3723dc8a6ce
 internal_path: /
 compression_type: zip
 flags:
