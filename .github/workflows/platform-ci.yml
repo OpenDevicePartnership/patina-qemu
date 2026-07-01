@@ -79,7 +79,7 @@ jobs:
     steps:
       # Checkout the repository to the runner or container
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # Configure git for use in the container. Specifically needed for the FFA builds
       - name: Configure Git
@@ -185,7 +185,7 @@ jobs:
     steps:
       # Checkout the repository to the runner or container
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       # Configure git for use in the container. Specifically needed for the FFA builds
       - name: Configure Git
