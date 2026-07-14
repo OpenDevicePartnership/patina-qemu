@@ -34,8 +34,7 @@ On QEMU Arm Virt, the TpmShellApp is placed directly in the firmware volume, whi
 `FSx:` device in the UEFI shell. Build with:
 
 ```bash
-stuart_build -c Platforms/QemuArmVirtPkg/PlatformBuild.py --FlashRom \
-  BLD_*_TPM2_ENABLE=TRUE \
+stuart_build -c Platforms/QemuArmVirtPkg/PlatformBuild.py --FlashRom BLD_*_TPM2_ENABLE=TRUE
 ```
 
 At the UEFI shell, run:
@@ -232,32 +231,34 @@ extensions, so mismatches are expected.
 
 **April 2026:**
 
-Manually updating Tpm2HashMask in the platform .dsc is dangerous. On Q35, PEI will
-pick up the change and auto enable/disable any PCR banks that differ from the current
-active banks in the TPM. (See Tcg2Pei - SyncPcrAllocationsAndPcrMask) If the platform
-also disables (i.e. removes) any of the supported hashing algorithms from the platform
-.dsc there are no safeguards to prevent the TPM from enabling/disabling any active banks
-based on platform support. Because of this there can be active banks that will show up
-as active when querying the TPM but will not show up as active in the Tcg2Protocol call.
+```admonish warning title="Manually editing Tpm2HashMask can desync the TPM and the protocol"
+Manually updating `Tpm2HashMask` in the platform `.dsc` is dangerous. On Q35, PEI picks up
+the change and automatically enables/disables any PCR banks that differ from the current
+active banks in the TPM (see `Tcg2Pei - SyncPcrAllocationsAndPcrMask`). If the platform also
+disables (i.e. removes) any of the supported hashing algorithms from the platform `.dsc`,
+there are no safeguards to prevent the TPM from enabling/disabling active banks based on
+platform support. Because of this, there can be active banks that show up as active when
+querying the TPM directly but do not show up as active in the `Tcg2Protocol` call.
+```
 
 Example:
 
-- Tpm2HashMask is updated to 0x06 (i.e. SHA256 + SHA384 supported).
-- SHA384 support is removed from Tcg2Pei and Tcg2Dxe.
+- `Tpm2HashMask` is updated to `0x06` (i.e. SHA256 + SHA384 supported).
+- SHA384 support is removed from `Tcg2Pei` and `Tcg2Dxe`.
 - Build/Run the Q35 platform.
 - TPM reports SHA256 as the only active PCR bank.
-- Tcg2Pei recognizes there is a mismatch between platform support (i.e. Tpm2HashMask)
-  and TPM active banks. Activates SHA384 into a ResetCold.
+- `Tcg2Pei` recognizes there is a mismatch between platform support (i.e. `Tpm2HashMask`)
+  and TPM active banks. It activates SHA384 and triggers a `ResetCold`.
 - TPM reports SHA256 + SHA384 as active PCR banks.
-- HashLibCryptoRouterPei and HashLibCryptoRouterDxe set PcdTcg2HashAlgorithmBitmap based on
-  successfully registered hash algorithms.
-- Tcg2Pei registers SHA256 but is unable to register SHA384.
-- Tcg2Dxe registers SHA256 but is unable to register SHA384.
-- Tcg2Dxe sets local variables based on what the TPM reports and PcdTcg2HashAlgorithmBitmap.
+- `HashLibBaseCryptoRouterPei` and `HashLibBaseCryptoRouterDxe` set
+  `PcdTcg2HashAlgorithmBitmap` based on successfully registered hash algorithms.
+- `Tcg2Pei` registers SHA256 but is unable to register SHA384.
+- `Tcg2Dxe` registers SHA256 but is unable to register SHA384.
+- `Tcg2Dxe` sets local variables based on what the TPM reports and `PcdTcg2HashAlgorithmBitmap`.
 
   ```C
   mTcgDxeData.BsCap.HashAlgorithmBitmap = TpmHashAlgorithmBitmap & PcdGet32 (PcdTcg2HashAlgorithmBitmap);
   mTcgDxeData.BsCap.ActivePcrBanks      = ActivePCRBanks & PcdGet32 (PcdTcg2HashAlgorithmBitmap);
   ```
 
-- Tcg2Protocol is installed with only SHA256 support reported even though SHA384 is active.
+- `Tcg2Protocol` is installed with only SHA256 support reported even though SHA384 is active.
