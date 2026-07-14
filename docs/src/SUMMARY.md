@@ -20,6 +20,7 @@
 # Testing
 
 - [Regression Testing](testing/regression_testing.md)
+- [Self-Certification Testing](testing/self_certification_test.md)
 
 # Performance
 
