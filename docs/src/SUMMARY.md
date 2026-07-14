@@ -1,6 +1,7 @@
 # Summary
 
 [Introduction](introduction.md)
+[Rust Platform Integration](rust_platform_integration.md)
 
 # Platforms
 
