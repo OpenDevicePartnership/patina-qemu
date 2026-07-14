@@ -27,3 +27,9 @@
 - [Collecting Performance Results](performance/results.md)
 - [Patina DXE Core Binary Size](performance/binary_size.md)
 - [Sample Q35 Performance Report](performance/q35_report_sample.md)
+
+# Trusted Platform Module (TPM)
+
+- [TpmShellApp on QEMU Platforms](tpm/tpm_shell_app.md)
+- [TPM on ArmVirt](tpm/tpm_armvirt.md)
+- [TPM on Q35](tpm/tpm_q35.md)
