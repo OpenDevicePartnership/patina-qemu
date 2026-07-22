@@ -418,7 +418,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             .with_usb_controller()
             .with_usb_mouse()
             .with_usb_keyboard()
-            .with_storage(args.os, 'HDD')
+            .with_storage(args.os, 'SSD')
             .with_display(not args.headless)
             .with_network(enabled=False)
             .with_gdb_server(args.gdb_port)
