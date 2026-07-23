@@ -32,7 +32,8 @@ drive, from a USB drive, and from a PXE server.
 The [`.github/workflows/nightly-os-boot.yml`](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/.github/workflows/nightly-os-boot.yml)
 workflow is responsible for the nightly OS boot testing mentioned above. It first downloads and prepares the OS
 images that will be booted so that, once booted, they automatically shut down. The firmware is then compiled and
-flashed to the two virtual platforms, and BDS automatically detects the operating system and boots.
+flashed to the two virtual platforms, and BDS automatically detects the operating system and boots. In addition to
+the nightly schedule, this workflow also runs on pull requests to catch OS boot regressions before they merge.
 
 ## Advanced Logger Log Gathering
 
