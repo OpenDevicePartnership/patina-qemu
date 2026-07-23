@@ -16,6 +16,13 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Cancel in-progress runs when a new commit is pushed to the same PR. For non-PR events
+# (schedule, workflow_dispatch) `github.head_ref` is empty, so the fallback to `github.run_id`
+# gives each run a unique group and prevents those runs from cancelling each other.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   vars:
     name: Get Repository Constants
