@@ -13,6 +13,7 @@ name: "Nightly OS Boot Test"
 on:
   schedule:
     - cron: '0 6 * * *'  # Runs daily at 06:00 UTC
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -225,3 +226,78 @@ jobs:
           # Specify architecture if it is not empty
           name: build-logs-${{ matrix.os-boot-device }}-${{ matrix.platform }}-${{ matrix.target }}-${{ contains(matrix.os-artifact, 'windows') && 'windows' || 'ubuntu' }}
           path: ${{ steps.build-platform.outputs.log-path }}
+
+  # Opens a tracking issue when the scheduled (cron) run fails to boot an OS.
+  # the `prepare-os-images` job sporadically fails due to network issues, which
+  # would typically cause this job to run and open an issue. This job triggers only
+  # when the `boot-with-os` job fails.
+  report-failure:
+    name: Report Nightly Failure
+    needs: boot-with-os
+    if: ${{ always() && github.event_name == 'schedule' && needs.boot-with-os.result == 'failure' }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      # If testing on a local fork with less strict permissions, you can remove this step, and update token usage to
+      # use ${{ secrets.GITHUB_TOKEN }} instead of the app token. You must also add the permission `pull-requests: write`
+      # to this job.
+      - name: Generate Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.PATINA_AUTOMATION_APPLICATION_ID }}
+          private-key: ${{ secrets.PATINA_AUTOMATION_APPLICATION_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Create or Comment on Failure Issue
+        uses: actions/github-script@v9
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          script: |
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const date = new Date().toISOString().split('T')[0];
+            // Hidden marker used to locate the persistent tracking issue for nightly OS boot failures.
+            const marker = '<!-- nightly-os-boot-failure -->';
+
+            // Look for an existing open tracking issue, identified by the hidden marker in its body.
+            const openIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = openIssues.find(
+              (issue) => !issue.pull_request && (issue.body || '').includes(marker)
+            );
+
+            if (existing) {
+              // An issue already exists; add a comment for this run's failure.
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: [
+                  `The **Nightly OS Boot Test** failed again on ${date}.`,
+                  '',
+                  `- Failed run: ${runUrl}`,
+                  `- Commit: \`${context.sha}\``,
+                ].join('\n'),
+              });
+            } else {
+              // No existing issue; open a new tracking issue.
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `Nightly OS Boot Test failed (${date})`,
+                body: [
+                  marker,
+                  'The scheduled **Nightly OS Boot Test** workflow failed to boot one or more OS configurations.',
+                  '',
+                  `- Failed run: ${runUrl}`,
+                  `- Commit: \`${context.sha}\``,
+                  '',
+                  'Please investigate the failing boot configuration(s) in the run linked above.',
+                ].join('\n'),
+              });
+            }
