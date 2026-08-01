@@ -90,7 +90,7 @@ jobs:
       # in the container.
       - name: Setup Python ${{ needs.vars.outputs.python-version }}
         if: ${{ matrix.container == '' }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ needs.vars.outputs.python-version }}
           cache: 'pip'
@@ -196,7 +196,7 @@ jobs:
       # in the container.
       - name: Setup Python ${{ needs.vars.outputs.python-version }}
         if: ${{ matrix.container == null }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ needs.vars.outputs.python-version }}
           cache: 'pip'
