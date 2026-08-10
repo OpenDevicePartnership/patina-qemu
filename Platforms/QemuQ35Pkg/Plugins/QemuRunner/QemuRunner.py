@@ -87,7 +87,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             "--tpmstate", f"dir={tpm_dir}",
             "--ctrl", f"type=unixio,path={tpm_sock}",
             "--tpm2",
-            "--log", "level=20",
+            "--log", "level=1",
         ]
         try:
             return subprocess.Popen(cmd)
