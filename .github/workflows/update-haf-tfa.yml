@@ -45,7 +45,6 @@ jobs:
         env:
           REPO: ${{ env.REPO }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # We can use the normal token here, as we are just reading releases.
-          EVENT_NAME: ${{ github.event_name }}
         shell: bash
         run: |
           # Get the latest release that matches semver format v<major>.<minor>.<patch>
