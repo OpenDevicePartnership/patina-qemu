@@ -1,9 +1,9 @@
 # This workflow automates the process of updating the HAF/TF-A binaries external dependency in this repository.
 #
-# This workflow will run on a weekly schedule and will search for the latest release that has occurred in the last 7
-# days. If a new release is found, it will create a PR to update the external dependency file and set the
-# `HAF_TFA_EXTDEP_BINS_CURRENT` variable to True in the PlatformBuild.py file. If a PR exists for an older release,
-# it will be closed in favor of the new PR.
+# This workflow triggers automatically after the Hafnium and Trusted Firmware-A Build workflow completes successfully
+# on a release event, ensuring the binaries are already uploaded before this workflow runs. It will create a PR to
+# update the external dependency files and set the `HAF_TFA_EXTDEP_BINS_CURRENT` variable to True in the
+# PlatformBuild.py file. If a PR exists for an older release, it will be closed in favor of the new PR.
 ##
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: Apache-2.0
@@ -11,9 +11,11 @@
 name: Update HAF/TF-A Binaries External Dependency
 
 on:
-  schedule:
-    # NOTE: If changing the schedule, CUTOFF_DATE in the `check` job must also be updated to match
-    - cron: '0 22 * * 6' # Every Saturday at 22:00 UTC
+  workflow_run:
+    workflows:
+      - Hafnium and Trusted Firmware-A Build
+    types:
+      - completed
   workflow_dispatch: # Manual trigger
 
 env:
@@ -22,6 +24,14 @@ env:
 jobs:
   check:
     name: Find New Releases
+
+    # For workflow_run events, only proceed when the build workflow succeeded and was triggered by a release.
+    # For workflow_dispatch, always proceed to allow manual runs.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'release')
 
     runs-on: ubuntu-latest
 
@@ -35,8 +45,6 @@ jobs:
         env:
           REPO: ${{ env.REPO }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # We can use the normal token here, as we are just reading releases.
-          CUTOFF_DATE: $(date -d '7 days ago' --iso-8601=seconds)
-          EVENT_NAME: ${{ github.event_name }}
         shell: bash
         run: |
           # Get the latest release that matches semver format v<major>.<minor>.<patch>
@@ -55,15 +63,6 @@ jobs:
           PUBLISHED_AT=$(echo "$RELEASE" | jq -r '.publishedAt // ""')
 
           echo "Latest release: $TAG_NAME (published: $PUBLISHED_AT)"
-
-          # For scheduled runs, only use the release if it's within the cutoff date
-          if [[ "$EVENT_NAME" != "workflow_dispatch" && -n "$PUBLISHED_AT" ]]; then
-            if [[ "$PUBLISHED_AT" < "$CUTOFF_DATE" ]]; then
-              echo "Release $TAG_NAME is older than cutoff date, skipping."
-              TAG_NAME=""
-            fi
-          fi
-
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Check if PR already exists
