@@ -1274,9 +1274,10 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
       NULL|SecurityPkg/Library/HashInstanceLibSm3/HashInstanceLibSm3.inf
   }
 !endif
-!endif
-!if $(TPM_CONFIG_ENABLE) == TRUE AND $(TPM2_ENABLE) == TRUE
+!if $(TPM_CONFIG_ENABLE) == TRUE
   SecurityPkg/Tcg/Tcg2Config/Tcg2ConfigDxe.inf
+!endif
+  QemuPkg/PlatformTpm/PlatformTpm.inf
 !endif
 
   # PRM Configuration Driver
