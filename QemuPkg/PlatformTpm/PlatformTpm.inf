@@ -12,7 +12,7 @@
 [Defines]
   INF_VERSION         = 0x00010017
   BASE_NAME           = PlatformTpm
-  FILE_GUID           = 63BD4A3E-C85C-48CB-9DC7-93360B5BD8FD
+  FILE_GUID           = 6F5C4959-1367-440D-90ED-10BE036E3568
   VERSION_STRING      = 1.0
   MODULE_TYPE         = DXE_DRIVER
   ENTRY_POINT         = DriverEntry
