@@ -2,7 +2,7 @@
 # Primary initialization and configuration driver for TPM 2.0 on QEMU platforms.
 #
 # @copyright
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) Microsoft Corporation.
 #
 # @par Specification Reference:
 #

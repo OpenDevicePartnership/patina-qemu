@@ -1,6 +1,6 @@
 /** @file -- PlatformTpmPpProtocol.c
 
-  Copyright (c) Microsoft Corporation. All rights reserved.
+  Copyright (c) Microsoft Corporation.
   SPDX-License-Identifier: BSD-2-Clause-Patent
 
   Contains initialization and business logic for the platform TPM
