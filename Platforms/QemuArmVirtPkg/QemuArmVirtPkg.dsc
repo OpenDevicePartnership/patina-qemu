@@ -1181,6 +1181,11 @@
     <PcdsPatchableInModule>
       gEfiMdeModulePkgTokenSpaceGuid.PcdFfaLibConduitSmc|FALSE
   }
+  QemuPkg/PlatformTpm/PlatformTpm.inf {
+    <LibraryClasses>
+      OemTpm2InitLibVendor|SecurityPkg/Library/OemTpm2InitLibNull/OemTpm2InitLibVendorNull.inf
+      Tcg2PhysicalPresencePromptLib|SecurityPkg/Library/Tcg2PhysicalPresencePromptLib/Tcg2PhysicalPresencePromptLibConsole.inf
+  }
 !endif
   QemuArmVirtPkg/VirtNorFlashStandaloneMm/VirtNorFlashStandaloneMm.inf {
     <PcdsFixedAtBuild>

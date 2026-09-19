@@ -367,6 +367,7 @@ READ_LOCK_STATUS   = TRUE
 !if $(TPM2_CONFIG_ENABLE) == TRUE
   INF SecurityPkg/Tcg/Tcg2Config/Tcg2ConfigDxe.inf
 !endif
+  INF QemuPkg/PlatformTpm/PlatformTpm.inf
 !endif
 
   INF  AdvLoggerPkg/AdvancedFileLogger/AdvancedFileLogger.inf
