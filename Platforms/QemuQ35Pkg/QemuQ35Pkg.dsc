@@ -1446,9 +1446,6 @@ QemuQ35Pkg/ResetVector/ResetVector.inf
   #
   *_CLANGPDB_*_CC_FLAGS = -D DISABLE_NEW_DEPRECATED_INTERFACES $(PERFORMANCE_OPTIONS)
 
-  *_CLANGPDB_*_DLINK_FLAGS = /ALIGN:64 /FILEALIGN:64
-  *_CLANGPDB_*_DLINK_XIPFLAGS = /ALIGN:64
-
 # Force PE/COFF sections to be aligned at 4KB boundaries to support page level
 # protection of DXE_SMM_DRIVER/SMM_CORE modules
 [BuildOptions.common.EDKII.DXE_SMM_DRIVER, BuildOptions.common.EDKII.DXE_RUNTIME_DRIVER, BuildOptions.common.EDKII.SMM_CORE, BuildOptions.common.EDKII.DXE_DRIVER, BuildOptions.common.EDKII.DXE_CORE, BuildOptions.common.EDKII.UEFI_DRIVER, BuildOptions.common.EDKII.UEFI_APPLICATION, BuildOptions.common.EDKII.MM_CORE_STANDALONE, BuildOptions.common.EDKII.MM_STANDALONE]
