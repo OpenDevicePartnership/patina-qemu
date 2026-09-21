@@ -404,6 +404,7 @@
   CpuExceptionHandlerLib        |UefiCpuPkg/Library/CpuExceptionHandlerLib/DxeCpuExceptionHandlerLib.inf
   ReportStatusCodeLib           |MdeModulePkg/Library/DxeReportStatusCodeLib/DxeReportStatusCodeLib.inf
   MmUnblockMemoryLib            |MmSupervisorPkg/Library/MmSupervisorUnblockMemoryLib/MmSupervisorUnblockMemoryLibDxe.inf
+  GptLib                        |MdeModulePkg/Library/GptLib/GptLib.inf
 !if $(PERF_TRACE_ENABLE) == TRUE
   PerformanceLib                |MdeModulePkg/Library/DxePerformanceLib/DxePerformanceLib.inf
 !endif
@@ -1446,6 +1447,7 @@ QemuQ35Pkg/ResetVector/ResetVector.inf
   *_CLANGPDB_*_CC_FLAGS = -D DISABLE_NEW_DEPRECATED_INTERFACES $(PERFORMANCE_OPTIONS)
 
   *_CLANGPDB_*_DLINK_FLAGS = /ALIGN:64 /FILEALIGN:64
+  *_CLANGPDB_*_DLINK_XIPFLAGS = /ALIGN:64
 
 # Force PE/COFF sections to be aligned at 4KB boundaries to support page level
 # protection of DXE_SMM_DRIVER/SMM_CORE modules
