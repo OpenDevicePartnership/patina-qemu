@@ -1,0 +1,12 @@
+{
+  "cell_id": "q35-release-ssd-windows-x64-image",
+  "os_artifact": "windows-x64-image",
+  "os_boot_device": "SSD",
+  "platform": "Q35",
+  "result": "success",
+  "run_id": "35751803527",
+  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/35751803527",
+  "schema_version": 1,
+  "target": "RELEASE",
+  "timestamp": "2026-09-22T16:16:37Z"
+}

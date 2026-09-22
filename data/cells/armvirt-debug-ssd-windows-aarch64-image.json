@@ -1,0 +1,12 @@
+{
+  "cell_id": "armvirt-debug-ssd-windows-aarch64-image",
+  "os_artifact": "windows-aarch64-image",
+  "os_boot_device": "SSD",
+  "platform": "ArmVirt",
+  "result": "success",
+  "run_id": "35751803527",
+  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/35751803527",
+  "schema_version": 1,
+  "target": "DEBUG",
+  "timestamp": "2026-09-22T16:22:23Z"
+}
