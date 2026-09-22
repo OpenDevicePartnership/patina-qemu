@@ -1,0 +1,12 @@
+{
+  "bootloader": {
+    "name": "GRUB",
+    "shim_version": "1.58+15.8-0ubuntu1",
+    "version": "1.202.5+2.12-1ubuntu7.3"
+  },
+  "image_sha256": "612b2c0cc1bc413a6cb8c38fd611794caf0f2b436c50013d8b3794db12ad7354",
+  "os_artifact": "ubuntu-x64-image",
+  "os_family": "ubuntu",
+  "os_version": "24.04.5 LTS",
+  "schema_version": 1
+}
