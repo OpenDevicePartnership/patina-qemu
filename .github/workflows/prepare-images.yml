@@ -105,6 +105,53 @@ jobs:
           mv "${{ env.DISK_IMAGE }}" artifacts/
           mv "${{ env.SEED_ISO }}" artifacts/
 
+      # Ubuntu publishes a package manifest alongside each cloud image build. Since the image's bootloader
+      # is not modified, the manifest's grub/shim package versions are what is being tested.
+      - name: Fetch bootloader versions
+        id: bootloader
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          img_url=${{ inputs.image-url }}
+          img_name=$(basename "${img_url}")
+          manifest_url="${img_url%.img}.manifest"
+          arch=$(echo "${img_name}" | grep -oE 'amd64|arm64')
+          codename=$(echo "${img_url}" | awk -F/ '{print $4}')
+
+          manifest=$(curl -fsSL "${manifest_url}")
+          grub_version=$(echo "${manifest}" | awk -v pkg="grub-efi-${arch}-signed" -F'\t' '$1 == pkg {print $2}')
+          shim_version=$(echo "${manifest}" | awk -F'\t' '$1 == "shim-signed" {print $2}')
+
+          [ -n "${grub_version}" ] || (echo "Failed to retrieve GRUB version from ${manifest_url}" >&2; exit 1)
+
+          parse_version='/^Dist: /{d=$2} /^Version: /&&d==dist{sub(/^Version: /,""); print; exit}'
+          os_version=$(curl -fsSL "https://changelogs.ubuntu.com/meta-release" | awk -v dist="${codename}" "${parse_version}")
+          if [ -z "${os_version}" ]; then
+            os_version=$(curl -fsSL "https://changelogs.ubuntu.com/meta-release-development" | awk -v dist="${codename}" "${parse_version}")
+          fi
+          [ -n "${os_version}" ] || (echo "Failed to resolve Ubuntu version for codename '${codename}'" >&2; exit 1)
+
+          echo "grub-version=${grub_version}" >> $GITHUB_OUTPUT
+          echo "shim-version=${shim_version}" >> $GITHUB_OUTPUT
+          echo "os-version=${os_version}" >> $GITHUB_OUTPUT
+
+      - name: Write image metadata
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cat > "artifacts/${{ inputs.artifact-name }}.json" <<EOF
+          {
+            "schema_version": 1,
+            "os_artifact": "${{ inputs.artifact-name }}",
+            "os_family": "ubuntu",
+            "os_version": "${{ steps.bootloader.outputs.os-version }}",
+            "image_sha256": "${{ steps.checksum.outputs.sha }}",
+            "bootloader": {
+              "name": "GRUB",
+              "version": "${{ steps.bootloader.outputs.grub-version }}",
+              "shim_version": "${{ steps.bootloader.outputs.shim-version }}"
+            }
+          }
+          EOF
+
       - name: Publish Artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -113,6 +160,13 @@ jobs:
           path: |
             artifacts/${{ env.DISK_IMAGE }}
             artifacts/${{ env.SEED_ISO }}
+
+      - name: Publish Image Metadata
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}-metadata
+          retention-days: 1
+          path: artifacts/${{ inputs.artifact-name }}.json
 
   build-windows-images:
     name: Prepare Windows Boot Image
@@ -197,6 +251,19 @@ jobs:
           mkdir artifacts
           mv "${{ env.DISK_IMAGE }}" artifacts/
 
+      - name: Write image metadata
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          $metadata = [ordered]@{
+            schema_version = 1
+            os_artifact     = "${{ inputs.artifact-name }}"
+            os_family       = "windows"
+            os_version      = "Windows Validation OS"
+            image_sha256    = "${{ steps.checksum.outputs.sha }}"
+            bootloader      = $null
+          }
+          $metadata | ConvertTo-Json | Set-Content -Path "artifacts/${{ inputs.artifact-name }}.json" -Encoding utf8
+
       - name: Publish Artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -204,3 +271,10 @@ jobs:
           retention-days: 1
           path: |
             artifacts/${{ env.DISK_IMAGE }}
+
+      - name: Publish Image Metadata
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact-name }}-metadata
+          retention-days: 1
+          path: artifacts/${{ inputs.artifact-name }}.json

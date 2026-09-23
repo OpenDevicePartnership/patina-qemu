@@ -53,18 +53,6 @@
 
   DEFINE CUSTOM_STACK_CHECK_LIB         = DYNAMIC
 
-  PEI_CRYPTO_SERVICES = TINY_SHA
-  DXE_CRYPTO_SERVICES = STANDARD
-  RUNTIMEDXE_CRYPTO_SERVICES = NONE
-  SMM_CRYPTO_SERVICES = NONE
-  STANDALONEMM_CRYPTO_SERVICES = NONE
-  STANDALONEMM_MMSUPV_CRYPTO_SERVICES = STANDARD
-  DXE_CRYPTO_ARCH = X64
-  RUNTIMEDXE_CRYPTO_ARCH = X64
-  SMM_CRYPTO_ARCH = NONE
-  STANDALONEMM_CRYPTO_ARCH = NONE
-  STANDALONEMM_MMSUPV_CRYPTO_ARCH = X64
-
 ################################################################################
 #
 # SKU Identification section - list of all SKU IDs supported by this Platform.
@@ -348,6 +336,15 @@
   PeCoffLibNegative|SeaPkg/Library/BasePeCoffLibNegative/BasePeCoffLibNegative.inf
   SecurePolicyLib|MmSupervisorPkg/Library/SecurePolicyLib/SecurePolicyLib.inf
 
+[LibraryClasses.common.DXE_RUNTIME_DRIVER, LibraryClasses.common.UEFI_DRIVER, LibraryClasses.common.DXE_DRIVER, LibraryClasses.common.UEFI_APPLICATION]
+  BaseCryptLib|CryptoPkg/Library/BaseCryptLibOnOneCrypto/DxeCryptLib.inf
+  TlsLib|CryptoPkg/Library/BaseCryptLibOnOneCrypto/DxeCryptLib.inf
+
+[LibraryClasses.common.MM_STANDALONE]
+  BaseCryptLib|CryptoPkg/Library/BaseCryptLibOnOneCrypto/StandaloneMmCryptLib.inf
+  TlsLib|CryptoPkg/Library/BaseCryptLibOnOneCrypto/StandaloneMmCryptLib.inf
+
+
 #########################################
 # PEI Libraries
 #########################################
@@ -387,6 +384,7 @@
   Tcg2PreUefiEventLogLib     |SecurityPkg/Library/Tcg2PreUefiEventLogLibNull/Tcg2PreUefiEventLogLibNull.inf
 !endif
   RngLib                     |MdePkg/Library/PeiRngLib/PeiRngLib.inf
+  BaseCryptLib               |CryptoPkg/Library/BaseCryptLibOnProtocolPpi/PeiCryptLib.inf
 
 #########################################
 # DXE Libraries
@@ -480,7 +478,7 @@
 [LibraryClasses.common.MM_CORE_STANDALONE]
   TimerLib|QemuQ35Pkg/Library/AcpiTimerLib/DxeAcpiTimerLib.inf
   ExtractGuidedSectionLib|MdePkg/Library/BaseExtractGuidedSectionLib/BaseExtractGuidedSectionLib.inf
-  FvLib|StandaloneMmPkg/Library/FvLib/FvLib.inf
+  FvLib|MdePkg/Library/FvLib/FvLib.inf
   HobLib|StandaloneMmPkg/Library/StandaloneMmCoreHobLib/StandaloneMmCoreHobLib.inf
   MemoryAllocationLib|StandaloneMmPkg/Library/StandaloneMmCoreMemoryAllocationLib/StandaloneMmCoreMemoryAllocationLib.inf
   MemLib|MmSupervisorPkg/Library/MmSupervisorMemLib/MmSupervisorCoreMemLib.inf
@@ -855,8 +853,6 @@
 #
 ################################################################################
 [Components]
-  !include $(SHARED_CRYPTO_PATH)/Driver/Bin/CryptoDriver.inc.dsc
-
 QemuQ35Pkg/Library/PeiFvMeasurementExclusionLib/PeiFvMeasurementExclusionLib.inf
 
 QemuQ35Pkg/Library/ResetSystemLib/BaseResetSystemLib.inf
@@ -1377,6 +1373,9 @@ QemuQ35Pkg/ResetVector/ResetVector.inf
     <LibraryClasses>
       NULL|StandaloneMmPkg/Library/PeiStandaloneMmHobProductionLib/PeiStandaloneMmHobProductionLib.inf
   }
+
+  $(ONE_CRYPTO_PATH)/$(TARGET)/$(PEI_CRYPTO_ARCH)/MbedTlsCryptoPei/MbedTlsCryptoPei.inf
+  
   MdeModulePkg/Universal/FaultTolerantWritePei/FaultTolerantWritePei.inf
   MdeModulePkg/Universal/Variable/Pei/VariablePei.inf
   QemuQ35Pkg/SmmAccess/SmmAccessPei.inf

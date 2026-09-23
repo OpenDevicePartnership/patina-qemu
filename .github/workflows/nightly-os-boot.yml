@@ -28,6 +28,38 @@ jobs:
     name: Get Repository Constants
     uses: OpenDevicePartnership/patina-devops/.github/workflows/qemu-constants.yml@main
 
+  # Resolves the Patina versions under test. The DXE Core flashed by this workflow is a prebuilt
+  # release from patina-dxe-core-qemu (as pinned in QemuPkg/Binaries/DXECORE.QEMU_ext_dep.json),
+  # so the Patina version is determined by the Cargo.lock of the specified patina-dxe-core-qemu release.
+  resolve-environment:
+    name: Resolve Environment Versions
+
+    runs-on: ubuntu-latest
+
+    outputs:
+      patina-sdk-version: ${{ steps.versions.outputs.patina-sdk-version }}
+      patina-dxe-core-qemu-version: ${{ steps.versions.outputs.patina-dxe-core-qemu-version }}
+      patina-qemu-commit: ${{ steps.versions.outputs.patina-qemu-commit }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Resolve Patina versions
+        id: versions
+        run: |
+          dxe_core_qemu_version=$(jq -r '.version' QemuPkg/Binaries/DXECORE.QEMU_ext_dep.json)
+          [ -n "${dxe_core_qemu_version}" ] && [ "${dxe_core_qemu_version}" != "null" ] || \
+            (echo "Failed to read the patina-dxe-core-qemu version from the ext_dep JSON file" >&2; exit 1)
+
+          lock_url="https://raw.githubusercontent.com/OpenDevicePartnership/patina-dxe-core-qemu/v${dxe_core_qemu_version}/Cargo.lock"
+          patina_sdk_version=$(curl -fsSL "${lock_url}" | awk '/^name = "patina"$/{f=1; next} f{gsub(/"/,"",$3); print $3; exit}')
+          [ -n "${patina_sdk_version}" ] || (echo "Failed to resolve the Patina SDK version from ${lock_url}" >&2; exit 1)
+
+          echo "patina-dxe-core-qemu-version=${dxe_core_qemu_version}" >> $GITHUB_OUTPUT
+          echo "patina-sdk-version=${patina_sdk_version}" >> $GITHUB_OUTPUT
+          echo "patina-qemu-commit=${{ github.sha }}" >> $GITHUB_OUTPUT
+
   prepare-os-images:
     name: Prepare OS Boot Images
 
@@ -218,6 +250,7 @@ jobs:
           stuart-args: 'QEMU_HEADLESS=TRUE ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
 
       - name: Run
+        id: run
         uses: ./.github/actions/build-platform
         with:
           command: 'flash'
@@ -225,6 +258,45 @@ jobs:
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
           stuart-args: 'QEMU_HEADLESS=TRUE ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
+
+      # Records a per-target pass/fail result for the Patina Compatibility Matrix, independent of build/flash outcome.
+      - name: Generate compatibility cell metadata
+        id: compat-cell
+        if: always()
+        run: |
+          cell_id=$(printf '%s' "${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.os-boot-device }}-${{ matrix.os-artifact }}" | tr '[:upper:]' '[:lower:]')
+
+          if [ "${{ steps.build-platform.outcome }}" = "success" ] && [ "${{ steps.run.outcome }}" = "success" ]; then
+            result="success"
+          else
+            result="failure"
+          fi
+
+          mkdir -p compat-data
+          cat > "compat-data/${cell_id}.json" <<EOF
+          {
+            "schema_version": 1,
+            "cell_id": "${cell_id}",
+            "platform": "${{ matrix.platform }}",
+            "target": "${{ matrix.target }}",
+            "os_boot_device": "${{ matrix.os-boot-device }}",
+            "os_artifact": "${{ matrix.os-artifact }}",
+            "result": "${result}",
+            "run_id": "${{ github.run_id }}",
+            "run_url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+          echo "cell-id=${cell_id}" >> $GITHUB_OUTPUT
+
+      - name: Upload compatibility cell metadata
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: compat-cell-${{ steps.compat-cell.outputs.cell-id }}
+          path: compat-data/${{ steps.compat-cell.outputs.cell-id }}.json
+          retention-days: 1
 
       - name: Publish Logs
         if: always()
@@ -308,3 +380,84 @@ jobs:
                 ].join('\n'),
               });
             }
+
+  # Publishes Patina Compatibility Matrix badge data to the `badges` branch after a nightly run.
+  publish-compat-matrix:
+    name: Publish Compatibility Matrix
+    needs:
+      - boot-with-os
+      - resolve-environment
+    if: ${{ always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')) }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate Token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.PATINA_AUTOMATION_APPLICATION_ID }}
+          private-key: ${{ secrets.PATINA_AUTOMATION_APPLICATION_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Download compatibility data
+        uses: actions/download-artifact@v8
+        with:
+          pattern: compat-cell-*
+          path: compat-artifacts/cells
+          merge-multiple: true
+
+      - name: Download OS image metadata
+        uses: actions/download-artifact@v8
+        with:
+          pattern: '*-metadata'
+          path: compat-artifacts/images
+          merge-multiple: true
+
+      - name: Generate badge and matrix data
+        env:
+          PATINA_SDK_VERSION: ${{ needs.resolve-environment.outputs.patina-sdk-version }}
+          PATINA_DXE_CORE_QEMU_VERSION: ${{ needs.resolve-environment.outputs.patina-dxe-core-qemu-version }}
+          PATINA_QEMU_COMMIT: ${{ needs.resolve-environment.outputs.patina-qemu-commit }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          export TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          python3 .github/scripts/generate_compat_badges.py \
+            --cells-dir compat-artifacts/cells \
+            --images-dir compat-artifacts/images \
+            --output-dir compat-output
+
+      # The badges branch is an orphan branch containing only the generated JSON data.
+      - name: Publish to badges branch
+        run: |
+          set -euo pipefail
+          git config user.name "patina-automation[bot]"
+          git config user.email "patina-automation[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin badges >/dev/null 2>&1; then
+            git fetch origin badges:badges
+            git checkout badges
+            git rm -rf --ignore-unmatch data badges > /dev/null
+          else
+            git checkout --orphan badges
+            git rm -rf . > /dev/null 2>&1 || true
+          fi
+
+          mkdir -p data badges
+          cp -r compat-output/data/. data/
+          cp -r compat-output/badges/. badges/
+
+          git add data badges
+          if git diff --cached --quiet; then
+            echo "No compatibility matrix changes to publish."
+            exit 0
+          fi
+
+          git commit -m "Update Patina compatibility matrix data (run ${{ github.run_id }})"
+          git push origin badges
