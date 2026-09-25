@@ -291,17 +291,10 @@ PpProcessUserConfirmation (
   // to be reported to the OS.
   //
 
-  // //
-  // // Step 2: Make sure that we have the required STUFF to present a console to the user.
-  // if (!EFI_ERROR (Status)) {
-  //   Status = IsPromptReady ();
-  //   if (EFI_ERROR (Status)) {
-  //     DEBUG ((DEBUG_ERROR, "PlatformTpm::PpProcessUserConfirmation - Failed to locate required UI elements!\n"));
-  //     LogPhysicalPresenceResult (&mTcgPpData, TCG_PP_OPERATION_RESPONSE_BIOS_FAILURE);
-
-  //     Status = EFI_ABORTED;
-  //   }
-  // }
+  //
+  // Step 2: Prompt the user for confirmation of the TPM Physical Presence request.
+  //
+  // Note that this step is specifically skipped in this implementation, as user interaction is not required.
 
   //
   // Step 3: Away with ye...
