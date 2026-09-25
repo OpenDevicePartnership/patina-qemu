@@ -97,11 +97,11 @@ InitPhysicalPresence (
     // - Act as a signal to other parts of the BIOS that a PP request is pending.
     // - Provide an interface to prompt for a PP confirmation once the necessary
     //    resources are available.
-    Status = gBS->InstallMultipleProtocolInterfaces (
+    Status = gBS->InstallProtocolInterface (
                     &Handle,
                     &gTpmPpProtocolGuid,
-                    &mPlatformTpmPpProtocol,
-                    NULL
+                    EFI_NATIVE_INTERFACE,
+                    &mPlatformTpmPpProtocol
                     );
 
     // At this point we should attempt to report any EFI_ERROR Status to the OS through PPI.
