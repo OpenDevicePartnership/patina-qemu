@@ -89,7 +89,7 @@ InitPhysicalPresence (
   }
 
   //
-  // Step 4: Detect any pending OS requests.
+  // Step 3: Detect any pending OS requests.
   if (mTcgPpData.PPRequest != TCG2_PHYSICAL_PRESENCE_NO_ACTION) {
     DEBUG ((DEBUG_INFO, "PlatformTpm::%a - Pending PPI request detected!! Processing further.\n", __func__));
     // Attempt to install the PP Protocol.
@@ -106,7 +106,7 @@ InitPhysicalPresence (
 
     // At this point we should attempt to report any EFI_ERROR Status to the OS through PPI.
     if (EFI_ERROR (Status)) {
-      DEBUG ((DEBUG_ERROR, "PlatformTpm::InitPhysicalPresence - Failed to process PP request!\n"));
+      DEBUG ((DEBUG_ERROR, "PlatformTpm::InitPhysicalPresence - Failed to install PPI protocol (%r)!\n", Status));
       LogPhysicalPresenceResult (&mTcgPpData, TCG_PP_OPERATION_RESPONSE_BIOS_FAILURE);
     }
   } else {
