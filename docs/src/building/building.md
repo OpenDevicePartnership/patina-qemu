@@ -108,6 +108,14 @@ as those projects do not build natively on Windows. They still use clang to comp
   command line.
 ```
 
+(As of 2026-07) 
+The officially supported way to build is using the [devcontainer](https://github.com/OpenDevicePartnership/patina-qemu/blob/main/.devcontainer/devcontainer.json) specified in the repo which currently uses Ubuntu 24.04 
+```admonish info title="OS Environment Notes"
+（On x86 host, WSL)
+- The Ubuntu 24.04 distribution-provided QEMU (v8.2.2) supports `QemuQ35Pkg`, but does not support `QemuArmVirtPkg`.
+- To run `QemuArmVirtPkg`, the devcontainer uses a self-built QEMU (v10.0.0)
+```
+
 ### Custom Build Options
 
 | Option | Effect |
