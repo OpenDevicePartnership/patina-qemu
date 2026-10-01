@@ -534,6 +534,16 @@ ArmPlatformGetVirtualMemoryMap (
     NULL
     );
 
+  // GPIO (PL061)
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    MMIO_CAP,
+    0x09030000,
+    0x00001000,
+    EFI_MEMORY_UC,
+    NULL
+    );
+
   // SMMU
   BuildResourceDescriptorV2 (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
