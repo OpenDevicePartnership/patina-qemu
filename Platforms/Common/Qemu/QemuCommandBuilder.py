@@ -112,7 +112,7 @@ class QemuCommandBuilder:
         self._cpu_added = True
         if self._architecture == QemuArchitecture.Q35:
             cpu_model = model or "qemu64"
-            cpu_features = f"{cpu_model},+rdrand,+umip,+smep,+pdpe1gb,+popcnt,+sse,+sse2,+sse3,+ssse3,+sse4.2,+sse4.1"
+            cpu_features = f"{cpu_model},+rdrand,+umip,+smep,+pdpe1gb,+popcnt,+sse,+sse2,+sse3,+ssse3,+sse4.2,+sse4.1,tsc-frequency=4000000000"
             self._args.extend(["-cpu", cpu_features])
         elif self._architecture == QemuArchitecture.ARM_VIRT:
             self._args.extend(["-cpu", "max,sve=off,sme=off"])
