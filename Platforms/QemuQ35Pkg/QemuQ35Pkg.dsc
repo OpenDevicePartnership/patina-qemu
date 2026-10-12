@@ -610,6 +610,7 @@
   gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerPreMemPages|3
   gEfiSecurityPkgTokenSpaceGuid.PcdUserPhysicalPresence|FALSE
   gEfiMdePkgTokenSpaceGuid.PcdPerformanceLibraryPropertyMask|0
+  gUefiCpuPkgTokenSpaceGuid.PcdCpuApLoopMode|3
 
 !if $(NETWORK_TLS_ENABLE) == FALSE
   # match PcdFlashNvStorageVariableSize purely for convenience
@@ -1375,7 +1376,7 @@ QemuQ35Pkg/ResetVector/ResetVector.inf
   }
 
   $(ONE_CRYPTO_PATH)/$(TARGET)/$(PEI_CRYPTO_ARCH)/MbedTlsCryptoPei/MbedTlsCryptoPei.inf
-  
+
   MdeModulePkg/Universal/FaultTolerantWritePei/FaultTolerantWritePei.inf
   MdeModulePkg/Universal/Variable/Pei/VariablePei.inf
   QemuQ35Pkg/SmmAccess/SmmAccessPei.inf
