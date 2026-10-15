@@ -932,7 +932,6 @@ QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
 
   QemuQ35Pkg/8259InterruptControllerDxe/8259.inf
   UefiCpuPkg/CpuIo2Dxe/CpuIo2Dxe.inf
-  PatinaPkg/MpDxe/MpDxe.inf
   QemuQ35Pkg/8254TimerDxe/8254Timer.inf
   QemuQ35Pkg/IncompatiblePciDeviceSupportDxe/IncompatiblePciDeviceSupport.inf
   QemuPkg/PciHotPlugInitDxe/PciHotPlugInit.inf
