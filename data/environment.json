@@ -1,9 +1,9 @@
 {
-  "patina_dxe_core_qemu_version": "4.0.0",
-  "patina_qemu_commit": "99773dc8f4fdaec5bc47a95c70bdb9afce6d088d",
-  "patina_sdk_version": "23.3.4",
-  "run_id": "38859246559",
-  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/38859246559",
+  "patina_dxe_core_qemu_version": "4.0.2",
+  "patina_qemu_commit": "1ee71af7ee067bcf7c56c29d1b14f3f8ccf0eb84",
+  "patina_sdk_version": "24.0.0",
+  "run_id": "39008582557",
+  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/39008582557",
   "schema_version": 1,
-  "timestamp": "2026-10-16T06:28:28Z"
+  "timestamp": "2026-10-17T06:25:34Z"
 }
