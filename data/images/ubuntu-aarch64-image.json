@@ -4,7 +4,7 @@
     "shim_version": "1.58+15.8-0ubuntu1",
     "version": "1.202.5+2.12-1ubuntu7.3"
   },
-  "image_sha256": "1d6bffe64b848468ac97f821d369a4846d983de1800ccf6b5ec8853e85cefc55",
+  "image_sha256": "50e24e1fb79e89116e939d90aa7738f7af48c442fa1bc2510131e0b39c50348e",
   "os_artifact": "ubuntu-aarch64-image",
   "os_family": "ubuntu",
   "os_version": "24.04.5 LTS",
