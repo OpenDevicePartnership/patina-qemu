@@ -115,6 +115,8 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         gdb_server_port = QemuRunner.GetStr(env, "GDB_SERVER")
         headless = QemuRunner.GetBool(env, "QEMU_HEADLESS", False)
         monitor_port = QemuRunner.GetStr(env, "MONITOR_PORT")
+        no_reboot = QemuRunner.GetBool(env, "NO_REBOOT", False)
+        no_shutdown = QemuRunner.GetBool(env, "NO_SHUTDOWN", False)
         output_path = QemuRunner.GetStr(env, "BUILD_OUTPUT_BASE")
         path_to_os = QemuRunner.GetStr(env, "PATH_TO_OS")
         os_boot_device = QemuRunner.GetStr(env, "OS_BOOT_DEVICE", "SSD")
@@ -196,6 +198,11 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             .with_virtio_serial(serial_port)
             .with_monitor_port(monitor_port)
         )
+
+        if no_reboot:
+            qemu_cmd_builder = qemu_cmd_builder.with_no_reboot()
+        if no_shutdown:
+            qemu_cmd_builder = qemu_cmd_builder.with_no_shutdown()
 
         if path_to_seed:
             qemu_cmd_builder = qemu_cmd_builder.with_custom("-drive", f"file=\"{path_to_seed}\",format=raw,if=virtio")

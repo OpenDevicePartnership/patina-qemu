@@ -200,6 +200,18 @@ def _parse_arguments() -> argparse.Namespace:
         help="Run QEMU without a display (headless mode).",
     )
     parser.add_argument(
+        "--no-reboot",
+        action="store_true",
+        default=False,
+        help="Exit QEMU on guest reset instead of rebooting; combine with --no-shutdown to stop the VM.",
+    )
+    parser.add_argument(
+        "--no-shutdown",
+        action="store_true",
+        default=False,
+        help="Stop the VM on guest shutdown instead of exiting QEMU.",
+    )
+    parser.add_argument(
         "--shutdown-after-run",
         action="store_true",
         default=False,
@@ -447,6 +459,11 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         ]
     else:
         raise ValueError(f"Unsupported platform: {args.platform}")
+
+    if args.no_reboot:
+        qemu_cmd_builder = qemu_cmd_builder.with_no_reboot()
+    if args.no_shutdown:
+        qemu_cmd_builder = qemu_cmd_builder.with_no_shutdown()
 
     pass_through_args = []
     if args.features is not None:

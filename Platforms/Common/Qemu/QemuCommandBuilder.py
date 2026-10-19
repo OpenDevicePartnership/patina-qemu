@@ -48,6 +48,8 @@ class QemuCommandBuilder:
         self._gdb_server_added = False
         self._serial_port_added = False
         self._monitor_port_added = False
+        self._no_shutdown_added = False
+        self._no_reboot_added = False
 
         # Common initial arguments
         if self._architecture == QemuArchitecture.Q35:
@@ -517,6 +519,24 @@ class QemuCommandBuilder:
             # devices precede it on the command line.
             self._args.extend(["-device", "bochs-display,addr=0x1f"])
 
+        return self
+
+    def with_no_shutdown(self):
+        """Stop the VM on guest shutdown instead of exiting QEMU."""
+        if self._no_shutdown_added:
+            return self
+
+        self._no_shutdown_added = True
+        self._args.append("-no-shutdown")
+        return self
+
+    def with_no_reboot(self):
+        """Exit on guest reset instead of rebooting; combine with no-shutdown to stop."""
+        if self._no_reboot_added:
+            return self
+
+        self._no_reboot_added = True
+        self._args.append("-no-reboot")
         return self
 
     def with_gdb_server(self, port, ip="127.0.0.1"):
