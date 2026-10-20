@@ -36,11 +36,6 @@
 //
 STATIC UINTN  mSmiEnable;
 
-//
-// Captures whether SMI feature negotiation is supported.
-//
-STATIC BOOLEAN  mSmiFeatureNegotiation;
-
 /**
   Invokes SMI activation from either the preboot or runtime environment.
 
@@ -231,7 +226,7 @@ SmmControl2DxeEntryPoint (
   // Note: Negotiated features are not actually used for anything right now. But, the function is called
   //       to test negotiation in case it is need in the future.
   //
-  mSmiFeatureNegotiation = NegotiateSmiFeatures ();
+  NegotiateSmiFeatures ();
 
   //
   // We have no pointers to convert to virtual addresses. The handle itself

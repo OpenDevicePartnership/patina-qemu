@@ -50,14 +50,10 @@ STATIC UINT64  mSmiFeatures;
 /**
   Negotiate SMI features with QEMU.
 
-  @retval FALSE  It is not an error if SMI feature negotiation is not supported
-                 by QEMU. It just means the data cannot be used.
-
-  @retval TRUE   SMI feature negotiation is supported, and it has completed
-                 successfully as well (failure to negotiate is a fatal error
-                 and the function never returns in that case).
+  This function does not return. It simply figures out if SMI feature negotiation is available compatible with
+  our requirements. If incompatible, this function hangs.
 **/
-BOOLEAN
+VOID
 NegotiateSmiFeatures (
   VOID
   )
@@ -101,7 +97,7 @@ NegotiateSmiFeatures (
       "%a: SMI feature negotiation unavailable\n",
       __func__
       ));
-    return FALSE;
+    return;
   }
 
   //
@@ -234,7 +230,7 @@ NegotiateSmiFeatures (
   // Negotiation successful (although we may not have gotten the optimal
   // feature set).
   //
-  return TRUE;
+  return;
 
 FatalError:
   ASSERT (FALSE);
@@ -242,5 +238,5 @@ FatalError:
   //
   // Keep the compiler happy.
   //
-  return FALSE;
+  return;
 }
