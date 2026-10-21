@@ -150,6 +150,15 @@ def _parse_arguments() -> argparse.Namespace:
         help="Path to OS image to boot in QEMU.",
     )
     parser.add_argument(
+        "--with-drive",
+        nargs="?",
+        type=Path,
+        const=True,
+        default=None,
+        metavar="PATH",
+        help="Attach an existing drive image to QEMU."
+    )
+    parser.add_argument(
         "--serial-port",
         "-s",
         type=int,
@@ -247,6 +256,9 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             - ref_fd: The path to the file to use as a reference for patching.
             - skip_build: Whether to skip building the Rust DXE Core.
     """
+    if args.with_drive is not None and not args.with_drive.is_file():
+        raise ValueError(f"Drive image not found: {args.with_drive}")
+
     if args.platform == "Q35":
         if args.pre_compiled_rom:
             code_fd = args.pre_compiled_rom
@@ -464,6 +476,9 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         qemu_cmd_builder = qemu_cmd_builder.with_no_reboot()
     if args.no_shutdown:
         qemu_cmd_builder = qemu_cmd_builder.with_no_shutdown()
+
+    if args.with_drive is not None:
+        qemu_cmd_builder = qemu_cmd_builder.with_virtual_drive(str(args.with_drive))
 
     pass_through_args = []
     if args.features is not None:
