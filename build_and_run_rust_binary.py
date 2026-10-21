@@ -647,7 +647,12 @@ def main() -> None:
         logging.info(
             f"Total time to get to kick off QEMU: {end_time - start_time:.2f} seconds.\n"
         )
+        qemu_start_time = timeit.default_timer()
         _run_qemu(settings)
+        qemu_end_time = timeit.default_timer()
+        logging.info(
+            f"QEMU Run Time: {qemu_end_time - qemu_start_time:.3f} seconds.\n"
+        )
     except subprocess.CalledProcessError as e:
         logging.error(f"Failed with error #{e.returncode}.")
         exit(e.returncode)
