@@ -544,6 +544,16 @@ ArmPlatformGetVirtualMemoryMap (
     NULL
     );
 
+  // VIRTIO
+  BuildResourceDescriptorV2 (
+    EFI_RESOURCE_MEMORY_MAPPED_IO,
+    MMIO_CAP,
+    0x0A000000,
+    0x00004000,
+    EFI_MEMORY_UC,
+    NULL
+    );
+
   // PCIE_PIO will be handled in FdtPciHostBridgeLib
 
   // PCIE_MMIO
