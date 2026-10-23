@@ -50,6 +50,8 @@ class QemuCommandBuilder:
         self._monitor_port_added = False
         self._no_shutdown_added = False
         self._no_reboot_added = False
+        self._accel = None
+        self._os_storage_added = False
 
         # Common initial arguments
         if self._architecture == QemuArchitecture.Q35:
@@ -87,13 +89,16 @@ class QemuCommandBuilder:
             return self
 
         self._machine_added = True
+        if accel:
+            accel_lower = accel.lower()
+            if accel_lower in ["kvm", "tcg", "whpx"]:
+                self._accel = accel_lower
+
         if self._architecture == QemuArchitecture.Q35:
             machine_config = f"q35,smm=on"
 
-            if accel:
-                accel_lower = accel.lower()
-                if accel_lower in ["kvm", "tcg", "whpx"]:
-                    machine_config += f",accel={accel_lower}"
+            if self._accel in ["kvm", "whpx"]:
+                machine_config += f",accel={self._accel}"
 
             self._args.extend(["-machine", machine_config])
         elif self._architecture == QemuArchitecture.ARM_VIRT:
@@ -299,6 +304,7 @@ class QemuCommandBuilder:
         if not path:
             return self
 
+        self._os_storage_added = True
         self._logger.debug(f"Configuring storage: {path}")
 
         path = Path(path)
@@ -644,10 +650,27 @@ class QemuCommandBuilder:
         """Get the QEMU executable path"""
         return self._executable
 
+    def _accel_args(self):
+        """Return the `-accel` arguments for TCG, or none for other accelerators."""
+
+        if self._accel not in [None, "tcg"]:
+            return []
+        if not self._os_storage_added:
+            # This is a optimization for firmware-only TCG boots to use a single-threaded TCG.
+            # In a firmware workload, the APs laregly sit in busy loops with PAUSE/YIELD instruction,
+            # which burn computing resources, and worse cause lock contention with the BSP thread. Using
+            # a single-thread avoids the contention and the YIELD/PAUSE instruction will ensure that idle APs
+            # do not consume excessive CPU resources.
+
+            return ["-accel", "tcg,thread=single"]
+        if self._accel == "tcg":
+            return ["-accel", "tcg"]
+        return []
+
     def build(self):
         """Build and return the executable and arguments as a tuple"""
-        return (self._executable, self._args)
+        return (self._executable, self._args + self._accel_args())
 
     def __str__(self):
         """Return the full command line as a string"""
-        return f"{self._executable} {' '.join(self._args)}"
+        return f"{self._executable} {' '.join(self._args + self._accel_args())}"
