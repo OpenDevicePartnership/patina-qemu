@@ -4,9 +4,9 @@
   "os_boot_device": "USB",
   "platform": "Q35",
   "result": "success",
-  "run_id": "40068818249",
-  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/40068818249",
+  "run_id": "40167864387",
+  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/40167864387",
   "schema_version": 1,
   "target": "RELEASE",
-  "timestamp": "2026-10-24T06:18:58Z"
+  "timestamp": "2026-10-25T06:16:14Z"
 }

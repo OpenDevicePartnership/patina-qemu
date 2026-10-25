@@ -4,9 +4,9 @@
   "os_boot_device": "SSD",
   "platform": "ArmVirt",
   "result": "success",
-  "run_id": "40068818249",
-  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/40068818249",
+  "run_id": "40167864387",
+  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/40167864387",
   "schema_version": 1,
   "target": "DEBUG",
-  "timestamp": "2026-10-24T06:24:00Z"
+  "timestamp": "2026-10-25T06:21:41Z"
 }
