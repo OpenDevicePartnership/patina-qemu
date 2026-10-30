@@ -1,6 +1,6 @@
 {
   "bootloader": null,
-  "image_sha256": "E766728E8B0F41F04EF377DD544707B5B717503087795808B7F47CDFF423B4D7",
+  "image_sha256": "D37F4AAA4DB88D7C33D5C2BE456D8CF04965738A4E9560EFEB12F652F91A5F0B",
   "os_artifact": "windows-aarch64-image",
   "os_family": "windows",
   "os_version": "Windows Validation OS",
