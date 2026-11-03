@@ -245,6 +245,12 @@ MmControlPeiEntryPoint (
   }
 
   //
+  // Negotiate SMI broadcast before the first PEI MMI. This is necissary
+  // to ensure that all APs receive the SMI and we don't hit timeoouts.
+  //
+  NegotiateSmiFeatures ();
+
+  //
   // We have no pointers to convert to virtual addresses. The handle itself
   // doesn't matter, as protocol services are not accessible at runtime.
   //
