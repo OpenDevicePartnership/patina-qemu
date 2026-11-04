@@ -161,7 +161,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_executable_path, QemuArchitecture.ARM_VIRT)
             .with_cpu(cpu_model, 2)
-            .with_machine(qemu_accelerator)
+            .with_machine()
             .with_memory(8192 if path_to_os else 2048)
             .with_firmware(secure_fd, ns_fd)
             .with_rom_path(rom_path)
@@ -197,6 +197,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             .with_serial_port(None, log_files=["secure_mm.log"])
             .with_virtio_serial(serial_port)
             .with_monitor_port(monitor_port)
+            .with_accel(qemu_accelerator, single_thread=not path_to_os)
         )
 
         if no_reboot:

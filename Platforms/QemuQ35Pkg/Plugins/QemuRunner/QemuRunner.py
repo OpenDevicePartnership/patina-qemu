@@ -172,7 +172,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_executable_path, QemuArchitecture.Q35)
             .with_cpu(cpu_model, 4)
-            .with_machine(qemu_accelerator)
+            .with_machine()
             .with_memory(8192 if path_to_os else 2048)
             .with_firmware(code_fd, var_store)
             .with_rom_path(rom_path)
@@ -187,6 +187,7 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
             .with_gdb_server(gdb_server_port)
             .with_serial_port(serial_port)
             .with_monitor_port(monitor_port)
+            .with_accel(qemu_accelerator, single_thread=not path_to_os)
         )
 
         if no_reboot:
