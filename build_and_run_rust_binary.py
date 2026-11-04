@@ -335,6 +335,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             .with_gdb_server(args.gdb_port)
             .with_serial_port(args.serial_port)
             .with_monitor_port(args.monitor_port)
+            .with_accel(single_thread=not args.os)
         )
 
         if args.shutdown_after_run:
@@ -449,6 +450,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             .with_serial_port(None, log_files=["secure_mm.log"])
             .with_virtio_serial(args.serial_port)
             .with_monitor_port(args.monitor_port)
+            .with_accel(single_thread=not args.os)
         )
 
         if args.shutdown_after_run:
