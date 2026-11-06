@@ -92,7 +92,7 @@ jobs:
 
     container:
       image: ${{ needs.vars.outputs.container-image }}
-      options: --security-opt seccomp=unconfined
+      options: --security-opt seccomp=unconfined ${{ matrix.platform == 'Q35' && '--device=/dev/kvm:/dev/kvm' || '' }}
 
     timeout-minutes: 30
 
@@ -109,14 +109,14 @@ jobs:
             platform: 'Q35'
             os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
             os-boot-device: SSD
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+            extra-args: QEMU_ACCEL=kvm PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
           # SSD Q35 RELEASE X64 (Boot to Ubuntu)
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'RELEASE'
             platform: 'Q35'
             os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
             os-boot-device: SSD
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+            extra-args: QEMU_ACCEL=kvm PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
           # SSD ArmVirt DEBUG (Boot to Ubuntu)
           - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'DEBUG'
@@ -137,14 +137,14 @@ jobs:
             platform: 'Q35'
             os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
             os-boot-device: SSD
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+            extra-args: QEMU_ACCEL=kvm PATH_TO_OS=./os-boot-artifacts/image.qcow2
           # SSD Q35 RELEASE X64 (Boot to Windows)
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'RELEASE'
             platform: 'Q35'
             os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
             os-boot-device: SSD
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+            extra-args: QEMU_ACCEL=kvm PATH_TO_OS=./os-boot-artifacts/image.qcow2
           # SSD ArmVirt DEBUG (Boot to Windows)
           - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'DEBUG'
@@ -165,14 +165,14 @@ jobs:
             platform: 'Q35'
             os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
             os-boot-device: USB
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+            extra-args: QEMU_ACCEL=kvm PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
           # USB Q35 RELEASE X64 (Boot to Ubuntu)
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'RELEASE'
             platform: 'Q35'
             os-artifact: ${{ needs.vars.outputs.ubuntu-x64-artifact }}
             os-boot-device: USB
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
+            extra-args: QEMU_ACCEL=kvm PATH_TO_OS=./os-boot-artifacts/image.qcow2 PATH_TO_SEED=./os-boot-artifacts/seed.iso
           # USB ArmVirt DEBUG (Boot to Ubuntu)
           - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'DEBUG'
@@ -193,14 +193,14 @@ jobs:
             platform: 'Q35'
             os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
             os-boot-device: USB
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+            extra-args: QEMU_ACCEL=kvm PATH_TO_OS=./os-boot-artifacts/image.qcow2
           # USB Q35 RELEASE X64 (Boot to Windows)
           - config: 'Platforms/QemuQ35Pkg/PlatformBuild.py'
             target: 'RELEASE'
             platform: 'Q35'
             os-artifact: ${{ needs.vars.outputs.windows-x64-artifact }}
             os-boot-device: USB
-            extra-args: PATH_TO_OS=./os-boot-artifacts/image.qcow2
+            extra-args: QEMU_ACCEL=kvm PATH_TO_OS=./os-boot-artifacts/image.qcow2
           # USB ArmVirt DEBUG (Boot to Windows)
           - config: 'Platforms/QemuArmVirtPkg/PlatformBuild.py'
             target: 'DEBUG'

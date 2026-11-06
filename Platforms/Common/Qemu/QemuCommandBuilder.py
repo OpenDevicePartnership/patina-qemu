@@ -13,6 +13,7 @@ import logging
 import datetime
 from pathlib import Path
 from enum import Enum
+import sys
 
 
 class QemuArchitecture(Enum):
@@ -620,7 +621,19 @@ class QemuCommandBuilder:
             return self
 
         self._accel_added = True
-        accel = (accel or "tcg").lower()
+        if accel == None:
+            # use our own judgment to select the default accelerator
+            # q35 on linux, we will do kvm, and tcg as the fallback
+            if self._architecture == QemuArchitecture.Q35:
+                if sys.platform == "linux" and os.uname().machine == "x86_64":
+                    self._args.extend(["-accel", "kvm"])
+                self._args.extend(["-accel", "tcg" if not single_thread else "tcg,thread=single"])
+            else:
+                self._args.extend(["-accel", "tcg" if not single_thread else "tcg,thread=single"])
+            return self
+        else:
+            accel = accel.lower()
+
         if accel not in ["tcg", "kvm", "whpx"]:
             self._logger.error(f"Unsupported accelerator '{accel}', skipping")
             return self

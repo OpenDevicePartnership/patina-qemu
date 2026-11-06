@@ -45,7 +45,7 @@ jobs:
     # If matrix.container is not defined, then `image` will be null and no container will be used.
     container:
       image: ${{ matrix.container || null }}
-      options: --security-opt seccomp=unconfined
+      options: --security-opt seccomp=unconfined ${{ matrix.platform == 'Q35' && '--device=/dev/kvm:/dev/kvm' || '' }}
 
     strategy:
       # This setting prevents the cancellation of other jobs when one job fails.
@@ -129,7 +129,7 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          stuart-args: 'SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE ${{ env.TPM_ARGS }}'
+          stuart-args: 'QEMU_ACCEL=kvm SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*TestApp*.efi RUN_TESTS=TRUE QEMU_HEADLESS=TRUE ${{ env.TPM_ARGS }}'
 
       - name: Publish Logs
         if: always()
