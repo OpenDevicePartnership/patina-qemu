@@ -613,7 +613,7 @@ class QemuCommandBuilder:
         """Configure the QEMU accelerator
 
         Args:
-            accel (str, optional): "tcg", "kvm", or "whpx" (case-insensitive). Defaults to "tcg".
+            accel (str, optional): "tcg", "kvm", or "whpx" (case-insensitive). Defaults to "kmv" with "tcg" fallback for Q35 on Linux x64, otherwise "tcg".
             single_thread (bool): Run all vCPUs on one host thread. Only applies to TCG.
         """
         if self._accel_added:
