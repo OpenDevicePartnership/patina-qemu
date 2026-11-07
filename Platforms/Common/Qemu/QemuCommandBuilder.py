@@ -621,7 +621,7 @@ class QemuCommandBuilder:
             return self
 
         self._accel_added = True
-        if accel == None:
+        if not accel:
             # use our own judgment to select the default accelerator
             # q35 on linux, we will do kvm, and tcg as the fallback
             if self._architecture == QemuArchitecture.Q35:
