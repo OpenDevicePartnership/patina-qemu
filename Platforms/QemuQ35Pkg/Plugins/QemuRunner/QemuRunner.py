@@ -170,8 +170,9 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
         use_virtio = boot_to_front_page or alt_boot_enable
 
         cpu_core_count = 4
-        # On Linux with USB boot, limit CPU cores to 2 for optimal performance under KVM
-        if sys.platform == "linux" and path_to_os and os_boot_device.lower() == "usb":
+        # On Linux with USB boot and enforced KVM, limit CPU cores to 2 for optimal performance under KVM
+        if sys.platform == "linux" and path_to_os and os_boot_device.lower() == "usb" \
+            and qemu_accelerator and qemu_accelerator.lower() == "kvm":
             cpu_core_count = 2
 
         qemu_version = QemuRunner.QueryQemuVersion(qemu_executable_path)
