@@ -106,6 +106,10 @@ as those projects do not build natively on Windows. They still use clang to comp
   shell, matching the version of the Windows external dependency is acceptable.
 - To override the external dependency on Windows, or the installed version on Linux, use `QEMU_PATH=<path>` on the
   command line.
+- Q35 on Linux x86 hosts prefers KVM, with TCG as a fallback if KVM cannot initialize. The host must provide
+  access to `/dev/kvm`; containers must expose that device. Use `QEMU_ACCEL=tcg` to explicitly select TCG.
+- Platform CI, nightly OS boot, and nightly advanced logger runs explicitly select `QEMU_ACCEL=kvm` for Q35 on
+  Linux hosts.
 ```
 
 ### Custom Build Options

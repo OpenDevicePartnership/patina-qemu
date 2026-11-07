@@ -12,6 +12,7 @@ import re
 import io
 import shutil
 import subprocess
+import sys
 import time
 from edk2toolext.environment.plugintypes import uefi_helper_plugin
 from edk2toollib import utility_functions
@@ -168,10 +169,16 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
 
         use_virtio = boot_to_front_page or alt_boot_enable
 
+        cpu_core_count = 4
+        # On Linux with USB boot and enforced KVM, limit CPU cores to 2 for optimal performance under KVM
+        if sys.platform == "linux" and path_to_os and os_boot_device.lower() == "usb" \
+            and qemu_accelerator and qemu_accelerator.lower() == "kvm":
+            cpu_core_count = 2
+
         qemu_version = QemuRunner.QueryQemuVersion(qemu_executable_path)
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_executable_path, QemuArchitecture.Q35)
-            .with_cpu(cpu_model, 4)
+            .with_cpu(cpu_model, cpu_core_count)
             .with_machine()
             .with_memory(8192 if path_to_os else 2048)
             .with_firmware(code_fd, var_store)

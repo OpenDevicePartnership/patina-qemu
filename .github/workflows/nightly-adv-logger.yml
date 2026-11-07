@@ -29,7 +29,7 @@ jobs:
 
     container:
       image: ${{ needs.vars.outputs.container-image }}
-      options: --security-opt seccomp=unconfined
+      options: --security-opt seccomp=unconfined ${{ matrix.platform == 'Q35' && '--device=/dev/kvm:/dev/kvm' || '' }}
 
     timeout-minutes: 30
 
@@ -100,7 +100,9 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          stuart-args: 'QEMU_HEADLESS=TRUE STARTUP_NSH="${{ env.STARTUP_NSH_PATH }}" SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*AdvancedLogDumper.efi'
+          stuart-args: >-
+            ${{ matrix.platform == 'Q35' && 'QEMU_ACCEL=kvm' || '' }}
+            QEMU_HEADLESS=TRUE STARTUP_NSH="${{ env.STARTUP_NSH_PATH }}" SHUTDOWN_AFTER_RUN=TRUE FILE_REGEX=*AdvancedLogDumper.efi
 
       # Extracts and validates the log dump from AdvancedLogDumper dumps logs from PEI and DXE
       # Ensures the same logs are automatically placed in /UefiLogs/ folder by default
