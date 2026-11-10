@@ -3,10 +3,10 @@
   "os_artifact": "ubuntu-aarch64-image",
   "os_boot_device": "SSD",
   "platform": "ArmVirt",
-  "result": "failure",
-  "run_id": "42570925103",
-  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/42570925103",
+  "result": "success",
+  "run_id": "42765923856",
+  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/42765923856",
   "schema_version": 1,
   "target": "RELEASE",
-  "timestamp": "2026-11-09T06:14:44Z"
+  "timestamp": "2026-11-10T06:16:48Z"
 }

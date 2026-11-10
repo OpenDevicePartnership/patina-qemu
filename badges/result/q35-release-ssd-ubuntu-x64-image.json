@@ -1,6 +1,6 @@
 {
-  "color": "critical",
+  "color": "success",
   "label": "release",
-  "message": "failing",
+  "message": "passing",
   "schemaVersion": 1
 }

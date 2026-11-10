@@ -3,10 +3,10 @@
   "os_artifact": "ubuntu-x64-image",
   "os_boot_device": "USB",
   "platform": "Q35",
-  "result": "failure",
-  "run_id": "42570925103",
-  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/42570925103",
+  "result": "success",
+  "run_id": "42765923856",
+  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/42765923856",
   "schema_version": 1,
   "target": "DEBUG",
-  "timestamp": "2026-11-09T06:13:51Z"
+  "timestamp": "2026-11-10T06:16:47Z"
 }
