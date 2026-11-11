@@ -13,6 +13,7 @@ import logging
 import datetime
 from pathlib import Path
 from enum import Enum
+import sys
 
 
 class QemuArchitecture(Enum):
@@ -612,7 +613,7 @@ class QemuCommandBuilder:
         """Configure the QEMU accelerator
 
         Args:
-            accel (str, optional): "tcg", "kvm", or "whpx" (case-insensitive). Defaults to "tcg".
+            accel (str, optional): "tcg", "kvm", or "whpx" (case-insensitive). Defaults to "kvm" with "tcg" fallback for Q35 on Linux x64, otherwise "tcg".
             single_thread (bool): Run all vCPUs on one host thread. Only applies to TCG.
         """
         if self._accel_added:
@@ -620,7 +621,19 @@ class QemuCommandBuilder:
             return self
 
         self._accel_added = True
-        accel = (accel or "tcg").lower()
+        if not accel:
+            # use our own judgment to select the default accelerator
+            # q35 on linux, we will do kvm, and tcg as the fallback
+            if self._architecture == QemuArchitecture.Q35:
+                if sys.platform == "linux" and os.uname().machine == "x86_64":
+                    self._args.extend(["-accel", "kvm"])
+                self._args.extend(["-accel", "tcg" if not single_thread else "tcg,thread=single"])
+            else:
+                self._args.extend(["-accel", "tcg" if not single_thread else "tcg,thread=single"])
+            return self
+        else:
+            accel = accel.lower()
+
         if accel not in ["tcg", "kvm", "whpx"]:
             self._logger.error(f"Unsupported accelerator '{accel}', skipping")
             return self
