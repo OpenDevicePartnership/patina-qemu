@@ -449,7 +449,7 @@
   # OneCrypto library for DXE drivers and UEFI applications
   BaseCryptLib|CryptoPkg/Library/BaseCryptLibOnOneCrypto/DxeCryptLib.inf
   TlsLib|CryptoPkg/Library/BaseCryptLibOnOneCrypto/DxeCryptLib.inf
-  
+
 [LibraryClasses.common.MM_STANDALONE]
   # OneCrypto library for StandaloneMM - uses gOneCryptoProtocolGuid
   BaseCryptLib|CryptoPkg/Library/BaseCryptLibOnOneCrypto/StandaloneMmCryptLib.inf
@@ -1140,8 +1140,8 @@
   # MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
   MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
   MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
+  MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
   QemuPkg/AcpiPlatformDxe/AcpiPlatformDxe.inf
-  QemuPkg/AcpiSdtDxe/AcpiSdtDxe.inf
 
   #
   # Standalone MM drivers in non-secure world

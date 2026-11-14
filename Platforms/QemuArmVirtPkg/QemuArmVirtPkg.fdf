@@ -326,10 +326,10 @@ READ_LOCK_STATUS   = TRUE
   #
   # ACPI Support
   #
+  INF MdeModulePkg/Universal/Acpi/AcpiTableDxe/AcpiTableDxe.inf
   INF MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
   INF MdeModulePkg/Universal/Acpi/AcpiPlatformDxe/AcpiPlatformDxe.inf
   INF QemuPkg/AcpiPlatformDxe/AcpiPlatformDxe.inf
-  INF QemuPkg/AcpiSdtDxe/AcpiSdtDxe.inf
 
   #
   # Standalone MM drivers in non-secure world
