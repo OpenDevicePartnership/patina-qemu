@@ -1,0 +1,12 @@
+{
+  "cell_id": "armvirt-release-usb-ubuntu-aarch64-image",
+  "os_artifact": "ubuntu-aarch64-image",
+  "os_boot_device": "USB",
+  "platform": "ArmVirt",
+  "result": "success",
+  "run_id": "43564413123",
+  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/43564413123",
+  "schema_version": 1,
+  "target": "RELEASE",
+  "timestamp": "2026-11-14T06:16:05Z"
+}

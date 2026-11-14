@@ -1,6 +1,6 @@
 {
   "color": "blue",
   "label": "patina-dxe-core-qemu",
-  "message": "v4.0.3",
+  "message": "v4.0.5-no-acpi",
   "schemaVersion": 1
 }
