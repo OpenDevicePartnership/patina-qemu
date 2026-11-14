@@ -687,9 +687,10 @@
   gEfiMdePkgTokenSpaceGuid.PcdPciExpressBaseAddress|0xB0000000
   gUefiCpuPkgTokenSpaceGuid.PcdCpuMaxLogicalProcessorNumber|4
 
-  !if $(TARGET) == RELEASE
-    gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerHdwPortDebugPrintErrorLevel|0x0
-  !endif
+  # Temp: RELEASE hardware port debug output suppression disabled to debug the Ubuntu SSD Q35 RELEASE boot failure.
+  #!if $(TARGET) == RELEASE
+  #  gAdvLoggerPkgTokenSpaceGuid.PcdAdvancedLoggerHdwPortDebugPrintErrorLevel|0x0
+  #!endif
 
 [PcdsFixedAtBuild.common]
   # a PCD that controls the enumeration and connection of ConIn's. When true, ConIn is only connected once a console input is requests
