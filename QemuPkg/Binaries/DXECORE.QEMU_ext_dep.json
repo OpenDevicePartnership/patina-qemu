@@ -2,9 +2,9 @@
     "scope": "qemu",
     "type": "web",
     "name": "DXECORE.QEMU",
-    "source": "https://github.com/OpenDevicePartnership/patina-dxe-core-qemu/releases/download/v4.0.6/patina_dxe_core_qemu.zip",
-    "version": "4.0.6",
-    "sha256": "1a391a24f597b631944d760dbc1d69eb233f5cde593194eec584f0fb2a20b224",
+    "source": "https://github.com/OpenDevicePartnership/patina-dxe-core-qemu/releases/download/v4.0.4/patina_dxe_core_qemu.zip",
+    "version": "4.0.4",
+    "sha256": "3ae9b56a9d194ebc79f84547d9b556be85bc860953a114b1cd0bfb41b0c35e91",
     "internal_path": "/",
     "compression_type": "zip",
     "flags": [
