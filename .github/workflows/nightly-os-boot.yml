@@ -53,6 +53,10 @@ jobs:
             (echo "Failed to read the patina-dxe-core-qemu version from the ext_dep JSON file" >&2; exit 1)
 
           lock_url="https://raw.githubusercontent.com/OpenDevicePartnership/patina-dxe-core-qemu/v${dxe_core_qemu_version}/Cargo.lock"
+          dxe_core_source=$(jq -r '.source' QemuPkg/Binaries/DXECORE.QEMU_ext_dep.json)
+          if [[ "${dxe_core_source}" == https://raw.githubusercontent.com/* ]]; then
+            lock_url="${dxe_core_source%/*}/Cargo.lock"
+          fi
           patina_sdk_version=$(curl -fsSL "${lock_url}" | awk '/^name = "patina"$/{f=1; next} f{gsub(/"/,"",$3); print $3; exit}')
           [ -n "${patina_sdk_version}" ] || (echo "Failed to resolve the Patina SDK version from ${lock_url}" >&2; exit 1)
 
