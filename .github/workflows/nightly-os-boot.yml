@@ -53,6 +53,10 @@ jobs:
             (echo "Failed to read the patina-dxe-core-qemu version from the ext_dep JSON file" >&2; exit 1)
 
           lock_url="https://raw.githubusercontent.com/OpenDevicePartnership/patina-dxe-core-qemu/v${dxe_core_qemu_version}/Cargo.lock"
+          dxe_core_source=$(jq -r '.source' QemuPkg/Binaries/DXECORE.QEMU_ext_dep.json)
+          if [[ "${dxe_core_source}" == https://raw.githubusercontent.com/* ]]; then
+            lock_url="${dxe_core_source%/*}/Cargo.lock"
+          fi
           patina_sdk_version=$(curl -fsSL "${lock_url}" | awk '/^name = "patina"$/{f=1; next} f{gsub(/"/,"",$3); print $3; exit}')
           [ -n "${patina_sdk_version}" ] || (echo "Failed to resolve the Patina SDK version from ${lock_url}" >&2; exit 1)
 
@@ -145,25 +149,6 @@ jobs:
           target: ${{ matrix.target }}
           stuart-args: 'QEMU_HEADLESS=TRUE ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
 
-      - name: Upload firmware for local reproduction
-        uses: actions/upload-artifact@v7
-        with:
-          name: firmware-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.os-boot-device }}-ubuntu
-          path: Build/**/FV/*.fd
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Record boot environment
-        shell: bash
-        run: |
-          mkdir -p boot-diagnostics
-          uname -a > boot-diagnostics/host.txt
-          lscpu >> boot-diagnostics/host.txt
-          qemu-system-x86_64 --version > boot-diagnostics/qemu-version.txt
-          swtpm --version > boot-diagnostics/swtpm-version.txt
-          qemu-img info --output=json ./os-boot-artifacts/image.qcow2 > boot-diagnostics/disk-info.json
-          sha256sum ./os-boot-artifacts/* Build/*/${{ matrix.target }}_*/FV/*.fd > boot-diagnostics/input-sha256.txt
-
       - name: Run
         id: run
         uses: ./.github/actions/build-platform
@@ -172,20 +157,7 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          stuart-args: 'QEMU_HEADLESS=TRUE QEMU_DIAGNOSTICS_DIR=boot-diagnostics ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
-
-      - name: Upload boot diagnostics and FAT symbols
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: boot-diagnostics-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.os-boot-device }}-ubuntu
-          retention-days: 7
-          path: |
-            boot-diagnostics/
-            Build/**/Fat/DEBUG/Fat.efi
-            Build/**/Fat/DEBUG/Fat.pdb
-            Build/**/Fat/DEBUG/Fat.map
-            QemuPkg/Binaries/DXECORE.QEMU_ext_dep.json
+          stuart-args: 'QEMU_HEADLESS=TRUE ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
 
       # Records a per-target pass/fail result for the Patina Compatibility Matrix, independent of build/flash outcome.
       - name: Generate compatibility cell metadata
