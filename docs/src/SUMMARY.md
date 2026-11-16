@@ -17,6 +17,7 @@
 
 - [WinDbg + QEMU + Patina UEFI](debugging/windbg_uefi.md)
 - [WinDbg + QEMU + Windows OS](debugging/windbg_windows.md)
+- [CI Page Fault Diagnostics](debugging/ci_page_faults.md)
 
 # Testing
 

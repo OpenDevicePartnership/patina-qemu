@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import io
+import json
 import shutil
 import subprocess
 import sys
@@ -19,6 +20,7 @@ from edk2toollib import utility_functions
 
 from QemuCommandBuilder import QemuCommandBuilder
 from QemuCommandBuilder import QemuArchitecture
+from QemuFaultCapture import QemuFaultCapture
 
 
 # """QEMU Command Builder for Q35 and ArmVirt architectures"""
@@ -238,11 +240,26 @@ class QemuRunner(uefi_helper_plugin.IUefiHelperPlugin):
                     return -1
                 time.sleep(0.1)
 
+        fault_capture = None
+        diagnostics_path = QemuRunner.GetStr(env, "QEMU_DIAGNOSTICS_DIR")
+        if diagnostics_path:
+            fault_capture = QemuFaultCapture(diagnostics_path)
+            args = QemuFaultCapture.prepare_arguments(args, fault_capture.socket_path)
+            with open(os.path.join(diagnostics_path, "launch.json"), "w") as metadata:
+                json.dump({"executable": executable, "arguments": args, "qemu_version": qemu_version}, metadata, indent=2)
+
         # Run QEMU
         try:
-            ret = utility_functions.RunCmd(executable, str.join(" ", args))
+            if fault_capture:
+                fault_capture.start()
+            ret = utility_functions.RunCmd(executable, str.join(" ", args), outstream=fault_capture)
         finally:
             QemuRunner.StopSwTpm(swtpm_proc)
+            if fault_capture:
+                fault_capture.close()
+
+        if fault_capture and fault_capture.failed:
+            return 1
 
         ## TODO: restore the customized RunCmd once unit tests with asserts are figured out
         if ret == 0xC0000005 or ret == 33:

@@ -153,6 +153,17 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Record boot environment
+        shell: bash
+        run: |
+          mkdir -p boot-diagnostics
+          uname -a > boot-diagnostics/host.txt
+          lscpu >> boot-diagnostics/host.txt
+          qemu-system-x86_64 --version > boot-diagnostics/qemu-version.txt
+          swtpm --version > boot-diagnostics/swtpm-version.txt
+          qemu-img info --output=json ./os-boot-artifacts/image.qcow2 > boot-diagnostics/disk-info.json
+          sha256sum ./os-boot-artifacts/* Build/*/${{ matrix.target }}_*/FV/*.fd > boot-diagnostics/input-sha256.txt
+
       - name: Run
         id: run
         uses: ./.github/actions/build-platform
@@ -161,7 +172,20 @@ jobs:
           platform-config: ${{ matrix.config }}
           platform-name: ${{ matrix.platform }}
           target: ${{ matrix.target }}
-          stuart-args: 'QEMU_HEADLESS=TRUE ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
+          stuart-args: 'QEMU_HEADLESS=TRUE QEMU_DIAGNOSTICS_DIR=boot-diagnostics ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
+
+      - name: Upload boot diagnostics and FAT symbols
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: boot-diagnostics-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.os-boot-device }}-ubuntu
+          retention-days: 7
+          path: |
+            boot-diagnostics/
+            Build/**/Fat/DEBUG/Fat.efi
+            Build/**/Fat/DEBUG/Fat.pdb
+            Build/**/Fat/DEBUG/Fat.map
+            QemuPkg/Binaries/DXECORE.QEMU_ext_dep.json
 
       # Records a per-target pass/fail result for the Patina Compatibility Matrix, independent of build/flash outcome.
       - name: Generate compatibility cell metadata
