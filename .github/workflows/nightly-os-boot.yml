@@ -149,6 +149,14 @@ jobs:
           target: ${{ matrix.target }}
           stuart-args: 'QEMU_HEADLESS=TRUE ${{ matrix.extra-args }} OS_BOOT_DEVICE=${{ matrix.os-boot-device}}'
 
+      - name: Upload firmware for local reproduction
+        uses: actions/upload-artifact@v7
+        with:
+          name: firmware-${{ matrix.platform }}-${{ matrix.target }}-${{ matrix.os-boot-device }}-ubuntu
+          path: Build/**/FV/*.fd
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Run
         id: run
         uses: ./.github/actions/build-platform

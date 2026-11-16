@@ -3,7 +3,7 @@
 # This action first checks the cache for an existing prepared image based on the checksum of the
 # base image. If not found, it downloads the base image, prepares it for OS boot testing, and
 # uploads the prepared image as an artifact for use in subsequent jobs. The retention date for the
-# published artifact is set to 1 day, as the actual storing of the prepared image is handled by the
+# published image artifact is set to 7 days, as the actual storing of the prepared image is handled by the
 # cache.
 #
 ##
@@ -156,7 +156,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.artifact-name }}
-          retention-days: 1
+          retention-days: 7
           path: |
             artifacts/${{ env.DISK_IMAGE }}
             artifacts/${{ env.SEED_ISO }}
