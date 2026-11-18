@@ -4,9 +4,9 @@
   "os_boot_device": "USB",
   "platform": "ArmVirt",
   "result": "success",
-  "run_id": "44028387185",
-  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/44028387185",
+  "run_id": "44248530195",
+  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/44248530195",
   "schema_version": 1,
   "target": "DEBUG",
-  "timestamp": "2026-11-17T06:20:43Z"
+  "timestamp": "2026-11-18T06:17:37Z"
 }
