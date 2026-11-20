@@ -1,5 +1,5 @@
 # This workflow automatically publishes the HAF and TFA binaries for a given
-# release.
+# release, or uploads them as workflow artifacts for manual runs.
 #
 # Copyright (c) Microsoft Corporation.
 # SPDX-License-Identifier: BSD-2-Clause-Patent
@@ -57,7 +57,7 @@ jobs:
         run: python Platforms/QemuArmVirtPkg/PlatformBuild.py --clean HAF_TFA_BUILD=TRUE BLD_*_TPM2_ENABLE=FALSE
 
       - name: Stage DEF HAF/TF-A binaries
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         run: |
           mkdir -p "${RUNNER_TEMP}/haf-tfa-firmware/DEF"
           cp -a Build/QemuArmVirtPkg/DEBUG_CLANGPDB/HafTfaBins/. "${RUNNER_TEMP}/haf-tfa-firmware/DEF"/
@@ -67,11 +67,19 @@ jobs:
         run: python Platforms/QemuArmVirtPkg/PlatformBuild.py --clean HAF_TFA_BUILD=TRUE BLD_*_TPM2_ENABLE=TRUE
 
       - name: Stage TPM HAF/TF-A binaries
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
         run: |
           mkdir -p "${RUNNER_TEMP}/haf-tfa-firmware/TPM"
           cp -a Build/QemuArmVirtPkg/DEBUG_CLANGPDB/HafTfaBins/. "${RUNNER_TEMP}/haf-tfa-firmware/TPM"/
           ls "${RUNNER_TEMP}/haf-tfa-firmware/TPM"
+
+      - name: Upload Workflow Artifacts
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: haf-tfa-firmware
+          path: ${{ runner.temp }}/haf-tfa-firmware/
+          if-no-files-found: error
 
       - name: Install archive tools
         if: github.event_name == 'release'
