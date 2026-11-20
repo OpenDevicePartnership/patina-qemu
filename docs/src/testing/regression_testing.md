@@ -35,6 +35,11 @@ images that will be booted so that, once booted, they automatically shut down. T
 flashed to the two virtual platforms, and BDS automatically detects the operating system and boots. In addition to
 the nightly schedule, this workflow also runs on pull requests to catch OS boot regressions before they merge.
 
+The OS images are prepared by the shared
+[`PatinaQemuPrepareOsImages.yml`](https://github.com/OpenDevicePartnership/patina-devops/blob/main/.github/workflows/PatinaQemuPrepareOsImages.yml)
+workflow in patina-devops. The same images are used by the Patina QEMU PR validation workflow, which runs on pull
+requests to the patina and patina-dxe-core-qemu repositories.
+
 ## Advanced Logger Log Gathering
 
 The advanced logger is a logger implementation for UEFI firmware that writes its log files to a special partition
