@@ -148,6 +148,7 @@ jobs:
           path: |
             Build/**/FV/QEMUQ35_CODE.fd
             Build/**/FV/QEMUQ35_VARS.fd
+            Build/**/X64/*TestApp*.efi
           if-no-files-found: error
 
       - name: Publish ArmVirt release binaries
@@ -158,6 +159,7 @@ jobs:
           path: |
             Build/**/FV/QEMU_EFI.fd
             Build/**/FV/SECURE_FLASH0.fd
+            Build/**/AARCH64/*TestApp*.efi
           if-no-files-found: error
 
   # Runs the readiness tool.
