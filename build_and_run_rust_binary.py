@@ -10,6 +10,7 @@
 ##
 
 import argparse
+import json
 import logging
 import os
 import shutil
@@ -20,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict
 
+from Platforms.Common.Qemu import TestAppSupport
 from Platforms.Common.Qemu.QemuCommandBuilder import QemuCommandBuilder
 from Platforms.Common.Qemu.QemuCommandBuilder import QemuArchitecture
 
@@ -38,6 +40,33 @@ def _create_shutdown_drive(dest_dir: Path) -> Path:
     dest_dir.mkdir(parents=True, exist_ok=True)
     (dest_dir / "startup.nsh").write_text("reset -s\n")
     return dest_dir
+
+
+def _create_test_apps_drive(dest_dir: Path, test_apps_dir: Path) -> tuple[Path, list[str]]:
+    """Creates a directory with the EFI test apps and a startup.nsh that runs them and then shuts down.
+
+    The directory is recreated on every call so results from a previous run cannot be mistaken for new ones. QEMU
+    mounts it read/write, so the JUnit results from the apps are readable from the host when QEMU exits.
+
+    Args:
+        dest_dir (Path): Directory to create the drive in.
+        test_apps_dir (Path): Directory containing pre-compiled test apps (*.efi).
+
+    Returns:
+        tuple[Path, list[str]]: The drive directory and the names of the test apps it contains.
+    """
+    apps = sorted(p.name for p in test_apps_dir.glob("*.efi"))
+    if not apps:
+        raise ValueError(f"No *.efi test apps found in: {test_apps_dir}")
+
+    if dest_dir.exists():
+        shutil.rmtree(dest_dir)
+    dest_dir.mkdir(parents=True)
+
+    for app in apps:
+        shutil.copy2(test_apps_dir / app, dest_dir / app)
+    (dest_dir / "startup.nsh").write_text(TestAppSupport.build_startup_script(apps), newline="\n")
+    return dest_dir, apps
 
 
 def _normalize_platform(value: str) -> str:
@@ -150,6 +179,14 @@ def _parse_arguments() -> argparse.Namespace:
         help="Path to OS image to boot in QEMU.",
     )
     parser.add_argument(
+        "--os-boot-device",
+        type=str.lower,
+        choices=["ssd", "usb"],
+        default="ssd",
+        help="Device type the --os image is attached as. USB boot also requires firmware built with USB boot "
+        "priority.",
+    )
+    parser.add_argument(
         "--with-drive",
         nargs="?",
         type=Path,
@@ -227,6 +264,19 @@ def _parse_arguments() -> argparse.Namespace:
         help="Mount a virtual drive containing a startup.nsh that issues `reset -s`, causing "
         "UEFI Shell to shut down automatically on boot. Useful for automated/CI runs.",
     )
+    parser.add_argument(
+        "--test-apps-dir",
+        type=Path,
+        default=None,
+        help="Directory of pre-compiled EFI test apps (*.efi). The apps are run from the UEFI Shell, the system shuts "
+        "down, and the JUnit results are read back. The script exits non-zero if any test fails or produces no result.",
+    )
+    parser.add_argument(
+        "--test-results-file",
+        type=Path,
+        default=None,
+        help="Write a JSON summary of the --test-apps-dir results to this path.",
+    )
 
     args = parser.parse_args()
     return args
@@ -255,9 +305,19 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             - patina_dxe_core_repo: The path to the patina-dxe-core-qemu repo.
             - ref_fd: The path to the file to use as a reference for patching.
             - skip_build: Whether to skip building the Rust DXE Core.
+            - test_apps: The test app drive directory and app names when --test-apps-dir is used (otherwise None).
+            - test_results_file: Where to write the JSON test results summary (None to skip).
     """
     if args.with_drive is not None and not args.with_drive.is_file():
         raise ValueError(f"Drive image not found: {args.with_drive}")
+
+    if args.test_apps_dir is not None:
+        if not args.test_apps_dir.is_dir():
+            raise ValueError(f"Test apps directory not found: {args.test_apps_dir}")
+        if args.os or args.shutdown_after_run:
+            raise ValueError("--test-apps-dir cannot be combined with --os or --shutdown-after-run.")
+    elif args.test_results_file is not None:
+        raise ValueError("--test-results-file requires --test-apps-dir.")
 
     if args.platform == "Q35":
         if args.pre_compiled_rom:
@@ -322,14 +382,14 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
 
         qemu_cmd_builder = (
             QemuCommandBuilder(qemu_exec, QemuArchitecture.Q35)
-            .with_cpu(core_count=4)
+            .with_cpu(core_count=2 if args.os and args.os_boot_device == "usb" and sys.platform == "linux" else 4)
             .with_machine()
             .with_memory(8192 if args.os else 2048)
             .with_firmware(code_fd, var_store)
             .with_rom_path(rom_path)
             .with_usb_controller()
             .with_usb_mouse()
-            .with_storage(args.os, 'SSD')
+            .with_storage(args.os, args.os_boot_device)
             .with_display(not args.headless)
             .with_network(enabled=False)
             .with_gdb_server(args.gdb_port)
@@ -443,7 +503,7 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
             .with_usb_controller()
             .with_usb_mouse()
             .with_usb_keyboard()
-            .with_storage(args.os, 'SSD')
+            .with_storage(args.os, args.os_boot_device)
             .with_display(not args.headless)
             .with_network(enabled=False)
             .with_gdb_server(args.gdb_port)
@@ -482,6 +542,12 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
     if args.with_drive is not None:
         qemu_cmd_builder = qemu_cmd_builder.with_virtual_drive(str(args.with_drive))
 
+    test_apps = None
+    if args.test_apps_dir is not None:
+        drive_dir, app_names = _create_test_apps_drive(SCRIPT_DIR / "Build" / "test_apps_drive", args.test_apps_dir)
+        qemu_cmd_builder = qemu_cmd_builder.with_virtual_drive(str(drive_dir))
+        test_apps = {"drive_dir": drive_dir, "apps": app_names}
+
     pass_through_args = []
     if args.features is not None:
         pass_through_args.extend(["--features", str(args.features)])
@@ -506,6 +572,8 @@ def _configure_settings(args: argparse.Namespace) -> Dict[str, Path]:
         "patina_dxe_core_repo": args.patina_dxe_core_repo,
         "ref_fd": ref_fd,
         "skip_build": args.no_build,
+        "test_apps": test_apps,
+        "test_results_file": args.test_results_file,
         "toolchain": "CLANGPDB",
     }
 
@@ -620,6 +688,37 @@ def _run_qemu(settings: Dict[str, Path]) -> None:
             kernel32.SetConsoleMode(std_handle, original_mode.value)
 
 
+def _report_test_results(settings: Dict[str, Path]) -> int:
+    """
+    Reads the JUnit results the test apps wrote to the test app drive, logs them, and writes a JSON summary (optional).
+
+    Args:
+        settings (Dict[str, Path]): The configuration settings (see _configure_settings).
+
+    Returns:
+        int: The number of failed test cases plus test apps that produced no usable result.
+    """
+    test_apps = settings["test_apps"]
+    summary = TestAppSupport.collect_results(test_apps["drive_dir"], test_apps["apps"])
+
+    logging.info("[4]. Test App Results\n")
+    for app in summary["apps"]:
+        if not app["result_found"]:
+            logging.error(f"{app['name']}: no usable result file was produced")
+            continue
+        passed = sum(1 for case in app["cases"] if case["result"] == "pass")
+        logging.info(f"{app['name']}: {passed}/{len(app['cases'])} cases passed")
+        for case in app["cases"]:
+            if case["result"] == "fail":
+                logging.error(f"  FAIL {case['name']}: {case['message']}")
+
+    if settings["test_results_file"]:
+        settings["test_results_file"].parent.mkdir(parents=True, exist_ok=True)
+        settings["test_results_file"].write_text(json.dumps(summary, indent=2), encoding="utf-8")
+
+    return TestAppSupport.count_failures(summary)
+
+
 def main() -> None:
     """
     Main function to build, patch, and run the Rust DXE core.
@@ -670,6 +769,12 @@ def main() -> None:
         logging.info(
             f"QEMU Run Time: {qemu_end_time - qemu_start_time:.3f} seconds.\n"
         )
+
+        if settings["test_apps"]:
+            failures = _report_test_results(settings)
+            if failures:
+                logging.error(f"{failures} test failure(s) detected.")
+                exit(1)
     except subprocess.CalledProcessError as e:
         logging.error(f"Failed with error #{e.returncode}.")
         exit(e.returncode)
