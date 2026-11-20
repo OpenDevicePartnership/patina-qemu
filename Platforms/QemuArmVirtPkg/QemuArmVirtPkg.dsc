@@ -631,6 +631,7 @@
 
   # System Memory Base -- fixed at 0x4000_0000
   gArmTokenSpaceGuid.PcdSystemMemoryBase|0x40000000
+  gArmTokenSpaceGuid.PcdStMmStackSize|0x8000
 
   gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange|TRUE
 
