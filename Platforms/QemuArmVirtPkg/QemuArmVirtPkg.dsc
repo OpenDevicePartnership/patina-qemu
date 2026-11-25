@@ -1179,6 +1179,7 @@
     <PcdsPatchableInModule>
       gEfiMdeModulePkgTokenSpaceGuid.PcdFfaLibConduitSmc|FALSE
   }
+  SecurityPkg/RandomNumberGenerator/RngStandaloneMm/RngStandaloneMm.inf
   MdeModulePkg/Universal/Variable/RuntimeDxe/VariableStandaloneMm.inf {
     <LibraryClasses>
       AdvLoggerAccessLib|MdeModulePkg/Library/AdvLoggerAccessLibNull/AdvLoggerAccessLib.inf
