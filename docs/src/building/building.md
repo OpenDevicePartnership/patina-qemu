@@ -145,9 +145,10 @@ stuart_build -c Platforms/<Package>/PlatformBuild.py BLD_*_E1000_ENABLE=1
 
 ## MM Crypto Entropy
 
-Q35 includes `RngStandaloneMm` to provide `EFI_RNG_PROTOCOL` in MM for OneCrypto.
+Both platforms include `RngStandaloneMm` to provide `EFI_RNG_PROTOCOL` in MM for OneCrypto.
 This is required even for ECDSA verification, which uses random blinding.
-Q35 uses `BaseRngLib` for this driver.
+Q35 uses `BaseRngLib` for this driver. ArmVirt uses its existing timer-backed `RngLib`,
+which is suitable for development only, not production entropy.
 
 ## References
 
