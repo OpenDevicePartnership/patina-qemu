@@ -866,6 +866,11 @@ QemuQ35Pkg/Library/ResetSystemLib/DxeResetSystemLib.inf
 QemuQ35Pkg/Library/ResetSystemLib/StandaloneMmResetSystemLib.inf
 
 [Components.X64]
+  SecurityPkg/RandomNumberGenerator/RngStandaloneMm/RngStandaloneMm.inf {
+    <LibraryClasses>
+      RngLib|MdePkg/Library/BaseRngLib/BaseRngLib.inf
+  }
+
   #########################################
   # DXE Phase modules
   #########################################

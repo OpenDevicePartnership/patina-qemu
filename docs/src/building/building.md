@@ -143,6 +143,12 @@ For example, to enable E1000 network support, instead of the traditional `-D E10
 stuart_build -c Platforms/<Package>/PlatformBuild.py BLD_*_E1000_ENABLE=1
 ```
 
+## MM Crypto Entropy
+
+Q35 includes `RngStandaloneMm` to provide `EFI_RNG_PROTOCOL` in MM for OneCrypto.
+This is required even for ECDSA verification, which uses random blinding.
+Q35 uses `BaseRngLib` for this driver.
+
 ## References
 
 - [Installing and using Pytools](https://www.tianocore.org/edk2-pytool-extensions/using/install/)
