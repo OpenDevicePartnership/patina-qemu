@@ -58,7 +58,7 @@ PublishV2ResourceHobsBelow1MB (
 
       // Do not set any atttributes on IO ranges below 1MB
       if (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_IO) {
-        BuildResourceDescriptorV2 (
+        BuildResourceDescriptor2Hob (
           Hob.ResourceDescriptor->ResourceType,
           Hob.ResourceDescriptor->ResourceAttribute,
           Start,
@@ -82,7 +82,7 @@ PublishV2ResourceHobsBelow1MB (
 
       if (End <= EXTENDED_BIOS_DATA_AREA_END) {
         // These are considered conventional memory ranges
-        BuildResourceDescriptorV2 (
+        BuildResourceDescriptor2Hob (
           Hob.ResourceDescriptor->ResourceType,
           Hob.ResourceDescriptor->ResourceAttribute,
           Start,
@@ -92,7 +92,7 @@ PublishV2ResourceHobsBelow1MB (
           );
       } else if ((VIDEO_DISPLAY_BEGIN <= Start) && (End <= VIDEO_DISPLAY_END)) {
         // Video display is uncacheable
-        BuildResourceDescriptorV2 (
+        BuildResourceDescriptor2Hob (
           Hob.ResourceDescriptor->ResourceType,
           Hob.ResourceDescriptor->ResourceAttribute,
           Start,
@@ -102,7 +102,7 @@ PublishV2ResourceHobsBelow1MB (
           );
       } else if ((VIDEO_ROM_BEGIN <= Start) && (End <= MOTHERBOARD_BIOS_END)) {
         // Everything else is a BIOS/ROM range, mark uncacheable and write protected
-        BuildResourceDescriptorV2 (
+        BuildResourceDescriptor2Hob (
           Hob.ResourceDescriptor->ResourceType,
           Hob.ResourceDescriptor->ResourceAttribute,
           Start,
@@ -138,7 +138,7 @@ PublishV2MemoryHobs (
     if (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_SYSTEM_MEMORY) {
       Hob.Header->HobType = EFI_HOB_TYPE_UNUSED;
 
-      BuildResourceDescriptorV2 (
+      BuildResourceDescriptor2Hob (
         Hob.ResourceDescriptor->ResourceType,
         Hob.ResourceDescriptor->ResourceAttribute,
         Hob.ResourceDescriptor->PhysicalStart,
@@ -149,7 +149,7 @@ PublishV2MemoryHobs (
     } else if (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_MEMORY_MAPPED_IO) {
       Hob.Header->HobType = EFI_HOB_TYPE_UNUSED;
 
-      BuildResourceDescriptorV2 (
+      BuildResourceDescriptor2Hob (
         Hob.ResourceDescriptor->ResourceType,
         Hob.ResourceDescriptor->ResourceAttribute,
         Hob.ResourceDescriptor->PhysicalStart,
@@ -160,7 +160,7 @@ PublishV2MemoryHobs (
     } else if (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_MEMORY_RESERVED) {
       Hob.Header->HobType = EFI_HOB_TYPE_UNUSED;
 
-      BuildResourceDescriptorV2 (
+      BuildResourceDescriptor2Hob (
         Hob.ResourceDescriptor->ResourceType,
         Hob.ResourceDescriptor->ResourceAttribute,
         Hob.ResourceDescriptor->PhysicalStart,

@@ -281,7 +281,7 @@ InitializeMemoryConfiguration (
       OverlapEnd  = (CurEnd  < MmBufferEnd) ? CurEnd  : MmBufferEnd;
 
       if (OverlapBase > CurBase) {
-        BuildResourceDescriptorV2 (
+        BuildResourceDescriptor2Hob (
           EFI_RESOURCE_SYSTEM_MEMORY,
           DRAM_RESOURCE_ATTRIBUTES,
           CurBase,
@@ -292,7 +292,7 @@ InitializeMemoryConfiguration (
       }
 
       if (OverlapEnd < CurEnd) {
-        BuildResourceDescriptorV2 (
+        BuildResourceDescriptor2Hob (
           EFI_RESOURCE_SYSTEM_MEMORY,
           DRAM_RESOURCE_ATTRIBUTES,
           OverlapEnd,
@@ -302,7 +302,7 @@ InitializeMemoryConfiguration (
           );
       }
     } else {
-      BuildResourceDescriptorV2 (
+      BuildResourceDescriptor2Hob (
         EFI_RESOURCE_SYSTEM_MEMORY,
         DRAM_RESOURCE_ATTRIBUTES,
         CurBase,
@@ -474,7 +474,7 @@ ArmPlatformGetVirtualMemoryMap (
   VirtualMemoryTable[1].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_DEVICE;
 
   // Secure Flash, do not touch
-  BuildResourceDescriptorV2 (
+  BuildResourceDescriptor2Hob (
     EFI_RESOURCE_FIRMWARE_DEVICE,
     RESOURCE_CAP,
     0,
@@ -484,7 +484,7 @@ ArmPlatformGetVirtualMemoryMap (
     );
 
   // Flash
-  BuildResourceDescriptorV2 (
+  BuildResourceDescriptor2Hob (
     EFI_RESOURCE_FIRMWARE_DEVICE,
     RESOURCE_CAP,
     0x04000000,
@@ -494,7 +494,7 @@ ArmPlatformGetVirtualMemoryMap (
     );
 
   // GIC_D
-  BuildResourceDescriptorV2 (
+  BuildResourceDescriptor2Hob (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
     MMIO_CAP,
     0x08000000,
@@ -504,7 +504,7 @@ ArmPlatformGetVirtualMemoryMap (
     );
 
   // GIC_R
-  BuildResourceDescriptorV2 (
+  BuildResourceDescriptor2Hob (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
     MMIO_CAP,
     0x080A0000,
@@ -514,7 +514,7 @@ ArmPlatformGetVirtualMemoryMap (
     );
 
   // UART
-  BuildResourceDescriptorV2 (
+  BuildResourceDescriptor2Hob (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
     MMIO_CAP,
     0x09000000,
@@ -525,7 +525,7 @@ ArmPlatformGetVirtualMemoryMap (
 
   // FW_CFG: This is not even 1 page long in QEMU, but we need to reserve the entire
   // region to make Patina happy.
-  BuildResourceDescriptorV2 (
+  BuildResourceDescriptor2Hob (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
     MMIO_CAP,
     0x09020000,
@@ -535,7 +535,7 @@ ArmPlatformGetVirtualMemoryMap (
     );
 
   // GPIO (PL061)
-  BuildResourceDescriptorV2 (
+  BuildResourceDescriptor2Hob (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
     MMIO_CAP,
     0x09030000,
@@ -545,7 +545,7 @@ ArmPlatformGetVirtualMemoryMap (
     );
 
   // SMMU
-  BuildResourceDescriptorV2 (
+  BuildResourceDescriptor2Hob (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
     MMIO_CAP,
     0x09050000,
@@ -555,7 +555,7 @@ ArmPlatformGetVirtualMemoryMap (
     );
 
   // VIRTIO
-  BuildResourceDescriptorV2 (
+  BuildResourceDescriptor2Hob (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
     MMIO_CAP,
     0x0A000000,
@@ -567,7 +567,7 @@ ArmPlatformGetVirtualMemoryMap (
   // PCIE_PIO will be handled in FdtPciHostBridgeLib
 
   // PCIE_MMIO
-  BuildResourceDescriptorV2 (
+  BuildResourceDescriptor2Hob (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
     MMIO_CAP,
     0x10000000,
@@ -577,7 +577,7 @@ ArmPlatformGetVirtualMemoryMap (
     );
 
   // PCIE_ECAM
-  BuildResourceDescriptorV2 (
+  BuildResourceDescriptor2Hob (
     EFI_RESOURCE_MEMORY_MAPPED_IO,
     MMIO_CAP,
     0x3f000000,
@@ -598,7 +598,7 @@ ArmPlatformGetVirtualMemoryMap (
   VirtualMemoryTable[3].Length       = PcdGet64 (PcdMmBufferSize);
   VirtualMemoryTable[3].Attributes   = ARM_MEMORY_REGION_ATTRIBUTE_WRITE_BACK;
 
-  BuildResourceDescriptorV2 (
+  BuildResourceDescriptor2Hob (
     EFI_RESOURCE_MEMORY_RESERVED,
     RESOURCE_CAP,
     VirtualMemoryTable[3].PhysicalBase,

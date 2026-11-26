@@ -177,6 +177,10 @@
   UefiUsbLib |MdePkg/Library/UefiUsbLib/UefiUsbLib.inf
 
   # Security Libraries
+  AuthenticodeLib       |SecurityPkg/Library/BaseAuthenticodeLib/BaseAuthenticodeLib.inf
+  CryptoIndicatorRegistrationLib|SecurityPkg/Library/CryptoIndicatorRegistrationLib/CryptoIndicatorRegistrationLibNull.inf
+  EcitEncodingLib       |SecurityPkg/Library/EcitEncodingLib/EcitEncodingLib.inf
+  ImageSecureBootVerificationResultTableLib|SecurityPkg/Library/ImageSecureBootVerificationResultTableLib/ImageSecureBootVerificationResultTableLib.inf
   SecurityManagementLib |MdeModulePkg/Library/DxeSecurityManagementLib/DxeSecurityManagementLib.inf
   SecurityLockAuditLib  |MdeModulePkg/Library/SecurityLockAuditDebugMessageLib/SecurityLockAuditDebugMessageLib.inf ##MU_CHANGE
   LockBoxLib            |MdeModulePkg/Library/LockBoxNullLib/LockBoxNullLib.inf
