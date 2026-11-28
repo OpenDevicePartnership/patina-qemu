@@ -4,9 +4,9 @@
   "os_boot_device": "SSD",
   "platform": "Q35",
   "result": "success",
-  "run_id": "45949441302",
-  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/45949441302",
+  "run_id": "46114824169",
+  "run_url": "https://github.com/OpenDevicePartnership/patina-qemu/actions/runs/46114824169",
   "schema_version": 1,
   "target": "RELEASE",
-  "timestamp": "2026-11-27T06:17:41Z"
+  "timestamp": "2026-11-28T06:15:40Z"
 }
